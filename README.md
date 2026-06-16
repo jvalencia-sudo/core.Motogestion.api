@@ -1,1 +1,1 @@
-# core.motogestion.api
+# core.Motogestion.api
