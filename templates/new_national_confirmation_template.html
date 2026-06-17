@@ -1,0 +1,73 @@
+{% extends "base_operation.html" %}
+{% block content %}
+
+<div class="email-container">
+    <div class="email-header">
+        <h1 class="email-title">Su oferta {{offer.offer_code}} ha sido seleccionada</h1>
+    </div>
+
+    <div class="email-content">
+        <p class="email-paragraph">Aquí el detalle de sus cotizaciones.</p>
+
+        {% if offer %}
+        <div class="card-table">
+            <table class="unit-table" aria-label="Lista el detalle">
+                <thead>
+                <tr>
+                    <th scope="col">Codigo</th>
+                    <th scope="col">Libres de cargue</th>
+                    <th scope="col">Disponibilidad</th>
+                    <th scope="col">Fecha de carga</th>
+                    <th scope="col">Tarifa</th>
+                    <th scope="col">Moneda</th>
+                    <th scope="col">Válido hasta</th>
+                    <th scope="col">Observación</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>{{offer.offer_code}}</td>
+                    <td>{{ "Si" if offer.free_loading else "No" }}</td>
+                    <td>{% if offer.load_date %}No{% else %}Si{% endif %}</td>
+                    <td>{{ offer.load_date.strftime('%Y-%m-%d') if offer.load_date else "N/A" }}</td>
+                    <td>${{ offer.total_location_tariff | default("0.00") }}</td>
+                    <td>{{ offer.currency_name | default("N/A") }}</td>
+                    <td>{{ offer.valid_until.strftime('%Y-%m-%d') if offer.valid_until else "N/A" }}</td>
+                    <td>{{ offer.observation | default("N/A") }}</td>
+                </tr>
+                </tbody>
+            </table>
+
+            {% if offer.locations_detail %}
+            <table class="detail-table" aria-label="Lista las ubicaciones y sus tarifas" style="margin-top: 1rem;">
+                <thead>
+                <tr>
+                    <th scope="col">Ubicación</th>
+                    <th scope="col">Tarifa</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for location in offer.locations_detail %}
+                <tr>
+                    <td><strong>{{ location.location }}</strong> {{ location.address }}</td>
+                    <td>${{ location.tariff }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="email-paragraph">No hay ubicaciones disponibles para esta cotización.</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="email-paragraph">No hay cotizaciones en este momento.</p>
+        {% endif %}
+    </div>
+
+    <div class="email-footer" style="color: white;">
+        <p class="footer-text">Esto es un email automatizado, por favor no responda.</p>
+        <p class="footer-text">Si tiene alguna pregunta por favor contacte a {{ operation.email }}</p>
+    </div>
+</div>
+
+{% endblock %}

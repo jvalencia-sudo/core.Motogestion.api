@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+.vscode
+resources/reports/*.xlsx
+resources/reports/*.xls
+resources/reports/*.pdf
+# Elastic Beanstalk Files
+
+# VS
+/.vscode
+.env
+.DS_Store
+.idea
+env
+.venv
+*.sqlite
+.env.example

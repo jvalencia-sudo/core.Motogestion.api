@@ -1,0 +1,52 @@
+# TODO: Add hook for testing
+repos:
+    - repo: https://github.com/compilerla/conventional-pre-commit
+      rev: v2.4.0
+      hooks:
+          - id: conventional-pre-commit
+            stages: [commit-msg]
+            args: []
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v4.4.0
+      hooks:
+          - id: trailing-whitespace
+            stages: [pre-commit, manual]
+          - id: end-of-file-fixer
+            stages: [pre-commit, manual]
+          - id: check-yaml
+            stages: [pre-commit, manual]
+          - id: check-merge-conflict
+            stages: [pre-commit, manual]
+          - id: check-added-large-files
+            stages: [pre-commit, manual]
+          - id: check-case-conflict
+            stages: [pre-commit, manual]
+          - id: check-symlinks
+            stages: [pre-commit, manual]
+          - id: destroyed-symlinks
+            stages: [pre-commit, manual]
+          - id: mixed-line-ending
+            stages: [pre-commit, manual]
+          - id: file-contents-sorter
+            stages: [pre-commit, manual]
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      rev: v0.8.4
+      hooks:
+          - id: ruff
+            args: [--fix]
+          - id: ruff-format
+    - repo: https://github.com/streetsidesoftware/cspell-cli
+      rev: v7.3.1
+      hooks:
+          - id: cspell
+            stages: [pre-commit, manual]
+    - repo: local
+      hooks:
+          - id: pytest
+            stages: [pre-commit]
+            name: pytest
+            entry: pytest
+            language: system
+            types: [python]
+            pass_filenames: false
+            always_run: true

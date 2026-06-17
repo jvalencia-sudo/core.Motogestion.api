@@ -1,0 +1,89 @@
+{% extends "base_operation.html" %}
+{% block content %}
+<body>
+<div class="email-container">
+    <div class="email-header">
+        <h1 class="email-title">Ofertas Nacionales</h1>
+    </div>
+
+    <div class="email-content">
+        <p class="email-paragraph">Aquí el detalle de las cotizaciones.</p>
+
+        {% if quotations %}
+        {% for quotation in quotations %}
+        <div class="card-table">
+            <table class="unit-table" aria-label="Tabla de cotización nacional">
+                <thead>
+                <tr>
+                    <th scope="col">Code</th>
+                    <th scope="col">Libres de cargue</th>
+                    <th scope="col">Disponibilidad</th>
+                    <th scope="col">Fecha de carga</th>
+                    <th scope="col">Tarifa</th>
+                    <th scope="col">Moneda</th>
+                    <th scope="col">Válido hasta</th>
+                    <th scope="col">Observación</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>{{quotation.offer_code}}</td>
+                    <td>{{ "Si" if quotation.free_loading else "No" }}</td>
+                    <td>
+                        {% if quotation.availability_requested_date %}
+                        Si
+                        {% else %}
+                        No
+                        {% endif %}
+                    </td>
+                    <td>{{ quotation.load_date.strftime('%Y-%m-%d') if quotation.load_date else "N/A" }}</td>
+                    <td>${{ quotation.total_tariff | default("0.00") }}</td>
+                    <td>{{ quotation.currency_name | default("N/A") }}</td>
+                    <td>{{ quotation.valid_until.strftime('%Y-%m-%d') if quotation.valid_until else "N/A" }}</td>
+                    <td>{{ quotation.observation | default("N/A") }}</td>
+                </tr>
+
+                {% if quotation.locations %}
+                <tr>
+                    <td colspan="8">
+                        <table class="detail-table" aria-label="Tabla de tarifas por ubicación">
+                            <thead>
+                            <tr>
+                                <th scope="col">Ubicación</th>
+                                <th scope="col">Tarifa</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for location in quotation.locations %}
+                            <tr>
+                                <td><strong>{{ location.location_name }}</strong> {{ location.address }}</td>
+                                <td>${{ location.tariff }}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+
+                {% else %}
+                <tr>
+                    <td colspan="8">
+                        <p class="email-paragraph">No hay ubicaciones disponibles para esta cotización.</p>
+                    </td>
+                </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="email-paragraph">No hay cotizaciones en este momento.</p>
+        {% endif %}
+    </div>
+
+    <div class="email-footer" style="color: white;">
+        <p class="footer-text">Esto es un email automatizado, por favor no responda.</p>
+    </div>
+</div>
+</body>
+{% endblock %}

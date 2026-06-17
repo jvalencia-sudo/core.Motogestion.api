@@ -1,0 +1,110 @@
+{% extends "base_operation.html" %}
+{% block content %}
+<div class="email-container">
+    <header class="email-header">
+        <h1 class="email-title">{{ _('Requirement Details') }}</h1>
+    </header>
+
+    <div class="email-content">
+        <h2>{{ _('Description') }}</h2>
+        <div class="grid-3">
+            {% if operation_description.is_local and operation_description.operation_type_name %}
+            <div><strong>{{ _('Type') }}:</strong> {{ operation_description.operation_type_name }}</div>
+            {% endif %}
+
+            {% if operation_description.location_origin_name %}
+            <div><strong>{{ _('Origin') }}:</strong> {{ operation_description.location_origin_name }}</div>
+            {% endif %}
+
+            {% if operation_description.service_type_name %}
+            <div><strong>{{ _('Service') }}:</strong> {{ operation_description.service_type_name }}</div>
+            {% endif %}
+
+            {% if operation_description.incoterms %}
+            <div><strong>{{ _('Incoterms') }}:</strong> {{ operation_description.incoterms | join(', ') }}</div>
+            {% endif %}
+
+            {% if operation_description.hazard_types %}
+            <div><strong>{{ _('Hazard Types') }}:</strong> {{ operation_description.hazard_types | join(', ') }}</div>
+            {% endif %}
+
+            {% if operation_description.is_local and operation_description.vehicle_types %}
+            <div><strong>{{ _('Vehicle Types') }}:</strong> {{ operation_description.vehicle_types | join(', ') }}</div>
+            {% endif %}
+
+            {% if operation_description.is_local and operation_description.requires_escort is not none %}
+            <div><strong>{{ _('Requires Escort') }}:</strong> {{ _('Yes') if operation_description.requires_escort else
+                _('No') }}
+            </div>
+            {% endif %}
+
+            {% if operation_description.load_date %}
+            <div><strong>{{ _('Load Date') }}:</strong> {{ operation_description.load_date }}</div>
+            {% endif %}
+
+            {% if operation_description.observation %}
+            <div><strong>{{ _('Observation') }}:</strong> {{ operation_description.observation }}</div>
+            {% endif %}
+        </div>
+
+        <h2>{{ _('Unit Details') }}</h2>
+        {% for group in group_detail.grouped_by_destination %}
+        <div class="card-table">
+            <div class="email-subtitle">{{ group.destination }}</div>
+            <table class="unit-table" aria-label="{{ _('Table listing unit details by destination') }}">
+                <thead>
+                <tr>
+                    <th scope="col">{{ _('Unit Type') }}</th>
+                    <th scope="col">{{ _('Unit Count') }}</th>
+                    <th scope="col">{{ _('Unit Weight') }}</th>
+                    <th scope="col">{{ _('Dimensions') }}</th>
+                    <th scope="col">{{ _('Net Weight (Kg)') }}</th>
+                    <th scope="col">{{ _('Gross Weight') }}</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for detail in group.details %}
+                <tr>
+                    <td>{{ detail.unit_type_name }}</td>
+                    <td>{{ detail.unit_count }}</td>
+                    <td>{{ detail.unit_weight }}</td>
+                    <td>
+                        {% if detail.length and detail.width and detail.height %}
+                        {{ detail.length }} x {{ detail.width }} x {{ detail.height }} cm
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ detail.net_weight | default('N/A') }}</td>
+                    <td>{{ detail.gross_weight | default('N/A') }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="totals">
+                    <td colspan="4">{{ _('Total') }} {{ group.destination }}</td>
+                    <td>{{ group.total_weight.total_net_weight }} kg</td>
+                    <td>{{ group.total_weight.total_gross_weight }} kg</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+
+        <div class="overall-totals">
+            <p>{{ _('Total Net Weight') }}: {{ group_detail.total_weight_global.total_net_weight }} kg</p>
+            <p>{{ _('Total Gross Weight') }}: {{ group_detail.total_weight_global.total_gross_weight }} kg</p>
+        </div>
+
+        <p class="email-paragraph">
+            <a href="{{ url }}" class="cta-button">{{ _('Shipping quote') }}</a>
+        </p>
+    </div>
+
+    <footer class="email-footer">
+        <p class="footer-text">
+            {{ _('This email was sent to %(supplier_name)s', supplier_name=supplier.supplier_name) }}<br>
+            {{ _('You received this email because you are associated with an active operation.') }}<br>
+            {{ _('If you have any questions, please contact %(email)s', email=operation.email) }}
+        </p>
+    </footer>
+</div>
+{% endblock %}

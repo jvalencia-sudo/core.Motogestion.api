@@ -1,0 +1,128 @@
+{% extends "base_operation.html" %}
+{% block content %}
+<div class="email-container">
+    <div class="email-header">
+        <h1 class="email-title">Your offer {{ offers[0].offer_code }} has been chosen</h1>
+    </div>
+    <div class="email-content">
+        <p class="email-paragraph">Here are the  details of the offer choose.</p>
+
+        {% if offers %}
+        {% for offer in offers %}
+        <div class="card-table">
+            <h2><strong>{{ offer.location }}</strong> {{ offer.address }}</h2>
+            <table class="unit-table" aria-describedby="unit-table-desc-{{ loop.index }}">
+                <thead>
+                <tr>
+                    <th scope="col">Code</th>
+                    <th scope="col">Transporter</th>
+                    <th scope="col">Incoterm</th>
+                    <th scope="col">Currency</th>
+                    <th scope="col">Valid Until</th>
+                    <th scope="col">Transit Time</th>
+                    <th scope="col">Tariff</th>
+                    <th scope="col">Free Days</th>
+                    <th scope="col">Transshipment</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>{{offer.offer_code}}</td>
+                    <td>{{ offer.transporter or 'N/A' }}</td>
+                    <td>{{ offer.incoterm_id or 'N/A' }}</td>
+                    <td>{{ offer.currency_name or 'N/A' }}</td>
+                    <td>{{ offer.valid_until.strftime('%Y-%m-%d') if offer.valid_until else 'N/A' }}</td>
+                    <td>{{ offer.transit_time ~ ' days' if offer.transit_time is not none else 'N/A' }}</td>
+                    <td>${{ offer.tariff if offer.tariff is not none else '0.00' }}</td>
+                    <td>{{ offer.free_days if offer.free_days is not none else 'N/A' }}</td>
+                    <td>{{ 'Yes' if offer.transshipment else 'No' }}</td>
+                </tr>
+                <tr>
+                    <td colspan="9">
+                        <table class="detail-table" aria-describedby="detail-table-desc-{{ loop.index }}">
+                            <thead>
+                            <tr>
+                                <th scope="col">Field</th>
+                                <th scope="col">Value</th>
+                                <th scope="col">Field</th>
+                                <th scope="col">Value</th>
+                                <th scope="col">Field</th>
+                                <th scope="col">Value</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <th scope="row" class="th-like">Min</th>
+                                <td>{{ offer.min or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Amount</th>
+                                <td>{{ offer.amount or 'N/A' }}</td>
+                                <th scope="row" class="th-like">WM</th>
+                                <td>{{ offer.wm or 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="th-like">IMO</th>
+                                <td>{{ offer.imo or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Container 20"</th>
+                                <td>{{ offer.container_size_20 or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Container 40"</th>
+                                <td>{{ offer.container_size_40 or 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="th-like">Freight %</th>
+                                <td>{{ offer.freight_percentage or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Document BL</th>
+                                <td>{{ offer.document_bl or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Preparation Fee BL</th>
+                                <td>{{ offer.preparation_fee_bl or 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="th-like">Mounting/Dismounting</th>
+                                <td>{{ offer.mounting_dismounting or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Food Grade</th>
+                                <td>{{ offer.food_grade or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Positioning</th>
+                                <td>{{ offer.positioning or 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="th-like">THC Origin</th>
+                                <td>{{ offer.thc_origin or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Special Handling</th>
+                                <td>{{ offer.special_handling or 'N/A' }}</td>
+                                <th scope="row" class="th-like">VGM</th>
+                                <td>{{ offer.vgm or 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="th-like">Custom AMS</th>
+                                <td>{{ offer.custom_ams or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Consolidation LCL</th>
+                                <td>{{ offer.consolidation_lcl or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Destination BL</th>
+                                <td>{{ offer.destination_bl or 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" class="th-like">Destination Cont.</th>
+                                <td>{{ offer.destination_cont or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Free Days Destination</th>
+                                <td>{{ offer.free_days_destination or 'N/A' }}</td>
+                                <th scope="row" class="th-like">Observation</th>
+                                <td>{{ offer.observation or 'N/A' }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p>No locations available.</p>
+        {% endif %}
+    </div>
+
+    <div class="email-footer" style="color: white;">
+        <p class="footer-text">This is an automated email, please do not reply.</p>
+        <p class="footer-text">If you have any questions please contact {{ operation.email }}</p>
+    </div>
+</div>
+{% endblock %}

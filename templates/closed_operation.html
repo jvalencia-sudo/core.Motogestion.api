@@ -1,0 +1,15 @@
+{% extends "base_operation.html" %}
+{% block content %}
+  <div class="email-container">
+        <div class="email-header">
+            <h1 class="email-title">{{ _("The requirement has been closed") }}</h1>
+        </div>
+        <div class="email-content">
+            <p class="email-title" style="color: black !important;">{{ _("The requirement %(operation_code)s has been closed", operation_code=operation.operation_code) }}</p>
+        </div>
+        <div class="email-footer">
+            <p class="footer-text">{{ _("This is an automated email, please do not reply.") }}</p>
+            <p class="footer-text">{{ _("If you have any questions, please contact %(email)s", email=operation.email) }}</p>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %} {% block content %}
+<table class="email-container" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; background-color: #ffffff;">
+    <tr>
+        <td class="email-header" style="background-color: #19322f; padding: 30px; text-align: center;">
+            <h1 class="email-title" style="color: #ffffff; margin: 0; font-size: 24px;">{{ _('New Order Message') }}</h1>
+        </td>
+    </tr>
+    <tr>
+        <td class="email-content" style="padding: 30px;">
+            <p class="email-paragraph" style="color: #333333; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                {{ _("Dear %(client)s,", client=customer.customer_name) }}
+            </p>
+            <p class="email-paragraph" style="color: #333333; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                {{ _('A new message has been posted regarding your order #%(order)s.', order=order.order_code) }}
+            </p>
+
+            <div style="border-radius: 8px; padding: 20px; margin: 20px 0;">
+                <table class="info-table" cellpadding="10" cellspacing="0" border="0" width="100%" style="font-size: 15px;">
+                    <tr>
+                        <td class="info-table-label" style="color: #666666; font-weight: bold; width: 40%;">{{ _('Message From') }}:</td>
+                        <td style="color: #333333;">{{ message_from }}</td>
+                    </tr>
+                    <tr>
+                        <td class="info-table-label" style="color: #666666; font-weight: bold;">{{ _('Posted On') }}:</td>
+                        <td style="color: #333333;">{{ posted_on.strftime('%B %d, %Y at %I:%M %p') }}</td>
+                    </tr>
+                </table>
+            </div>
+
+
+            <div style="border-left: 4px solid #19322f; padding: 15px; margin: 20px 0;">
+                <p class="email-paragraph" style="color: #333333; font-size: 15px; line-height: 1.5; margin: 0;">
+                    {{ _('The following message was posted on your order: %(message)s', message=message_content) }}
+                </p>
+            </div>
+
+            <p class="email-paragraph" style="color: #333333; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                {{ _("If you have any questions or concerns, please don't hesitate to contact us.") }}
+            </p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ environment }}/orders/{{ order.order_code }}" style="background-color: #19322f; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+                    {{ _('Track Your Order') }}
+                </a>
+            </div>
+
+            <p class="email-paragraph" style="color: #333333; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                {{ _('Thank you for your business!') }}
+            </p>
+            <p style="color: #333333; font-size: 16px; line-height: 1.5;">
+                {{ _('Best regards,') }}<br>
+                <strong>{{ _('The %(team)s Team', team=business.business_name) }}</strong>
+            </p>
+        </td>
+    </tr>
+    <tr>
+        <td class="email-footer" style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+            <p class="footer-text" style="color: #666666; font-size: 14px; line-height: 1.5; margin: 0;">
+                {{ _('This email was sent to %(email)s', email=customer.email) }}<br> {{ _('You received this email because you have an active order with us.') }}
+            </p>
+        </td>
+    </tr>
+</table>
+{% endblock %}

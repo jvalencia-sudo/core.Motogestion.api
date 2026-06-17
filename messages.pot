@@ -1,0 +1,302 @@
+# Translations template for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-02-11 20:27-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: templates/new_file_uploaded_email_template.html:6
+msgid "New File Uploaded"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:11
+#: templates/status_update_email_template.html:11
+#: templates/file_version_update_email_template.html:11
+#: templates/order_message_email_template.html:11
+#, python-format
+msgid "Dear %(client)s,"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:12
+#, python-format
+msgid "A new file has been uploaded to your order #%(order)s."
+msgstr ""
+
+#: templates/file_version_update_email_template.html:6
+msgid "File Version Update"
+msgstr ""
+
+#: templates/file_version_update_email_template.html:12
+#, python-format
+msgid "A new version of a file has been uploaded for your order #%(order)s."
+msgstr ""
+
+#: templates/order_message_email_template.html:6
+msgid "New Order Message"
+msgstr ""
+
+#: templates/order_message_email_template.html:14
+#, python-format
+msgid "A new message has been posted regarding your order #%(order)s."
+msgstr ""
+
+#: templates/order_message_email_template.html:20
+msgid "Message From"
+msgstr ""
+
+#: templates/order_message_email_template.html:24
+msgid "Posted On"
+msgstr ""
+
+#: templates/order_message_email_template.html:33
+#, python-format
+msgid "The following message was posted on your order: %(message)s"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:17
+msgid "File Name"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:21
+msgid "Uploaded By"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:25
+msgid "Uploaded On"
+msgstr ""
+
+#: templates/file_version_update_email_template.html:21
+msgid "Version"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:41
+msgid "This file has been added to your order and is now available for your review. You can access this file by logging into your account and viewing your order details."
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:51
+msgid "If you have any questions about this file or need to request any changes, please don't hesitate to contact our customer support team."
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:45
+#: templates/status_update_email_template.html:36
+#: templates/file_version_update_email_template.html:45
+#: templates/order_message_email_template.html:45
+msgid "Thank you for your business!"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:48
+#: templates/status_update_email_template.html:38
+#: templates/file_version_update_email_template.html:48
+#: templates/order_message_email_template.html:48
+msgid "Best regards,"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:49
+#: templates/status_update_email_template.html:39
+#: templates/file_version_update_email_template.html:49
+#: templates/order_message_email_template.html:49
+#, python-format
+msgid "The %(team)s Team"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:56
+#: templates/status_update_email_template.html:46
+#: templates/file_version_update_email_template.html:56
+#: templates/order_message_email_template.html:56
+#, python-format
+msgid "This email was sent to %(email)s"
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:57
+#: templates/status_update_email_template.html:47
+#: templates/file_version_update_email_template.html:57
+#: templates/order_message_email_template.html:57
+msgid "You received this email because you have an active order with us."
+msgstr ""
+
+#: templates/status_update_email_template.html:12
+#, python-format
+msgid "We have an update regarding your order #%(order)s."
+msgstr ""
+
+#: templates/status_update_email_template.html:17
+msgid "Order Status"
+msgstr ""
+
+#: templates/status_update_email_template.html:21
+msgid "Updated On"
+msgstr ""
+
+#: templates/status_update_email_template.html:25
+msgid "Step"
+msgstr ""
+
+#: templates/status_update_email_template.html:34
+#: templates/file_version_update_email_template.html:41
+#: templates/order_message_email_template.html:38
+msgid "If you have any questions or concerns, please don't hesitate to contact us."
+msgstr ""
+
+#: templates/new_file_uploaded_email_template.html:45
+#: templates/file_version_update_email_template.html:44
+#: templates/order_message_email_template.html:44
+#: templates/status_update_email_template.html:44
+msgid "Track Your Order"
+msgstr ""
+
+#: templates/status_update_email_template.html:6
+msgid "Order Update"
+msgstr ""
+#: templates/new_operation_to_quotation_template.html:13
+msgid "Requirement Details"
+msgstr "Detalles del requerimiento"
+
+#: templates/new_operation_to_quotation_template.html:15
+msgid "Requirement Code:"
+msgstr "Código del requerimiento:"
+
+#: templates/new_operation_to_quotation_template.html:16
+msgid "Client:"
+msgstr "Cliente:"
+
+#: templates/new_operation_to_quotation_template.html:17
+msgid "Email:"
+msgstr "Correo Electrónico:"
+
+#: templates/new_operation_to_quotation_template.html:18
+msgid "Origin:"
+msgstr "Origen:"
+
+#: templates/new_operation_to_quotation_template.html:19
+msgid "Destination:"
+msgstr "Destino:"
+
+#: templates/new_operation_to_quotation_template.html:20
+msgid "Address:"
+msgstr "Dirección:"
+
+#: templates/new_operation_to_quotation_template.html:23
+msgid "Unit Details"
+msgstr "Detalles de la Unidad"
+
+#: templates/new_operation_to_quotation_template.html:25
+msgid "Unit Type"
+msgstr "Tipo de Unidad"
+
+#: templates/new_operation_to_quotation_template.html:26
+msgid "Unit Count"
+msgstr "Cantidad de Unidades"
+
+#: templates/new_operation_to_quotation_template.html:27
+msgid "Unit Weight"
+msgstr "Peso de la Unidad"
+
+#: templates/new_operation_to_quotation_template.html:28
+msgid "Dimensions"
+msgstr "Dimensiones"
+
+#: templates/new_operation_to_quotation_template.html:29
+msgid "Net Weight (Kg)"
+msgstr "Peso Neto (Kg)"
+
+#: templates/new_operation_to_quotation_template.html:30
+msgid "Gross Weight (Kg)"
+msgstr "Peso Bruto (Kg)"
+
+#: templates/new_operation_to_quotation_template.html:40
+msgid "Total Net Weight"
+msgstr "Peso Neto Total"
+
+#: templates/new_operation_to_quotation_template.html:41
+msgid "Total Gross Weight"
+msgstr "Peso Bruto Total"
+
+#: templates/new_operation_to_quotation_template.html:45
+msgid "View Quotation"
+msgstr "Ver Cotización"
+
+#: templates/new_operation_to_quotation_template.html:50
+#, python-format
+msgid "This email was sent to %(supplier_name)s"
+msgstr "Este correo fue enviado a %(supplier_name)s"
+
+#: templates/new_operation_to_quotation_template.html:51
+msgid "Type"
+msgstr "Tipo"
+
+#: templates/new_operation_to_quotation_template.html:52
+msgid "Origin"
+msgstr "Origen"
+
+#: templates/new_operation_to_quotation_template.html:53
+msgid "Service"
+msgstr "Servicio"
+
+#: templates/new_operation_to_quotation_template.html:54
+msgid "Status"
+msgstr "Estado"
+
+#: templates/new_operation_to_quotation_template.html:55
+msgid "Incoterms"
+msgstr "Incoterms"
+
+#: templates/new_operation_to_quotation_template.html:56
+msgid "Hazard Types"
+msgstr "Tipos de Peligro"
+
+#: templates/new_operation_to_quotation_template.html:57
+msgid "Vehicle Types"
+msgstr "Tipos de Vehículo"
+
+#: templates/new_operation_to_quotation_template.html:58
+msgid "Requires Escort"
+msgstr "Requiere Escolta"
+
+#: templates/new_operation_to_quotation_template.html:59
+msgid "Yes"
+msgstr "Sí"
+
+#: templates/new_operation_to_quotation_template.html:60
+msgid "No"
+msgstr "No"
+
+#: templates/new_operation_to_quotation_template.html:61
+msgid "Load Date"
+msgstr "Fecha de Carga"
+
+#: templates/new_operation_to_quotation_template.html:62
+msgid "Observation"
+msgstr "Observación"
+
+
+#: templates/new_operation_to_quotation_template.html:51
+msgid "You received this email because you are associated with an active requirement."
+msgstr "Recibiste este correo porque estás asociado con una requerimiento activo."
+
+#: templates/new_operation_to_quotation_template.html:55
+msgid "All rights reserved."
+msgstr "Todos los derechos reservados."
+
+msgid "The requirement has been chosen"
+msgstr "El requerimiento ha sido elegido"
+
+msgid "The requirement %(operation_code)s has been closed"
+msgstr "El requerimiento %(operation_code)s ha sido cerrada"
+
+msgid "This is an automated email, please do not reply."
+msgstr "Este es un correo automatizado, por favor no respondas."
+
+msgid "If you have any questions, please contact %(email)s"
+msgstr "Si tienes alguna duda, por favor contacta a %(email)s"

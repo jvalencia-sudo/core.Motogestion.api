@@ -1,0 +1,51 @@
+[project]
+name = "iluma-orders-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.6",
+    "pandas>=2.2.3",
+    "pydantic-settings==2.3.4",
+    "pydantic[email]==2.8.2",
+    "starlette>=0.41.3",
+    "uvicorn>=0.33.0",
+    "pyjwt[crypto]==2.8.0",
+    "requests>=2.32.3",
+    "boto3>=1.35.81",
+    "psycopg[binary,pool]>=3.2.3",
+    "aiosmtplib==3.0.1",
+    "python-jose==3.3.0",
+    "python-dotenv==1.0.1",
+    "auth0-python==3.24.1",
+    "requests-cache>=1.2.1",
+    "six>=1.17.0",
+    "opentelemetry-api>=1.29.0",
+    "opentelemetry-sdk>=1.29.0",
+    "opentelemetry-instrumentation-fastapi>=0.50b0",
+    "opentelemetry-exporter-otlp>=1.29.0",
+    "opentelemetry-instrumentation-logging>=0.50b0",
+    "opentelemetry-instrumentation-psycopg>=0.50b0",
+    "python-multipart>=0.0.19",
+    "jinja2>=3.1.5",
+    "babel>=2.16.0",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.3",
+    "openpyxl>=3.1.5",
+    "oracledb==3.3",
+    "reportlab>=4.4.5",
+]
+
+[dependency-groups]
+dev = ["faker>=33.3.1"]
+
+[tool.ruff]
+fix = true
+line-length = 88
+include = ['\.pyi?$']
+target-version = 'py311'
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

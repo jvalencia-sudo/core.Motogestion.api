@@ -1,0 +1,38 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [master, develop, staging]
+  pull_request:
+    branches: [master, develop, staging]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Setup Mimir
+        uses: one-premex/iluma.mimir@main
+        with:
+          action: setup
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
+      - name: Setup environment
+        uses: one-premex/iluma.mimir@main
+        with:
+          action: env
+          env-name: order-api-test
+          env-alias: .env
+          root: .
+      - name: Run tests
+        run: pytest

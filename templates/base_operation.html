@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% block head %}
+    <meta charset="UTF-8">
+    <style type="text/css">
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f8f8;
+        }
+
+        .email-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .email-header {
+            text-align: center;
+            padding: 20px;
+            background-color: #19322f;
+            border-radius: 8px 8px 0 0;
+            margin: -20px -20px 20px -20px;
+        }
+
+        .email-title {
+            margin: 0;
+            font-size: 24px;
+            color: #ffffff;
+        }
+
+        .email-content {
+            padding: 20px;
+        }
+
+        .email-content h2 {
+            font-size: 20px;
+            color: #19322f;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #19322f;
+        }
+
+        .email-paragraph {
+            margin-bottom: 20px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f3f6f5;
+            border-radius: 8px;
+        }
+
+        .grid-3 div {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .grid-3 strong {
+            color: #19322f;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .card-table {
+            border: 1px solid #e9ecef;
+            margin-bottom: 25px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .email-subtitle {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0;
+            padding: 15px 20px;
+            background-color: #19322f;
+            color: #ffffff;
+        }
+
+        .unit-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+
+        .unit-table th {
+            background: #f8f9fa;
+            color: #19322f;
+            font-weight: bold;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #e9ecef;
+            font-size: 14px;
+        }
+
+        .unit-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .unit-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .unit-table tr:hover {
+            background-color: #f1f3f4;
+        }
+
+        .totals {
+            font-weight: bold;
+            background-color: #f3f6f5 !important;
+            color: #19322f;
+        }
+
+        .totals td {
+            border-bottom: none;
+            padding: 15px 12px;
+        }
+
+        .overall-totals {
+            background-color: #f3f6f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+            text-align: right;
+        }
+
+        .overall-totals p {
+            margin: 5px 0;
+            font-size: 16px;
+            font-weight: bold;
+            color: #19322f;
+        }
+
+        .cta-button {
+            background-color: #19322f;
+            color: #ffffff !important;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+
+        .cta-button:hover {
+            background-color: #2a4a42;
+        }
+
+        .email-footer {
+            background-color: #f8f9fa;
+            padding: 30px 20px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+            border-radius: 0 0 8px 8px;
+            margin: 30px -20px -20px -20px;
+        }
+
+        .footer-text {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666666;
+            line-height: 1.5;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .subsection-title {
+            font-size: 16px;
+            margin-top: 20px;
+            color: #19322f;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        .odd-quotation {
+            background-color: #f9f9f9;
+        }
+
+        .even-quotation {
+            background-color: #ffffff;
+        }
+
+        .quotation-separator td {
+            padding-top: 20px;
+            border-top: 2px dashed #e9ecef;
+        }
+
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .detail-table th {
+            background: #f8f9fa;
+            color: #19322f;
+            font-weight: bold;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .detail-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+            color: #333;
+        }
+
+        .detail-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .detail-table tr:hover {
+            background-color: #f1f3f4;
+        }
+
+        .detail-table td strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: #19322f;
+        }
+
+        .header{
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+
+    </style>
+    {% endblock %}
+</head>
+
+<body>
+<div id="content">{% block content %}{% endblock %}</div>
+<div id="footer">
+    {% block footer %} &copy; Copyright 2025 by <a href="https://iluma.bio/">Iluma</a>. {% endblock %}
+</div>
+</body>
+
+</html>

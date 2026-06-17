@@ -1,0 +1,133 @@
+{% extends "base_operation.html" %}
+{% block content %}
+<div class="email-container">
+    <div class="email-header">
+        <h1 class="email-title">Offer Details</h1>
+    </div>
+
+    <div class="email-content">
+  <p class="email-paragraph">Here are the details of the international offers.</p>
+
+        {% if locations %}
+        {% for location in locations %}
+        <div class="card-table">
+            <h2 class="header"><strong>{{ location.location_name }}</strong> {{ location.address }}</h2>
+            <table class="unit-table" aria-label="List of detail">
+                {% for quotation in location.quotations %}
+                <thead>
+                <tr>
+                    <th scope="col">Code</th>
+                    <th scope="col">Transporter</th>
+                    <th scope="col">Incoterm</th>
+                    <th scope="col">Currency</th>
+                    <th scope="col">Valid Until</th>
+                    <th scope="col">Transit Time</th>
+                    <th scope="col">Tariff</th>
+                    <th scope="col">Free Days</th>
+                    <th scope="col">Transshipment</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>{{ quotation.offer_code}}</td>
+                    <td>{{ quotation.transporter | default('N/A') }}</td>
+                    <td>{{ quotation.incoterm_id | default('N/A') }}</td>
+                    <td>{{ quotation.currency_name | default('N/A') }}</td>
+                    <td>{{ quotation.valid_until.strftime('%Y-%m-%d') if quotation.valid_until else 'N/A' }}</td>
+                    <td>{{ quotation.transit_time ~ ' days' if quotation.transit_time is not none else 'N/A' }}</td>
+                    <td>${{ quotation.tariff if quotation.tariff is not none else '0.00' }}</td>
+                    <td>{{ quotation.free_days | default('N/A') }}</td>
+                    <td>{{ 'Yes' if quotation.transshipment else 'No' }}</td>
+                </tr>
+                <tr>
+                    <td colspan="9">
+                        <table class="detail-table" aria-label="List additional fields international">
+                            <thead>
+                            <tr>
+                                <th scope="col">Field</th>
+                                <th scope="col">Value</th>
+                                <th scope="col">Field</th>
+                                <th scope="col">Value</th>
+                                <th scope="col">Field</th>
+                                <th scope="col">Value</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td class="th-like">Min</td>
+                                <td>{{ quotation.min | default('N/A') }}</td>
+                                <td class="th-like">Amount</td>
+                                <td>{{ quotation.amount | default('N/A') }}</td>
+                                <td class="th-like">WM</td>
+                                <td>{{ quotation.wm | default('N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="th-like">IMO</td>
+                                <td>{{ quotation.imo | default('N/A') }}</td>
+                                <td class="th-like">Container 20"</td>
+                                <td>{{ quotation.container_size_20 | default('N/A') }}</td>
+                                <td class="th-like">Container 40"</td>
+                                <td>{{ quotation.container_size_40 | default('N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="th-like">Freight %</td>
+                                <td>{{ quotation.freight_percentage | default('N/A') }}</td>
+                                <td class="th-like">Document BL</td>
+                                <td>{{ quotation.document_bl | default('N/A') }}</td>
+                                <td class="th-like">Preparation Fee BL</td>
+                                <td>{{ quotation.preparation_fee_bl | default('N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="th-like">Mounting/Dismounting</td>
+                                <td>{{ quotation.mounting_dismounting | default('N/A') }}</td>
+                                <td class="th-like">Food Grade</td>
+                                <td>{{ quotation.food_grade | default('N/A') }}</td>
+                                <td class="th-like">Positioning</td>
+                                <td>{{ quotation.positioning | default('N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="th-like">THC Origin</td>
+                                <td>{{ quotation.thc_origin | default('N/A') }}</td>
+                                <td class="th-like">Special Handling</td>
+                                <td>{{ quotation.special_handling | default('N/A') }}</td>
+                                <td class="th-like">VGM</td>
+                                <td>{{ quotation.vgm | default('N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="th-like">Custom AMS</td>
+                                <td>{{ quotation.custom_ams | default('N/A') }}</td>
+                                <td class="th-like">Consolidation LCL</td>
+                                <td>{{ quotation.consolidation_lcl | default('N/A') }}</td>
+                                <td class="th-like">Destination BL</td>
+                                <td>{{ quotation.destination_bl | default('N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="th-like">Destination Cont.</td>
+                                <td>{{ quotation.destination_cont | default('N/A') }}</td>
+                                <td class="th-like">Free Days Destination</td>
+                                <td>{{ quotation.free_days_destination | default('N/A') }}</td>
+                                <td class="th-like">Observation</td>
+                                <td>{{ quotation.observation | default('N/A') }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                <tr class="quotation-separator">
+                    <td colspan="9"></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p>No locations available.</p>
+        {% endif %}
+    </div>
+
+    <div class="email-footer" style="color: white;">
+        <p class="footer-text">This is an automated email, please do not reply.</p>
+    </div>
+</div>
+{% endblock %}

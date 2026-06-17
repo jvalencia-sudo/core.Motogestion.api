@@ -1,0 +1,163 @@
+# Spanish translations for Iluma.Orders.
+# Copyright (C) 2025 Iluma
+# This file is distributed under the same license as the Iluma.Orders
+# project.
+# Cristian Marin <cristain.marin@premexcorp.com>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Iluma.Orders 1.0\n"
+"Report-Msgid-Bugs-To: cristain.marin@premexcorp.com\n"
+"POT-Creation-Date: 2025-02-11 20:27-0500\n"
+"PO-Revision-Date: 2025-01-29 21:17-0500\n"
+"Last-Translator: Cristian Marin <cristain.marin@premexcorp.com>\n"
+"Language: es\n"
+"Language-Team: Spanish team <cristain.marin@premexcorp.com>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: templates/new_file_uploaded_email_template.html:6
+msgid "New File Uploaded"
+msgstr "Nuevo Archivo Subido"
+
+#: templates/new_file_uploaded_email_template.html:11
+#: templates/status_update_email_template.html:11
+#: templates/file_version_update_email_template.html:11
+#: templates/order_message_email_template.html:11
+#, python-format
+msgid "Dear %(client)s,"
+msgstr "Estimado/a %(client)s,"
+
+#: templates/new_file_uploaded_email_template.html:12
+#, python-format
+msgid "A new file has been uploaded to your order #%(order)s."
+msgstr "Se ha subido un nuevo archivo a su pedido #%(order)s."
+
+#: templates/file_version_update_email_template.html:6
+msgid "File Version Update"
+msgstr "Actualización de Versión de Archivo"
+
+#: templates/file_version_update_email_template.html:12
+#, python-format
+msgid "A new version of a file has been uploaded for your order #%(order)s."
+msgstr "Se ha subido una nueva versión de un archivo para su pedido #%(order)s."
+
+#: templates/order_message_email_template.html:6
+msgid "New Order Message"
+msgstr "Nuevo Mensaje de Pedido"
+
+#: templates/order_message_email_template.html:14
+#, python-format
+msgid "A new message has been posted regarding your order #%(order)s."
+msgstr "Se ha publicado un nuevo mensaje sobre su pedido #%(order)s."
+
+#: templates/order_message_email_template.html:20
+msgid "Message From"
+msgstr "Mensaje de"
+
+#: templates/order_message_email_template.html:24
+msgid "Posted On"
+msgstr "Publicado el"
+
+#: templates/order_message_email_template.html:33
+#, python-format
+msgid "The following message was posted on your order: %(message)s"
+msgstr "El siguiente mensaje fue publicado en su pedido: %(message)s"
+
+#: templates/new_file_uploaded_email_template.html:17
+msgid "File Name"
+msgstr "Nombre del archivo"
+
+#: templates/new_file_uploaded_email_template.html:21
+msgid "Uploaded By"
+msgstr "Subido por"
+
+#: templates/new_file_uploaded_email_template.html:25
+msgid "Uploaded On"
+msgstr "Subido el"
+
+#: templates/file_version_update_email_template.html:21
+msgid "Version"
+msgstr "Versión"
+
+#: templates/new_file_uploaded_email_template.html:41
+msgid "This file has been added to your order and is now available for your review. You can access this file by logging into your account and viewing your order details."
+msgstr "Este archivo ha sido agregado a su pedido y ahora está disponible para su revisión. Puede acceder a este archivo iniciando sesión en su cuenta y viendo los detalles de su pedido."
+
+#: templates/new_file_uploaded_email_template.html:51
+msgid "If you have any questions about this file or need to request any changes, please don't hesitate to contact our customer support team."
+msgstr "Si tiene alguna pregunta sobre este archivo o necesita solicitar cambios, no dude en contactar a nuestro equipo."
+
+#: templates/new_file_uploaded_email_template.html:45
+#: templates/status_update_email_template.html:36
+#: templates/file_version_update_email_template.html:45
+#: templates/order_message_email_template.html:45
+msgid "Thank you for your business!"
+msgstr "¡Gracias por su negocio!"
+
+#: templates/new_file_uploaded_email_template.html:48
+#: templates/status_update_email_template.html:38
+#: templates/file_version_update_email_template.html:48
+#: templates/order_message_email_template.html:48
+msgid "Best regards,"
+msgstr "Saludos cordiales,"
+
+#: templates/new_file_uploaded_email_template.html:49
+#: templates/status_update_email_template.html:39
+#: templates/file_version_update_email_template.html:49
+#: templates/order_message_email_template.html:49
+#, python-format
+msgid "The %(team)s Team"
+msgstr "El Equipo de %(team)s"
+
+#: templates/new_file_uploaded_email_template.html:56
+#: templates/status_update_email_template.html:46
+#: templates/file_version_update_email_template.html:56
+#: templates/order_message_email_template.html:56
+#, python-format
+msgid "This email was sent to %(email)s"
+msgstr "Este correo fue enviado a %(email)s"
+
+#: templates/new_file_uploaded_email_template.html:57
+#: templates/status_update_email_template.html:47
+#: templates/file_version_update_email_template.html:57
+#: templates/order_message_email_template.html:57
+msgid "You received this email because you have an active order with us."
+msgstr "Recibió este correo porque tiene un pedido activo con nosotros."
+
+#: templates/status_update_email_template.html:12
+#, python-format
+msgid "We have an update regarding your order #%(order)s."
+msgstr "Tenemos una actualización sobre su pedido #%(order)s."
+
+#: templates/status_update_email_template.html:17
+msgid "Order Status"
+msgstr "Estado del pedido"
+
+#: templates/status_update_email_template.html:21
+msgid "Updated On"
+msgstr "Actualizado el"
+
+#: templates/status_update_email_template.html:25
+msgid "Step"
+msgstr "Paso"
+
+#: templates/status_update_email_template.html:34
+#: templates/file_version_update_email_template.html:41
+#: templates/order_message_email_template.html:38
+msgid "If you have any questions or concerns, please don't hesitate to contact us."
+msgstr "Si tiene alguna pregunta o inquietud, no dude en contactarnos."
+
+#: templates/new_file_uploaded_email_template.html:45
+#: templates/file_version_update_email_template.html:44
+#: templates/order_message_email_template.html:44
+#: templates/status_update_email_template.html:44
+msgid "Track Your Order"
+msgstr "Seguir Tu Pedido"
+
+#: templates/status_update_email_template.html:6
+msgid "Order Update"
+msgstr "Actualización de Pedido"
