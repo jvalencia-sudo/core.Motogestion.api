@@ -10,13 +10,10 @@ class BaseSettingModel(BaseSettings):
 
 class DbConfig(BaseSettingModel):
     host: str = Field(..., alias="DB_HOST")
-    port: int = Field(1521, alias="DB_PORT")  # Puerto por defecto de Oracle
+    port: int = Field(5432, alias="DB_PORT")  # Puerto por defecto de PostgreSQL
     user: str = Field(..., alias="DB_USER")
     password: str = Field(..., alias="DB_PASSWORD")
-
-    service_name: str = Field(..., alias="DB_SERVICE_NAME")  # En lugar de dbname
-    # Alternativamente puedes usar SID en lugar de service_name
-    # sid: str = Field(..., alias="DB_SID")
+    dbname: str = Field(..., alias="DB_NAME")
 
 
 class Auth0Config(BaseSettingModel):

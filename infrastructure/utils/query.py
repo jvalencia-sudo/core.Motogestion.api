@@ -2,6 +2,13 @@ from pydantic import BaseModel
 
 
 def build_insert(model: BaseModel, key: str, table_name: str, omit_key: bool, sequence_name: str = None):
+    """Construye un INSERT para PostgreSQL (placeholders %s de psycopg).
+
+    Si omit_key=True la columna de la llave primaria se OMITE del INSERT: en
+    Postgres el valor lo aporta el DEFAULT nextval('seq_*') de la secuencia
+    (o un trigger, p.ej. ordenes_trabajo). El parametro sequence_name se conserva
+    por compatibilidad de firma pero ya no se usa para generar el valor.
+    """
     params = model.model_dump()
     keys = [k for k in params.keys() if key != k]
 
@@ -10,56 +17,35 @@ def build_insert(model: BaseModel, key: str, table_name: str, omit_key: bool, se
 
     values = [params[k] for k in keys]
 
-    # Si se proporciona una secuencia, agregar la columna de primary key
-    # y usar sequence_name.NEXTVAL como valor
-    if sequence_name and omit_key:
-        columns_list = [key] + keys
-        # El primer valor es la secuencia, los demás son los parámetros
-        query_values_list = [f"{sequence_name}.NEXTVAL"] + [f":{i + 1}" for i in range(len(values))]
+    columns = ", ".join(keys)
+    placeholders = ", ".join(["%s"] * len(values))
 
-        columns = ", ".join(columns_list)
-        query_values = ", ".join(query_values_list)
-    else:
-        columns = ", ".join(keys)
-        query_values = ", ".join([f":{i + 1}" for i in range(len(values))])
-
-    # INSERT simple sin RETURNING
-    query = f"INSERT INTO {table_name} ({columns}) VALUES ({query_values})"
+    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
 
     return query, tuple(values)
 
 
 def build_update(model: BaseModel, key: str, table_name: str):
     """
-    Constructs an SQL UPDATE statement for Oracle database.
-
-    This function generates an SQL UPDATE query based on the attributes of the provided Pydantic model. It returns the query and a tuple of values to be updated.
+    Construye un UPDATE para PostgreSQL (placeholders %s de psycopg).
 
     Args:
-        model (BaseModel): An instance of a Pydantic BaseModel containing the data to be updated in the database.
-        key (str): The primary key field name of the table, used for identifying the row to update.
-        table_name (str): The name of the table where the data will be updated.
+        model (BaseModel): instancia Pydantic con los datos a actualizar.
+        key (str): nombre de la llave primaria (condicion del WHERE).
+        table_name (str): nombre de la tabla.
 
     Returns:
-        tuple: A tuple containing:
-            - query (str): The SQL UPDATE statement as a string.
-            - values (tuple): A tuple of values to be updated in the table.
+        tuple: (query: str, values: tuple)
     """
-
     params = model.model_dump()
 
     keys = [k for k in params.keys() if key != k]
     values = [params[k] for k in keys]
 
-    # Prepare the columns and query placeholders for the SET clause
-    # Oracle placeholders: field = :1, field = :2, etc.
-    keys_placeholders = [f"{k} = :{i + 1}" for i, k in enumerate(keys)]
+    set_clause = ", ".join([f"{k} = %s" for k in keys])
 
     values.append(params[key])
 
-    columns = ", ".join(keys_placeholders)
-    # The WHERE clause uses the next placeholder number
-    where_placeholder = f":{len(values)}"
-    query = f"UPDATE {table_name} SET {columns} WHERE {key} = {where_placeholder}"
+    query = f"UPDATE {table_name} SET {set_clause} WHERE {key} = %s"
 
     return query, tuple(values)

@@ -2,7 +2,6 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel
 from repository.base_repository import BaseRepository
 from repository.data.db_pool import get_pool
-import oracledb
 
 
 class MarcaRepositorio(BaseRepository):

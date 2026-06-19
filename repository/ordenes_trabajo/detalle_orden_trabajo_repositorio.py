@@ -37,7 +37,7 @@ class DetalleOrdenTrabajoRepositorio(BaseRepository):
                 valor_unitario_deto,
                 documento_usu_deto,
                 fecha_confirmacion_deto
-            ) VALUES (:1, :2, :3, :4, :5, SYSDATE)
+            ) VALUES (:1, :2, :3, :4, :5, CURRENT_DATE)
         """
         await self.execute_non_query(query, (consecutivo_ot, cod_pro, cantidad, valor_unitario, documento_usu))
         return True

@@ -1,3 +1,11 @@
+-- ============================================================
+-- 06_seed.sql
+-- Datos semilla (migrados de Oracle Scriptsregistros.sql).
+-- Unica traduccion necesaria: seq_X.NEXTVAL -> nextval('seq_X').
+-- TO_DATE(...) y COMMIT son validos en Postgres tal cual.
+-- El orden respeta las FK (padres antes que hijos).
+-- ============================================================
+
 -- ======================
 -- 1. ESTADOS
 -- ======================
@@ -8,13 +16,13 @@ INSERT INTO estados (cod_est, nombre_est) VALUES (2, 'Inactivo');
 -- TABLA: ROLES
 -- ============================================
 INSERT INTO roles (cod_rol, nombre_rol, descripcion_rol) VALUES
-(seq_roles.NEXTVAL, 'Administrador', 'Acceso total al sistema');
+(nextval('seq_roles'), 'Administrador', 'Acceso total al sistema');
 
 INSERT INTO roles (cod_rol, nombre_rol, descripcion_rol) VALUES
-(seq_roles.NEXTVAL, 'Mecánico', 'Acceso para mecánicos - gestión de órdenes de trabajo');
+(nextval('seq_roles'), 'Mecánico', 'Acceso para mecánicos - gestión de órdenes de trabajo');
 
 INSERT INTO roles (cod_rol, nombre_rol, descripcion_rol) VALUES
-(seq_roles.NEXTVAL, 'Recepcionista', 'Acceso para recepcionistas - gestión de clientes, motos y órdenes');
+(nextval('seq_roles'), 'Recepcionista', 'Acceso para recepcionistas - gestión de clientes, motos y órdenes');
 
 COMMIT;
 
@@ -49,159 +57,159 @@ COMMIT;
 -- ============================================
 -- Permisos para CLIENTES
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:clientes', 'Permite ver clientes', '/clientes');
+(nextval('seq_permisos'), 'leer:clientes', 'Permite ver clientes', '/clientes');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:clientes', 'Permite crear clientes', '/clientes');
+(nextval('seq_permisos'), 'crear:clientes', 'Permite crear clientes', '/clientes');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:clientes', 'Permite actualizar clientes', '/clientes');
+(nextval('seq_permisos'), 'actualizar:clientes', 'Permite actualizar clientes', '/clientes');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:clientes', 'Permite eliminar - desactivar clientes', '/clientes');
+(nextval('seq_permisos'), 'eliminar:clientes', 'Permite eliminar - desactivar clientes', '/clientes');
 
 -- Permisos para MARCAS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:marcas', 'Permite ver marcas', '/marcas');
+(nextval('seq_permisos'), 'leer:marcas', 'Permite ver marcas', '/marcas');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:marcas', 'Permite crear marcas', '/marcas');
+(nextval('seq_permisos'), 'crear:marcas', 'Permite crear marcas', '/marcas');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:marcas', 'Permite actualizar marcas', '/marcas');
+(nextval('seq_permisos'), 'actualizar:marcas', 'Permite actualizar marcas', '/marcas');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:marcas', 'Permite eliminar - desactivar marcas', '/marcas');
+(nextval('seq_permisos'), 'eliminar:marcas', 'Permite eliminar - desactivar marcas', '/marcas');
 
 -- Permisos para MOTOS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:motos', 'Permite ver motos', '/motos');
+(nextval('seq_permisos'), 'leer:motos', 'Permite ver motos', '/motos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:motos', 'Permite crear motos', '/motos');
+(nextval('seq_permisos'), 'crear:motos', 'Permite crear motos', '/motos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:motos', 'Permite actualizar motos', '/motos');
+(nextval('seq_permisos'), 'actualizar:motos', 'Permite actualizar motos', '/motos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:motos', 'Permite eliminar - desactivar motos', '/motos');
+(nextval('seq_permisos'), 'eliminar:motos', 'Permite eliminar - desactivar motos', '/motos');
 
 -- Permisos para OPERATIONS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:operations', 'Permite ver operaciones', '/admin');
+(nextval('seq_permisos'), 'leer:operations', 'Permite ver operaciones', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:operations', 'Permite crear operaciones', '/admin');
+(nextval('seq_permisos'), 'crear:operations', 'Permite crear operaciones', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:operations', 'Permite actualizar operaciones', '/admin');
+(nextval('seq_permisos'), 'actualizar:operations', 'Permite actualizar operaciones', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:operations', 'Permite eliminar - desactivar operaciones', '/admin');
+(nextval('seq_permisos'), 'eliminar:operations', 'Permite eliminar - desactivar operaciones', '/admin');
 
 -- Permisos para ÓRDENES DE TRABAJO
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:ordenes-trabajo', 'Permite ver órdenes de trabajo', '/ordenes');
+(nextval('seq_permisos'), 'leer:ordenes-trabajo', 'Permite ver órdenes de trabajo', '/ordenes');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:ordenes-trabajo', 'Permite crear órdenes de trabajo', '/ordenes');
+(nextval('seq_permisos'), 'crear:ordenes-trabajo', 'Permite crear órdenes de trabajo', '/ordenes');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:ordenes-trabajo', 'Permite actualizar órdenes de trabajo', '/ordenes');
+(nextval('seq_permisos'), 'actualizar:ordenes-trabajo', 'Permite actualizar órdenes de trabajo', '/ordenes');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:ordenes-trabajo', 'Permite eliminar - desactivar órdenes de trabajo', '/ordenes');
+(nextval('seq_permisos'), 'eliminar:ordenes-trabajo', 'Permite eliminar - desactivar órdenes de trabajo', '/ordenes');
 
 -- Permisos para ORDERS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:orders', 'Permite ver pedidos', '/productos');
+(nextval('seq_permisos'), 'leer:orders', 'Permite ver pedidos', '/productos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:orders', 'Permite crear pedidos', '/productos');
+(nextval('seq_permisos'), 'crear:orders', 'Permite crear pedidos', '/productos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:orders', 'Permite actualizar pedidos', '/productos');
+(nextval('seq_permisos'), 'actualizar:orders', 'Permite actualizar pedidos', '/productos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:orders', 'Permite eliminar - desactivar pedidos', '/productos');
+(nextval('seq_permisos'), 'eliminar:orders', 'Permite eliminar - desactivar pedidos', '/productos');
 
 -- Permisos para PERFILES Y PERMISOS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:perfiles-permisos', 'Permite ver perfiles de permisos', '/admin');
+(nextval('seq_permisos'), 'leer:perfiles-permisos', 'Permite ver perfiles de permisos', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:perfiles-permisos', 'Permite crear perfiles de permisos', '/admin');
+(nextval('seq_permisos'), 'crear:perfiles-permisos', 'Permite crear perfiles de permisos', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:perfiles-permisos', 'Permite actualizar perfiles de permisos', '/admin');
+(nextval('seq_permisos'), 'actualizar:perfiles-permisos', 'Permite actualizar perfiles de permisos', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:perfiles-permisos', 'Permite eliminar - desactivar perfiles de permisos', '/admin');
+(nextval('seq_permisos'), 'eliminar:perfiles-permisos', 'Permite eliminar - desactivar perfiles de permisos', '/admin');
 
 -- Permisos para PRODUCTOS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:productos', 'Permite ver productos', '/productos');
+(nextval('seq_permisos'), 'leer:productos', 'Permite ver productos', '/productos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:productos', 'Permite crear productos', '/productos');
+(nextval('seq_permisos'), 'crear:productos', 'Permite crear productos', '/productos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:productos', 'Permite actualizar productos', '/productos');
+(nextval('seq_permisos'), 'actualizar:productos', 'Permite actualizar productos', '/productos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:productos', 'Permite eliminar - desactivar productos', '/productos');
+(nextval('seq_permisos'), 'eliminar:productos', 'Permite eliminar - desactivar productos', '/productos');
 
 -- Permisos para ROLES
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:roles', 'Permite ver roles', '/admin');
+(nextval('seq_permisos'), 'leer:roles', 'Permite ver roles', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:roles', 'Permite crear roles', '/admin');
+(nextval('seq_permisos'), 'crear:roles', 'Permite crear roles', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:roles', 'Permite actualizar roles', '/admin');
+(nextval('seq_permisos'), 'actualizar:roles', 'Permite actualizar roles', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:roles', 'Permite eliminar - desactivar roles', '/admin');
+(nextval('seq_permisos'), 'eliminar:roles', 'Permite eliminar - desactivar roles', '/admin');
 
 -- Permisos para USERS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:users', 'Permite ver usuarios', '/admin');
+(nextval('seq_permisos'), 'leer:users', 'Permite ver usuarios', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:users', 'Permite crear usuarios', '/admin');
+(nextval('seq_permisos'), 'crear:users', 'Permite crear usuarios', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:users', 'Permite actualizar usuarios', '/admin');
+(nextval('seq_permisos'), 'actualizar:users', 'Permite actualizar usuarios', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:users', 'Permite eliminar - desactivar usuarios', '/admin');
+(nextval('seq_permisos'), 'eliminar:users', 'Permite eliminar - desactivar usuarios', '/admin');
 
 -- Permisos para VISTAS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:vistas', 'Permite ver vistas', '/admin');
+(nextval('seq_permisos'), 'leer:vistas', 'Permite ver vistas', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:vistas', 'Permite crear vistas', '/admin');
+(nextval('seq_permisos'), 'crear:vistas', 'Permite crear vistas', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:vistas', 'Permite actualizar vistas', '/admin');
+(nextval('seq_permisos'), 'actualizar:vistas', 'Permite actualizar vistas', '/admin');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:vistas', 'Permite eliminar - desactivar vistas', '/admin');
+(nextval('seq_permisos'), 'eliminar:vistas', 'Permite eliminar - desactivar vistas', '/admin');
 
 -- Permisos para RECLAMOS
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'leer:reclamos', 'Permite ver reclamos', '/reclamos');
+(nextval('seq_permisos'), 'leer:reclamos', 'Permite ver reclamos', '/reclamos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'crear:reclamos', 'Permite crear reclamos', '/reclamos');
+(nextval('seq_permisos'), 'crear:reclamos', 'Permite crear reclamos', '/reclamos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'actualizar:reclamos', 'Permite actualizar reclamos', '/reclamos');
+(nextval('seq_permisos'), 'actualizar:reclamos', 'Permite actualizar reclamos', '/reclamos');
 
 INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(seq_permisos.NEXTVAL, 'eliminar:reclamos', 'Permite eliminar - desactivar reclamos', '/reclamos');
+(nextval('seq_permisos'), 'eliminar:reclamos', 'Permite eliminar - desactivar reclamos', '/reclamos');
 
 COMMIT;
 
@@ -210,13 +218,13 @@ COMMIT;
 -- (Nota: cod_est_prf = 1 asume que existe en tabla estados)
 -- ============================================
 INSERT INTO perfiles (cod_prf, nombre_prf, descripcion_prf, cod_est_prf, cod_rol_prf) VALUES
-(seq_perfiles.NEXTVAL, 'Administrador Total', 'Perfil con acceso completo', 1, 1);
+(nextval('seq_perfiles'), 'Administrador Total', 'Perfil con acceso completo', 1, 1);
 
 INSERT INTO perfiles (cod_prf, nombre_prf, descripcion_prf, cod_est_prf, cod_rol_prf) VALUES
-(seq_perfiles.NEXTVAL, 'Mecánico', 'Perfil para mecánicos del taller', 1, 2);
+(nextval('seq_perfiles'), 'Mecánico', 'Perfil para mecánicos del taller', 1, 2);
 
 INSERT INTO perfiles (cod_prf, nombre_prf, descripcion_prf, cod_est_prf, cod_rol_prf) VALUES
-(seq_perfiles.NEXTVAL, 'Recepcionista', 'Perfil para recepcionistas del taller', 1, 3);
+(nextval('seq_perfiles'), 'Recepcionista', 'Perfil para recepcionistas del taller', 1, 3);
 
 COMMIT;
 
@@ -352,11 +360,11 @@ COMMIT;
 -- ========================================
 -- INSERTS PARA IMPUESTOS
 -- ========================================
-INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (seq_impuestos.NEXTVAL, 'IVA', 19.00);
-INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (seq_impuestos.NEXTVAL, 'IVA Reducido', 5.00);
-INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (seq_impuestos.NEXTVAL, 'Impuesto al Consumo', 8.00);
-INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (seq_impuestos.NEXTVAL, 'ICA', 1.00);
-INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (seq_impuestos.NEXTVAL, 'Excluido', 0.00);
+INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (nextval('seq_impuestos'), 'IVA', 19.00);
+INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (nextval('seq_impuestos'), 'IVA Reducido', 5.00);
+INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (nextval('seq_impuestos'), 'Impuesto al Consumo', 8.00);
+INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (nextval('seq_impuestos'), 'ICA', 1.00);
+INSERT INTO impuestos (cod_imp, nombre_imp, porcentaje_imp) VALUES (nextval('seq_impuestos'), 'Excluido', 0.00);
 COMMIT;
 
 -- ========================================
@@ -366,43 +374,43 @@ COMMIT;
 
 -- Producto 1: Aceite Motor 4T 20W50 - con IVA (19%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Aceite Motor 4T 20W50', 'Aceite lubricante sintético para motores de 4 tiempos, presentación 1 litro', 50, 10, 1, 35000);
+VALUES (nextval('seq_productos'), 'Aceite Motor 4T 20W50', 'Aceite lubricante sintético para motores de 4 tiempos, presentación 1 litro', 50, 10, 1, 35000);
 
 -- Producto 2: Filtro de Aceite - con IVA (19%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Filtro de Aceite Universal', 'Filtro de aceite compatible con motos 125cc a 200cc', 80, 15, 1, 18000);
+VALUES (nextval('seq_productos'), 'Filtro de Aceite Universal', 'Filtro de aceite compatible con motos 125cc a 200cc', 80, 15, 1, 18000);
 
 -- Producto 3: Pastillas de Freno - con IVA (19%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Pastillas de Freno Delanteras', 'Juego de pastillas de freno para disco delantero, alta durabilidad', 60, 12, 1, 45000);
+VALUES (nextval('seq_productos'), 'Pastillas de Freno Delanteras', 'Juego de pastillas de freno para disco delantero, alta durabilidad', 60, 12, 1, 45000);
 
 -- Producto 4: Llanta Delantera 100/90-18 - con IVA (19%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Llanta Delantera 100/90-18', 'Llanta tubeless para moto, medida estándar 100/90-18', 25, 5, 1, 180000);
+VALUES (nextval('seq_productos'), 'Llanta Delantera 100/90-18', 'Llanta tubeless para moto, medida estándar 100/90-18', 25, 5, 1, 180000);
 
 -- Producto 5: Llanta Trasera 110/90-16 - con IVA (19%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Llanta Trasera 110/90-16', 'Llanta tubeless para moto, medida estándar 110/90-16', 20, 5, 1, 195000);
+VALUES (nextval('seq_productos'), 'Llanta Trasera 110/90-16', 'Llanta tubeless para moto, medida estándar 110/90-16', 20, 5, 1, 195000);
 
 -- Producto 6: Kit Arrastre (Piñón, Corona, Cadena) - con IVA (19%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Kit de Arrastre Completo', 'Kit completo: piñón 14T, corona 42T y cadena 428H-120L', 30, 8, 1, 220000);
+VALUES (nextval('seq_productos'), 'Kit de Arrastre Completo', 'Kit completo: piñón 14T, corona 42T y cadena 428H-120L', 30, 8, 1, 220000);
 
 -- Producto 7: Bujía NGK - con IVA Reducido (5%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Bujía NGK CPR8E', 'Bujía de encendido resistiva, compatible con motos 125cc-200cc', 100, 20, 1, 12000);
+VALUES (nextval('seq_productos'), 'Bujía NGK CPR8E', 'Bujía de encendido resistiva, compatible con motos 125cc-200cc', 100, 20, 1, 12000);
 
 -- Producto 8: Batería 12V 7Ah - con IVA (19%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Batería 12V 7Ah Libre Mantenimiento', 'Batería sellada gel 12V 7Ah para motos con encendido eléctrico', 35, 8, 1, 95000);
+VALUES (nextval('seq_productos'), 'Batería 12V 7Ah Libre Mantenimiento', 'Batería sellada gel 12V 7Ah para motos con encendido eléctrico', 35, 8, 1, 95000);
 
 -- Producto 9: Mano de Obra Mecánica - con IVA Reducido (5%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Mano de Obra - Mantenimiento General', 'Servicio de mantenimiento general: cambio aceite, ajustes, revisión completa', 999, 1, 1, 80000);
+VALUES (nextval('seq_productos'), 'Mano de Obra - Mantenimiento General', 'Servicio de mantenimiento general: cambio aceite, ajustes, revisión completa', 999, 1, 1, 80000);
 
 -- Producto 10: Guaya de Freno Delantera - con IVA (19%)
 INSERT INTO productos (cod_pro, nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro)
-VALUES (seq_productos.NEXTVAL, 'Guaya de Freno Delantera', 'Cable de freno delantero reforzado en acero inoxidable, longitud universal', 70, 15, 1, 22000);
+VALUES (nextval('seq_productos'), 'Guaya de Freno Delantera', 'Cable de freno delantero reforzado en acero inoxidable, longitud universal', 70, 15, 1, 22000);
 
 COMMIT;
 
@@ -414,43 +422,43 @@ COMMIT;
 
 -- Producto 1: Aceite Motor - IVA 19%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 1, 1, 19.00);
+VALUES (nextval('seq_productos_impuestos'), 1, 1, 19.00);
 
 -- Producto 2: Filtro de Aceite - IVA 19%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 1, 2, 19.00);
+VALUES (nextval('seq_productos_impuestos'), 1, 2, 19.00);
 
 -- Producto 3: Pastillas de Freno - IVA 19%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 1, 3, 19.00);
+VALUES (nextval('seq_productos_impuestos'), 1, 3, 19.00);
 
 -- Producto 4: Llanta Delantera - IVA 19%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 1, 4, 19.00);
+VALUES (nextval('seq_productos_impuestos'), 1, 4, 19.00);
 
 -- Producto 5: Llanta Trasera - IVA 19%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 1, 5, 19.00);
+VALUES (nextval('seq_productos_impuestos'), 1, 5, 19.00);
 
 -- Producto 6: Kit Arrastre - IVA 19%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 1, 6, 19.00);
+VALUES (nextval('seq_productos_impuestos'), 1, 6, 19.00);
 
 -- Producto 7: Bujía - IVA Reducido 5%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 2, 7, 5.00);
+VALUES (nextval('seq_productos_impuestos'), 2, 7, 5.00);
 
 -- Producto 8: Batería - IVA 19%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 1, 8, 19.00);
+VALUES (nextval('seq_productos_impuestos'), 1, 8, 19.00);
 
 -- Producto 9: Mano de Obra - IVA Reducido 5%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 2, 9, 5.00);
+VALUES (nextval('seq_productos_impuestos'), 2, 9, 5.00);
 
 -- Producto 10: Guaya de Freno - IVA 19%
 INSERT INTO productos_impuestos (cod_pro_imp, cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp)
-VALUES (seq_productos_impuestos.NEXTVAL, 1, 10, 19.00);
+VALUES (nextval('seq_productos_impuestos'), 1, 10, 19.00);
 
 COMMIT;
 
@@ -502,16 +510,16 @@ VALUES ('4455667788', 'Carolina', 'Ruiz', 'Fernández', '3204455667', 'carolina.
 -- INSERTS PARA MARCAS (necesarios antes de insertar motos)
 -- ========================================
 
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'Yamaha');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'Honda');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'Suzuki');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'Kawasaki');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'Bajaj');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'AKT');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'BMW');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'Ducati');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'KTM');
-INSERT INTO marcas (cod_mar, nombre_mar) VALUES (seq_marcas.NEXTVAL, 'Auteco');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'Yamaha');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'Honda');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'Suzuki');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'Kawasaki');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'Bajaj');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'AKT');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'BMW');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'Ducati');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'KTM');
+INSERT INTO marcas (cod_mar, nombre_mar) VALUES (nextval('seq_marcas'), 'Auteco');
 
 -- ========================================
 -- INSERTS PARA MOTOS

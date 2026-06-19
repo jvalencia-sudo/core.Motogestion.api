@@ -33,12 +33,15 @@ dependencies = [
     "pytest>=8.3.4",
     "pytest-asyncio>=0.25.3",
     "openpyxl>=3.1.5",
-    "oracledb==3.3",
     "reportlab>=4.4.5",
 ]
 
 [dependency-groups]
 dev = ["faker>=33.3.1"]
+
+[tool.uv]
+# El proyecto vive en OneDrive, que no soporta hardlinks: forzar copia.
+link-mode = "copy"
 
 [tool.ruff]
 fix = true

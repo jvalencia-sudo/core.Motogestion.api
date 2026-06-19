@@ -1,62 +1,58 @@
-# db_pool.py - Versión simplificada
-import oracledb
+# db_pool.py - Pool de conexiones async para PostgreSQL (psycopg3)
 import asyncio
-from config import settings
 import logging
+
+from psycopg_pool import AsyncConnectionPool
+
+from config import settings
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-pool = None
+pool: AsyncConnectionPool | None = None
+
+
+def _build_conninfo() -> str:
+    """Construye el string de conexion (DSN) de PostgreSQL desde settings."""
+    c = settings.db_config
+    return (
+        f"host={c.host} port={c.port} dbname={c.dbname} "
+        f"user={c.user} password={c.password}"
+    )
 
 
 async def init_pool():
-    """Inicializa el pool de conexiones async de Oracle - versión simplificada"""
+    """Inicializa el pool de conexiones async de PostgreSQL."""
     global pool
 
     try:
-        config = settings.db_config
+        c = settings.db_config
+        logger.info(f"Inicializando pool para: {c.host}:{c.port}/{c.dbname}")
 
-        logger.info(f"Inicializando pool para: {config.host}:{config.port}/{config.service_name}")
-
-        # Crear DSN
-        dsn = oracledb.makedsn(
-            host=config.host,
-            port=config.port,
-            service_name=config.service_name
+        # Crear el pool sin abrirlo en el constructor (recomendado en psycopg_pool)
+        pool = AsyncConnectionPool(
+            conninfo=_build_conninfo(),
+            min_size=1,
+            max_size=5,
+            open=False,
         )
-
-        # Crear pool asíncrono con configuración mínima
-        pool = oracledb.create_pool_async(
-            user=config.user,
-            password=config.password,
-            dsn=dsn,
-            min=1,
-            max=5,
-            increment=1
-        )
+        await pool.open(wait=True)
 
         # Test simple del pool
         logger.info("Probando pool recién creado...")
-        async with pool.acquire() as conn:
+        async with pool.connection() as conn:
             async with conn.cursor() as cursor:
-                await cursor.execute("SELECT 'Pool funcionando' FROM dual")
-                result = await cursor.fetchone()
-                logger.info(f"✅ Test del pool exitoso: {result[0]}")
+                await cursor.execute("SELECT 1")
+                await cursor.fetchone()
+        logger.info("✅ Test del pool exitoso")
 
-        logger.info("✅ Pool de Oracle inicializado correctamente")
+        logger.info("✅ Pool de PostgreSQL inicializado correctamente")
         return pool
 
-    except oracledb.DatabaseError as e:
-        logger.error(f"❌ Error de Oracle Database: {e}")
-        raise Exception(f"Error de base de datos Oracle: {e}")
-    except oracledb.Error as e:
-        logger.error(f"❌ Error de Oracle: {e}")
-        raise Exception(f"Error de Oracle: {e}")
     except Exception as e:
-        logger.error(f"❌ Error inesperado: {e}")
-        raise Exception(f"Error inicializando pool: {e}")
+        logger.error(f"❌ Error inicializando pool de PostgreSQL: {e}")
+        raise Exception(f"Error de base de datos PostgreSQL: {e}")
 
 
 async def close_pool():
@@ -66,12 +62,12 @@ async def close_pool():
         try:
             await pool.close()
             pool = None
-            logger.info("🛑 Pool de Oracle cerrado correctamente")
+            logger.info("🛑 Pool de PostgreSQL cerrado correctamente")
         except Exception as e:
             logger.error(f"❌ Error cerrando pool: {e}")
 
 
-def get_pool():
+def get_pool() -> AsyncConnectionPool:
     """Obtiene la instancia del pool con validación"""
     global pool
     if pool is None:
@@ -80,53 +76,24 @@ def get_pool():
 
 
 # Función de diagnóstico independiente
-async def test_oracle_connection():
+async def test_db_connection():
     """Test de diagnóstico independiente"""
-    config = settings.db_config
-
+    c = settings.db_config
     try:
         logger.info("🔍 Iniciando test de diagnóstico...")
-        logger.info(f"Host: {config.host}")
-        logger.info(f"Puerto: {config.port}")
-        logger.info(f"Service Name: {config.service_name}")
-        logger.info(f"Usuario: {config.user}")
-
-        # Crear DSN
-        dsn = oracledb.makedsn(
-            host=config.host,
-            port=config.port,
-            service_name=config.service_name
-        )
-
-        logger.info(f"DSN construido: {dsn}")
-
-        # Test de conexión directa
-        logger.info("Probando conexión directa...")
-        conn = await oracledb.connect_async(
-            user=config.user,
-            password=config.password,
-            dsn=dsn
-        )
-
-        logger.info("✅ Conexión establecida")
-
-        # Test de query
-        async with conn.cursor() as cursor:
-            await cursor.execute("SELECT 'Hello Oracle' as mensaje, SYSDATE as fecha FROM dual")
-            result = await cursor.fetchone()
-            logger.info(f"✅ Query exitosa: {result}")
-
-        await conn.close()
+        logger.info(f"Host: {c.host}  Puerto: {c.port}  DB: {c.dbname}  Usuario: {c.user}")
+        async with await __import__("psycopg").AsyncConnection.connect(_build_conninfo()) as conn:
+            async with conn.cursor() as cursor:
+                await cursor.execute("SELECT 'Hello PostgreSQL' AS mensaje, now() AS fecha")
+                result = await cursor.fetchone()
+                logger.info(f"✅ Query exitosa: {result}")
         logger.info("✅ Conexión cerrada correctamente")
-
         return True
-
     except Exception as e:
-        logger.error(f"❌ Error en test: {e}")
-        logger.error(f"Tipo: {type(e).__name__}")
+        logger.error(f"❌ Error en test: {e}  Tipo: {type(e).__name__}")
         return False
 
 
 # Para ejecutar el diagnóstico independientemente
 if __name__ == "__main__":
-    asyncio.run(test_oracle_connection())
+    asyncio.run(test_db_connection())

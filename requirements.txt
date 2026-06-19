@@ -263,6 +263,5 @@ zeep==4.3.1
     # via iluma-orders-api (pyproject.toml)
 zipp==3.21.0
     # via importlib-metadata
-oracledb==3.3
 reportlab==4.4.5
 pillow==12.0.0

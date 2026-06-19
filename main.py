@@ -17,18 +17,17 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
-import oracledb
 
 from api import api_router
 from config import settings
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.data.db_pool import init_pool, close_pool
 
-# SOLUCIÓN PARA EL BUG DE ORACLEDB EN WINDOWS
+# psycopg async en Windows requiere SelectorEventLoop (el ProactorEventLoop por
+# defecto no soporta add_reader/add_writer que usa psycopg para I/O asíncrono).
 if sys.platform == "win32":
-    # Forzar el uso de SelectorEventLoop en Windows
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    print("🔧 Usando SelectorEventLoop para compatibilidad con Oracle en Windows")
+    print("🔧 Usando SelectorEventLoop para compatibilidad con psycopg en Windows")
 
 
 @asynccontextmanager
@@ -116,30 +115,6 @@ async def domain_exception_handler(request, exc: DomainException):
     return JSONResponse(
         status_code=exc.code,
         content=jsonable_encoder({"message": exc.message}),
-    )
-
-
-@app.exception_handler(oracledb.Error)
-async def oracle_exception_handler(request, exc: oracledb.Error):
-    """Maneja específicamente errores de Oracle"""
-    print(f"Oracle Error: {exc}")
-    # current_span = trace.get_current_span()
-    # current_span.record_exception(exc)
-    # current_span.set_status(Status(StatusCode.ERROR, str(exc)))
-
-    # Diferentes mensajes según el tipo de error
-    if "DPY-6005" in str(exc) or "CONNECTION_ID" in str(exc):
-        message = "Servicio temporalmente no disponible. Intente más tarde."
-    elif "ORA-00942" in str(exc):
-        message = "Error en la consulta de datos."
-    elif "ORA-01017" in str(exc):
-        message = "Error de autenticación en la base de datos."
-    else:
-        message = "Error de base de datos. Intente más tarde."
-
-    return JSONResponse(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content=jsonable_encoder({"message": message})
     )
 
 

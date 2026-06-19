@@ -1,15 +1,34 @@
+# Docker Compose para desarrollo local.
+# Levanta PostgreSQL y carga el esquema (db/init/*.sql) en el primer arranque.
+# La app FastAPI se corre aparte con `uv run python main.py` apuntando a localhost:5432.
+#
+# Uso:
+#   docker compose up -d
+#   docker compose ps
+#   docker compose logs -f db
+#
+# Las credenciales se toman de .env (DB_USER/DB_PASSWORD/DB_NAME/DB_PORT).
 services:
-    api:
-        build: .
-        ports:
-            - "8000:8000"
-        env_file:
-            - .env
-        restart: always
-        # Usar la red bridge por defecto donde está Oracle
-        network_mode: bridge
+    db:
+        image: postgres:16
+        container_name: motogestion-db
+        restart: unless-stopped
         environment:
-            # Asegurar que Python no almacene en búfer la salida
-            - PYTHONUNBUFFERED=1
-            # Sobrescribir DB_HOST para apuntar a la IP del contenedor Oracle
-            - DB_HOST=172.17.0.2
+            POSTGRES_USER: ${DB_USER}
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+            POSTGRES_DB: ${DB_NAME}
+        ports:
+            - "${DB_PORT:-5432}:5432"
+        volumes:
+            # Scripts de inicializacion: se ejecutan en orden alfabetico solo
+            # cuando el volumen de datos esta vacio (primer arranque).
+            - ./db/init:/docker-entrypoint-initdb.d:ro
+            - pgdata:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+volumes:
+    pgdata:
