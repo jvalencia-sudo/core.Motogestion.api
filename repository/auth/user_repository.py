@@ -17,5 +17,6 @@ class UserRepository(BaseRepository):
         return await self.get_one(f'select * from {self.table_name} where sub_id_usu = :1', (sub,))
 
     async def get_user_by_id(self, user_id: str) -> Optional[Dict]:
-        # Cambiar %s por :1 (Oracle placeholder)
-        return await self.get_one(f'select * from {self.table_name} where documento_usu = :1', (user_id,))
+        # documento_usu es VARCHAR en Postgres: el parámetro debe ir como texto
+        # (Postgres no castea implícitamente varchar = bigint en el WHERE, a diferencia de Oracle).
+        return await self.get_one(f'select * from {self.table_name} where documento_usu = :1', (str(user_id),))
