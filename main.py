@@ -137,6 +137,12 @@ async def health_check():
     return {"message": "healthy"}
 
 
+@app.get("/health")
+async def health():
+    """Endpoint de salud para el healthcheck de Docker/Traefik."""
+    return {"status": "ok"}
+
+
 
 
 if __name__ == "__main__":
