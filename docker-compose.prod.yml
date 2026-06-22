@@ -1,0 +1,46 @@
+# ──────────────────────────────────────────────────────────────
+# MotoGestion API — deploy en el VPS de MCD (191.101.14.245)
+# Se conecta a la red Docker existente de Traefik (root_default) para que
+# el reverse proxy descubra el servicio por labels y le dé HTTPS automático.
+# La BD es el contenedor `postgres` que ya vive en esa misma red.
+#
+# Uso en el servidor:
+#   cd /root/motogestion
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Requiere un archivo .env.prod en la misma carpeta (ver .env.prod.example).
+# ──────────────────────────────────────────────────────────────
+
+services:
+  motogestion-api:
+    build: .
+    image: motogestion-api:latest
+    container_name: motogestion-api
+    restart: always
+    env_file: .env.prod
+    networks:
+      - root_default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.motogestion-api.rule=Host(`api.motogestion.miclickderecho.com`)"
+      - "traefik.http.routers.motogestion-api.entrypoints=websecure"
+      - "traefik.http.routers.motogestion-api.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.motogestion-api.loadbalancer.server.port=8000"
+      # Headers de seguridad (igual que el resto de servicios del VPS)
+      - "traefik.http.middlewares.motogestion-api-sec.headers.STSSeconds=31536000"
+      - "traefik.http.middlewares.motogestion-api-sec.headers.STSIncludeSubdomains=true"
+      - "traefik.http.middlewares.motogestion-api-sec.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.motogestion-api-sec.headers.browserXSSFilter=true"
+      - "traefik.http.routers.motogestion-api.middlewares=motogestion-api-sec@docker"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+# Red externa existente donde corren Traefik y Postgres.
+# Usar el nombre EXACTO (root_default), sin alias de compose.
+networks:
+  root_default:
+    external: true

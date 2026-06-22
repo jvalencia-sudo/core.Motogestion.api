@@ -17,6 +17,10 @@ venv/
 ENV/
 env/
 
+# Secretos (NUNCA dentro de la imagen)
+.env
+.env.*
+
 # IDEs
 .vscode/
 .idea/
