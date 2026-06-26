@@ -5,7 +5,7 @@ from six import string_types
 from typing_extensions import NoReturn
 
 from infrastructure.utils.query import build_insert, build_update
-from repository.data.oracle_db import OracleDb
+from repository.data.database import Database
 
 Params = Tuple[Any, ...]
 
@@ -18,7 +18,7 @@ class BaseRepository:
         primary_key: str,
         omit_key: bool = True,
         sequence_name: str = None,
-        db: OracleDb = OracleDb(),
+        db: Database = Database(),
     ):
         self.db = db
         self.schema = schema
@@ -164,7 +164,7 @@ class BaseRepository:
         """
         return await self.db.execute(query, params)
 
-    # Métodos adicionales específicos para Oracle
+    # Métodos auxiliares adicionales
     async def get_by_multiple_fields(self, conditions: Dict[str, Any]) -> List[Dict]:
         """
         Get records by multiple field conditions
@@ -206,7 +206,7 @@ class BaseRepository:
         if order_by:
             base_query += f" ORDER BY {order_by}"
 
-        # Oracle pagination using OFFSET/FETCH (Oracle 12c+)
+        # Paginación con OFFSET/FETCH
         paginated_query = f"""
         {base_query}
         OFFSET :1 ROWS FETCH NEXT :2 ROWS ONLY

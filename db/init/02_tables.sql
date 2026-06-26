@@ -1,11 +1,11 @@
 -- ============================================================
 -- 02_tables.sql
--- Tablas (migradas de Oracle Scriptsparacreartablas.sql)
--- Cambios respecto a Oracle:
+-- Tablas del esquema
+-- Notas de tipos:
 --   * VARCHAR2(n BYTE) -> VARCHAR(n)
 --   * NUMBER(p)        -> INTEGER ; NUMBER(p,s) -> NUMERIC(p,s)
 --   * Se elimina TABLESPACE ts_ppi
---   * Se AGREGAN llaves primarias (PK) y foraneas (FK) -- en Oracle no existian
+--   * Se definen llaves primarias (PK) y foraneas (FK)
 --   * Las PK autogeneradas usan DEFAULT nextval('seq_*') (ver 01_sequences.sql)
 -- El orden de creacion respeta las dependencias de FK.
 -- ============================================================
@@ -154,7 +154,7 @@ CREATE TABLE ordenes_trabajo (
     fecha_elaboracion_ot   DATE,
     fecha_entrega_ot       DATE,
     kilometraje_ingreso_ot INTEGER,
-    kilometreje_salida_ot  DATE,      -- (typo heredado de Oracle: declarado DATE)
+    kilometreje_salida_ot  DATE,      -- (typo: declarado DATE)
     observacion_cli_ot     VARCHAR(500),
     observacion_ot         VARCHAR(500),
     placa_mot_ot           VARCHAR(6),
@@ -170,7 +170,7 @@ CREATE TABLE ordenes_trabajo (
 );
 
 CREATE TABLE detalle_orden_trabajo (
-    -- Oracle no definia PK; se agrega una surrogate IDENTITY porque la
+    -- Se agrega una surrogate IDENTITY porque la
     -- combinacion (orden, producto) puede repetirse (linea facturable + cortesia).
     id_deto                 BIGINT GENERATED ALWAYS AS IDENTITY,
     consecutivo_ot_deto     INTEGER NOT NULL,

@@ -37,6 +37,17 @@ class UserCreationContract(BaseSchema):
             return "Usuario", "Sin Apellido", ""
 
 
+class InviteUsuarioContract(BaseSchema):
+    """Invitación de un miembro al taller actual (lo crea el dueño/admin).
+
+    Se pre-registra por correo (sin cuenta Auth0): la persona entra luego con ese
+    correo y se le vincula el sub en el primer login. rol: 1=Admin, 2=Mecánico, 3=Recepcionista.
+    """
+    correo: EmailStr
+    nombre: str
+    rol: int = 2
+
+
 class UserUpdateContract(BaseSchema):
     name: str
     email: str
@@ -46,7 +57,7 @@ class UserUpdateContract(BaseSchema):
     user_id: Optional[int] = None
     sub_id_usu: Optional[str] = None
 
-    # Campos adicionales para la BD Oracle
+    # Campos adicionales para la BD
     documento_usu: Optional[str] = None
     nombre_usu: Optional[str] = None
     apellido_1_usu: Optional[str] = None

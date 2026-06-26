@@ -1,6 +1,6 @@
 # Cómo correr (desarrollo local) — PostgreSQL
 
-Backend FastAPI migrado de Oracle a **PostgreSQL**. La base de datos corre en Docker y
+Backend FastAPI sobre **PostgreSQL**. La base de datos corre en Docker y
 carga el esquema + datos semilla automáticamente.
 
 ## 1. Variables de entorno
@@ -68,6 +68,5 @@ curl http://localhost:8000/api/marcas       # lista de marcas (lee de la BD)
 - **VS Code**: selecciona el intérprete del venv externo
   (`%USERPROFILE%\.venvs\coremotogestion-api\Scripts\python.exe`) para quitar los avisos
   de "paquete no instalado".
-- La capa de datos (`repository/data/oracle_db.py`) conserva el nombre `OracleDb` por
-  compatibilidad, pero internamente usa `psycopg`/PostgreSQL. Traduce binds `:1 → %s` y
-  devuelve las columnas en MAYÚSCULAS (como hacía Oracle) para no tocar el dominio.
+- La capa de datos (`repository/data/database.py`, clase `Database`) usa `psycopg`/PostgreSQL.
+  Traduce binds `:1 → %s` y devuelve las columnas en MAYÚSCULAS para no tocar el dominio.

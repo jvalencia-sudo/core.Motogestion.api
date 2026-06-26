@@ -1,6 +1,6 @@
 -- ============================================================
 -- 06_seed.sql
--- Datos semilla (migrados de Oracle Scriptsregistros.sql).
+-- Datos semilla.
 -- Unica traduccion necesaria: seq_X.NEXTVAL -> nextval('seq_X').
 -- TO_DATE(...) y COMMIT son validos en Postgres tal cual.
 -- El orden respeta las FK (padres antes que hijos).

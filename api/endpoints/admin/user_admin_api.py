@@ -1,5 +1,5 @@
-from typing import Dict, List
-from fastapi import APIRouter, Query
+from typing import Dict, List, Optional
+from fastapi import APIRouter, Depends, Query
 from starlette.status import HTTP_200_OK, HTTP_201_CREATED
 
 from domain.contracts.admin.admin_user_contract import (
@@ -11,6 +11,10 @@ from domain.contracts.admin.admin_user_contract import (
 )
 from domain.models.auth.user_model import UserModel, VwUsuariosPerfiles
 from domain.services.admin.admin_user_service import AdminUserService
+from infrastructure.dependencies.current_user import (
+    assert_no_self_role_change,
+    get_current_usuario,
+)
 
 router = APIRouter()
 
@@ -108,13 +112,21 @@ async def get_user(documento_usu: str):
 
 
 @router.put("/{documento_usu}", status_code=HTTP_200_OK, response_model=UserModel)
-async def update_user(documento_usu: str, contract: AdminUserUpdateContract):
+async def update_user(
+    documento_usu: str,
+    contract: AdminUserUpdateContract,
+    current: Optional[Dict] = Depends(get_current_usuario),
+):
     """
     Actualiza los datos de un usuario.
 
     Solo los campos proporcionados serán actualizados.
     Si se actualiza el email, también se actualiza en Auth0.
+    Un usuario no puede cambiar su propio rol/perfil (evita auto-degradarse).
     """
+    assert_no_self_role_change(
+        documento_usu, contract.cod_prf_usu, contract.cod_rol_prf_usu, current
+    )
     return await AdminUserService().update_user_admin(documento_usu, contract)
 
 
@@ -149,11 +161,20 @@ async def reset_password(documento_usu: str, contract: ChangePasswordContract) -
 
 
 @router.put("/{documento_usu}/profile", status_code=HTTP_200_OK, response_model=UserModel)
-async def update_user_profile(documento_usu: str, contract: UpdateUserProfileContract):
+async def update_user_profile(
+    documento_usu: str,
+    contract: UpdateUserProfileContract,
+    current: Optional[Dict] = Depends(get_current_usuario),
+):
     """
     Actualiza el perfil y rol de un usuario (cambia sus permisos).
 
     - **cod_prf_usu**: Nuevo código de perfil
     - **cod_rol_prf_usu**: Nuevo código de rol
+
+    Un usuario no puede cambiar su propio rol/perfil (evita auto-degradarse).
     """
+    assert_no_self_role_change(
+        documento_usu, contract.cod_prf_usu, contract.cod_rol_prf_usu, current
+    )
     return await AdminUserService().update_user_profile(documento_usu, contract)

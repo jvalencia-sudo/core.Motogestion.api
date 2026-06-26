@@ -8,7 +8,7 @@ from domain.models.base_model import BaseSchema
 
 
 class UserModel(BaseSchema):
-    documento_usu: int = 0
+    documento_usu: str = ""  # VARCHAR en la BD (no int: evita 'varchar = bigint' en el WHERE)
     nombre_usu: str
     apellido_1_usu: str
     apellido_2_usu: Optional[str] = None
@@ -16,7 +16,7 @@ class UserModel(BaseSchema):
     contrasena_usu: Optional[str] = None
     cod_est_usu: Optional[int] = 1
     cod_tipo_usu: Optional[int] = 1
-    sub_id_usu: str
+    sub_id_usu: Optional[str] = None  # NULL hasta el primer login (se vincula ahí)
     cod_prf_usu: int
     cod_rol_prf_usu: int
 
@@ -35,6 +35,7 @@ class VwUsuariosPerfiles(BaseSchema):
 
 class UserWithPermissionsModel(UserModel):
     permissions: Optional[List[str]]
+    nombre_tal: Optional[str] = None  # nombre del taller (tenant) del usuario
 
 
 class UserPermissionsModel(BaseModel):

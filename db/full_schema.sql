@@ -11,7 +11,7 @@
 
 -- ============================================================
 -- 01_sequences.sql
--- Secuencias (migradas de Oracle ScriptSequencias.sql)
+-- Secuencias del esquema
 -- En Postgres alimentan el DEFAULT de cada PK autogenerada.
 -- ============================================================
 
@@ -31,12 +31,12 @@ CREATE SEQUENCE seq_roles                START WITH 1 INCREMENT BY 1 CACHE 1 NO 
 
 -- ============================================================
 -- 02_tables.sql
--- Tablas (migradas de Oracle Scriptsparacreartablas.sql)
--- Cambios respecto a Oracle:
+-- Tablas del esquema
+-- Notas de tipos:
 --   * VARCHAR2(n BYTE) -> VARCHAR(n)
 --   * NUMBER(p)        -> INTEGER ; NUMBER(p,s) -> NUMERIC(p,s)
 --   * Se elimina TABLESPACE ts_ppi
---   * Se AGREGAN llaves primarias (PK) y foraneas (FK) -- en Oracle no existian
+--   * Se definen llaves primarias (PK) y foraneas (FK)
 --   * Las PK autogeneradas usan DEFAULT nextval('seq_*') (ver 01_sequences.sql)
 -- El orden de creacion respeta las dependencias de FK.
 -- ============================================================
@@ -185,7 +185,7 @@ CREATE TABLE ordenes_trabajo (
     fecha_elaboracion_ot   DATE,
     fecha_entrega_ot       DATE,
     kilometraje_ingreso_ot INTEGER,
-    kilometreje_salida_ot  DATE,      -- (typo heredado de Oracle: declarado DATE)
+    kilometreje_salida_ot  DATE,      -- (typo: declarado DATE)
     observacion_cli_ot     VARCHAR(500),
     observacion_ot         VARCHAR(500),
     placa_mot_ot           VARCHAR(6),
@@ -201,7 +201,7 @@ CREATE TABLE ordenes_trabajo (
 );
 
 CREATE TABLE detalle_orden_trabajo (
-    -- Oracle no definia PK; se agrega una surrogate IDENTITY porque la
+    -- Se agrega una surrogate IDENTITY porque la
     -- combinacion (orden, producto) puede repetirse (linea facturable + cortesia).
     id_deto                 BIGINT GENERATED ALWAYS AS IDENTITY,
     consecutivo_ot_deto     INTEGER NOT NULL,
@@ -231,11 +231,11 @@ CREATE TABLE reclamos (
 
 -- ============================================================
 -- 03_views.sql
--- Vistas (migradas de Oracle ScripVistas.sql)
--- Cambios Oracle -> Postgres:
+-- Vistas del esquema
+-- Notas:
 --   * SYSDATE                 -> CURRENT_DATE
 --   * TRUNC(SYSDATE - fecha)  -> (CURRENT_DATE - fecha)   [resta de date da entero de dias]
---   * Se omite la vista duplicada Oracle "US_PPI"."VW_PRODUCTOS_CON_IMPUESTOS"
+--   * Se omite la vista duplicada "US_PPI"."VW_PRODUCTOS_CON_IMPUESTOS"
 --   * || (concatenacion), COALESCE, ROUND, ABS, CASE: validos en Postgres tal cual
 -- ============================================================
 
@@ -558,7 +558,7 @@ INNER JOIN permisos pm ON pp.cod_prm_pp = pm.cod_prm
 INNER JOIN vistas v    ON pm.ruta_vis_prm = v.ruta_vis
 INNER JOIN estados e   ON pp.cod_est_pp = e.cod_est;
 
--- vw_permisos: no existia en los scripts Oracle y el repo la ordena por una
+-- vw_permisos: no existia y el repo la ordena por una
 -- columna inexistente (cod_rol_prm). Se crea una version best-effort para que
 -- el endpoint no falle: lista los permisos con una columna cod_rol_prm nula.
 CREATE OR REPLACE VIEW vw_permisos AS
@@ -574,7 +574,7 @@ FROM permisos p;
 
 -- ============================================================
 -- 04_triggers.sql
--- Triggers FUNCIONALES migrados de Oracle Scriptstriggers.sql a PL/pgSQL.
+-- Triggers FUNCIONALES en PL/pgSQL.
 -- Se portan SOLO los que afectan datos (decision de alcance):
 --   * tg_actualizar_stock     -> descuenta stock al insertar un detalle
 --   * tg_gen_consecutivo_ot   -> genera consecutivo_ot = MAX+1 si viene NULL
@@ -644,7 +644,7 @@ EXECUTE FUNCTION fn_calc_fecha_garantia();
 
 -- ============================================================
 -- 05_audit.sql
--- Auditoria en Postgres. Reemplaza el paquete Oracle PKG_AUDITORIA +
+-- Auditoria en Postgres. Reemplaza el antiguo paquete PKG_AUDITORIA +
 -- UTL_FILE (que escribia a archivos .txt) por una TABLA audit_log poblada
 -- por una funcion trigger generica.
 -- ============================================================
@@ -707,7 +707,7 @@ FOR EACH ROW EXECUTE FUNCTION fn_audit();
 
 -- ============================================================
 -- 06_seed.sql
--- Datos semilla (migrados de Oracle Scriptsregistros.sql).
+-- Datos semilla.
 -- Unica traduccion necesaria: seq_X.NEXTVAL -> nextval('seq_X').
 -- TO_DATE(...) y COMMIT son validos en Postgres tal cual.
 -- El orden respeta las FK (padres antes que hijos).

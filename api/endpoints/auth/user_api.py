@@ -1,10 +1,14 @@
 from typing import List
 
 from fastapi import APIRouter, Response
-from starlette.status import HTTP_204_NO_CONTENT
+from starlette.status import HTTP_204_NO_CONTENT, HTTP_201_CREATED
 
 from domain.contracts.auth.login_contract import LoginContract
-from domain.contracts.auth.user_contract import UserCreationContract, UserUpdateContract
+from domain.contracts.auth.user_contract import (
+    UserCreationContract,
+    UserUpdateContract,
+    InviteUsuarioContract,
+)
 from domain.models.auth.user_model import UserModel
 from domain.models.providers.auth0_user import Auth0UserModel
 from domain.services.auth.user_service import UserService
@@ -20,6 +24,12 @@ async def get():
 @router.post("/login")
 async def login(request: LoginContract):
     return await UserService().login(request)
+
+
+@router.post("/invitar", status_code=HTTP_201_CREATED)
+async def invitar_usuario(contract: InviteUsuarioContract):
+    """Invita un miembro al taller del usuario autenticado (pre-registrado por correo)."""
+    return await UserService().invitar(contract)
 
 
 @router.get("/auth_users", response_model=List[Auth0UserModel])
