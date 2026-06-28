@@ -32,6 +32,13 @@ class UserRepository(BaseRepository):
         )
         return row.get("NOMBRE_TAL") if row else None
 
+    async def get_nombre_perfil(self, cod_prf: int) -> Optional[str]:
+        # perfiles está acotado por RLS al taller actual (cod_prf es único global).
+        row = await self.get_one(
+            'select nombre_prf from perfiles where cod_prf = :1 limit 1', (cod_prf,)
+        )
+        return row.get("NOMBRE_PRF") if row else None
+
     async def get_acceso_por_correo(self, correo: str) -> Optional[Dict]:
         # Identifica al usuario por CORREO (clave estable entre login con Google y
         # con usuario/contraseña, que tienen sub distinto). Devuelve taller y documento

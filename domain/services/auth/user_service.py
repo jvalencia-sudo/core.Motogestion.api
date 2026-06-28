@@ -74,11 +74,13 @@ class UserService(BaseService[UserModel, UserRepository]):
         permission_names = [p.nombre_prm for p in permissions]
 
         nombre_tal = await self.repository.get_nombre_taller(existing_user.get("COD_TALLER"))
+        perfil = await self.repository.get_nombre_perfil(user.cod_prf_usu)
 
         return UserWithPermissionsModel(
             **user.model_dump(),
             permissions=permission_names,
             nombre_tal=nombre_tal,
+            perfil=perfil,
         )
 
     async def invitar(self, contract) -> Dict:
