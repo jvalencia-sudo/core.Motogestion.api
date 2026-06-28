@@ -49,6 +49,17 @@ async def require_super_admin(request: Request) -> Dict:
     return user
 
 
+async def require_admin(request: Request) -> Dict:
+    """Exige que el usuario sea Admin (rol 1) de SU propio taller. Para acciones de
+    gestión dentro del taller (p.ej. invitar miembros). Fail-closed: 401/403."""
+    user = await get_current_usuario(request)
+    if user is None:
+        raise DomainException("No autenticado", HTTP_401_UNAUTHORIZED)
+    if user.get("COD_ROL_PRF_USU") != ADMIN_ROL:
+        raise DomainException("Requiere permisos de administrador", HTTP_403_FORBIDDEN)
+    return user
+
+
 def assert_no_self_role_change(
     target_documento: str,
     nuevo_prf: Optional[int],
