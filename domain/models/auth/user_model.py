@@ -36,6 +36,7 @@ class VwUsuariosPerfiles(BaseSchema):
 class UserWithPermissionsModel(UserModel):
     permissions: Optional[List[str]]
     nombre_tal: Optional[str] = None  # nombre del taller (tenant) del usuario
+    perfil: Optional[str] = None  # nombre del perfil del usuario (ej. Administrador)
 
 
 class UserPermissionsModel(BaseModel):
