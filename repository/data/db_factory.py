@@ -7,7 +7,7 @@ class DbFactory:
     """Crea conexiones async puntuales a PostgreSQL (psycopg3).
 
     Nota: el acceso a datos del proyecto va por el pool (ver db_pool.py /
-    OracleDb). Esta fabrica se conserva por compatibilidad.
+    database.py). Esta fabrica se conserva por compatibilidad.
     """
 
     def __init__(self):

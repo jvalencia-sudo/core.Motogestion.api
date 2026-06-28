@@ -1,6 +1,6 @@
 -- ============================================================
 -- 05_audit.sql
--- Auditoria en Postgres. Reemplaza el paquete Oracle PKG_AUDITORIA +
+-- Auditoria en Postgres. Reemplaza el antiguo paquete PKG_AUDITORIA +
 -- UTL_FILE (que escribia a archivos .txt) por una TABLA audit_log poblada
 -- por una funcion trigger generica.
 -- ============================================================

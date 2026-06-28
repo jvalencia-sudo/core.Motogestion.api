@@ -1,4 +1,711 @@
 -- ============================================================
+-- MotoGestion - Esquema completo (generado para carga en pgAdmin)
+-- Ejecutar sobre la base 'motogestion' YA creada.
+-- Orden: sequences -> tables -> views -> triggers -> audit -> seed
+-- ============================================================
+
+
+-- ========================================================
+-- >>> 01_sequences.sql
+-- ========================================================
+
+-- ============================================================
+-- 01_sequences.sql
+-- Secuencias del esquema
+-- En Postgres alimentan el DEFAULT de cada PK autogenerada.
+-- ============================================================
+
+CREATE SEQUENCE seq_impuestos            START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_marcas               START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_perfiles             START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_permisos             START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_productos            START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_productos_impuestos  START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_reclamos             START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_roles                START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+
+
+-- ========================================================
+-- >>> 02_tables.sql
+-- ========================================================
+
+-- ============================================================
+-- 02_tables.sql
+-- Tablas del esquema
+-- Notas de tipos:
+--   * VARCHAR2(n BYTE) -> VARCHAR(n)
+--   * NUMBER(p)        -> INTEGER ; NUMBER(p,s) -> NUMERIC(p,s)
+--   * Se elimina TABLESPACE ts_ppi
+--   * Se definen llaves primarias (PK) y foraneas (FK)
+--   * Las PK autogeneradas usan DEFAULT nextval('seq_*') (ver 01_sequences.sql)
+-- El orden de creacion respeta las dependencias de FK.
+-- ============================================================
+
+-- ----- Catalogos base -----
+
+CREATE TABLE estados (
+    cod_est    INTEGER       NOT NULL,
+    nombre_est VARCHAR(50),
+    CONSTRAINT pk_estados PRIMARY KEY (cod_est)
+);
+
+CREATE TABLE roles (
+    cod_rol         INTEGER       NOT NULL DEFAULT nextval('seq_roles'),
+    nombre_rol      VARCHAR(250),
+    descripcion_rol VARCHAR(500),
+    CONSTRAINT pk_roles PRIMARY KEY (cod_rol)
+);
+
+CREATE TABLE vistas (
+    ruta_vis   VARCHAR(500) NOT NULL,
+    nombre_vis VARCHAR(50),
+    CONSTRAINT pk_vistas PRIMARY KEY (ruta_vis)
+);
+
+CREATE TABLE permisos (
+    cod_prm         INTEGER       NOT NULL DEFAULT nextval('seq_permisos'),
+    nombre_prm      VARCHAR(250),
+    descripcion_prm VARCHAR(500),
+    ruta_vis_prm    VARCHAR(500),
+    CONSTRAINT pk_permisos PRIMARY KEY (cod_prm),
+    CONSTRAINT fk_permisos_vista FOREIGN KEY (ruta_vis_prm) REFERENCES vistas (ruta_vis)
+);
+
+CREATE TABLE perfiles (
+    cod_prf         INTEGER       NOT NULL DEFAULT nextval('seq_perfiles'),
+    nombre_prf      VARCHAR(250),
+    descripcion_prf VARCHAR(500),
+    cod_est_prf     INTEGER,
+    cod_rol_prf     INTEGER       NOT NULL,
+    CONSTRAINT pk_perfiles PRIMARY KEY (cod_prf, cod_rol_prf),
+    CONSTRAINT fk_perfiles_estado FOREIGN KEY (cod_est_prf) REFERENCES estados (cod_est),
+    CONSTRAINT fk_perfiles_rol    FOREIGN KEY (cod_rol_prf) REFERENCES roles (cod_rol)
+);
+
+CREATE TABLE perfiles_permisos (
+    cod_prm_pp     INTEGER NOT NULL,
+    cod_prf_pp     INTEGER NOT NULL,
+    cod_rol_prf_pp INTEGER NOT NULL,
+    cod_est_pp     INTEGER,
+    CONSTRAINT pk_perfiles_permisos PRIMARY KEY (cod_prm_pp, cod_prf_pp, cod_rol_prf_pp),
+    CONSTRAINT fk_pp_permiso FOREIGN KEY (cod_prm_pp) REFERENCES permisos (cod_prm),
+    CONSTRAINT fk_pp_perfil  FOREIGN KEY (cod_prf_pp, cod_rol_prf_pp) REFERENCES perfiles (cod_prf, cod_rol_prf),
+    CONSTRAINT fk_pp_estado  FOREIGN KEY (cod_est_pp) REFERENCES estados (cod_est)
+);
+
+CREATE TABLE usuarios (
+    documento_usu   VARCHAR(11) NOT NULL,
+    nombre_usu      VARCHAR(50),
+    apellido_1_usu  VARCHAR(50),
+    apellido_2_usu  VARCHAR(50),
+    correo_usu      VARCHAR(50),
+    contrasena_usu  VARCHAR(50),
+    cod_tipo_usu    INTEGER,
+    cod_est_usu     INTEGER,
+    sub_id_usu      VARCHAR(250),
+    cod_prf_usu     INTEGER,
+    cod_rol_prf_usu INTEGER,
+    CONSTRAINT pk_usuarios PRIMARY KEY (documento_usu),
+    CONSTRAINT fk_usuarios_estado FOREIGN KEY (cod_est_usu) REFERENCES estados (cod_est),
+    CONSTRAINT fk_usuarios_perfil FOREIGN KEY (cod_prf_usu, cod_rol_prf_usu) REFERENCES perfiles (cod_prf, cod_rol_prf)
+);
+
+-- ----- Dominio clientes / motos -----
+
+CREATE TABLE clientes (
+    documento_cli  VARCHAR(11) NOT NULL,
+    nombre_cli     VARCHAR(50),
+    apellido_1_cli VARCHAR(50),
+    apellido_2_cli VARCHAR(50),
+    telefono_cli   VARCHAR(15),
+    correo_cli     VARCHAR(50),
+    direccion_cli  VARCHAR(500),
+    CONSTRAINT pk_clientes PRIMARY KEY (documento_cli)
+);
+
+CREATE TABLE marcas (
+    cod_mar    INTEGER NOT NULL DEFAULT nextval('seq_marcas'),
+    nombre_mar VARCHAR(50),
+    CONSTRAINT pk_marcas PRIMARY KEY (cod_mar)
+);
+
+CREATE TABLE motos (
+    placa_mot         VARCHAR(6) NOT NULL,
+    modelo_mot        INTEGER,
+    color_mot         VARCHAR(50),
+    cilindraje_mot    INTEGER,
+    documento_cli_mot VARCHAR(11),
+    cod_marca_mot     INTEGER,
+    CONSTRAINT pk_motos PRIMARY KEY (placa_mot),
+    CONSTRAINT fk_motos_cliente FOREIGN KEY (documento_cli_mot) REFERENCES clientes (documento_cli),
+    CONSTRAINT fk_motos_marca   FOREIGN KEY (cod_marca_mot)     REFERENCES marcas (cod_mar)
+);
+
+-- ----- Dominio productos / impuestos -----
+
+CREATE TABLE impuestos (
+    cod_imp        INTEGER NOT NULL DEFAULT nextval('seq_impuestos'),
+    nombre_imp     VARCHAR(50),
+    porcentaje_imp NUMERIC(5, 2),
+    CONSTRAINT pk_impuestos PRIMARY KEY (cod_imp)
+);
+
+CREATE TABLE productos (
+    cod_pro         INTEGER NOT NULL DEFAULT nextval('seq_productos'),
+    nombre_pro      VARCHAR(70),
+    descripcion_pro VARCHAR(500),
+    stock_pro       INTEGER,
+    stock_pro_min   INTEGER,
+    cod_est_pro     INTEGER,
+    precio_pro      INTEGER,
+    CONSTRAINT pk_productos PRIMARY KEY (cod_pro),
+    CONSTRAINT fk_productos_estado FOREIGN KEY (cod_est_pro) REFERENCES estados (cod_est)
+);
+
+CREATE TABLE productos_impuestos (
+    cod_pro_imp        INTEGER NOT NULL DEFAULT nextval('seq_productos_impuestos'),
+    cod_imp_pro_imp    INTEGER,
+    cod_pro_pro_imp    INTEGER,
+    porcentaje_pro_imp NUMERIC(5, 2),
+    CONSTRAINT pk_productos_impuestos PRIMARY KEY (cod_pro_imp),
+    CONSTRAINT fk_pi_impuesto FOREIGN KEY (cod_imp_pro_imp) REFERENCES impuestos (cod_imp),
+    CONSTRAINT fk_pi_producto FOREIGN KEY (cod_pro_pro_imp) REFERENCES productos (cod_pro)
+);
+
+-- ----- Dominio ordenes de trabajo -----
+
+CREATE TABLE ot_estados (
+    cod_ot_est    INTEGER NOT NULL,
+    nombre_ot_est VARCHAR(50),
+    CONSTRAINT pk_ot_estados PRIMARY KEY (cod_ot_est)
+);
+
+CREATE TABLE ordenes_trabajo (
+    consecutivo_ot         INTEGER NOT NULL,
+    fecha_elaboracion_ot   DATE,
+    fecha_entrega_ot       DATE,
+    kilometraje_ingreso_ot INTEGER,
+    kilometreje_salida_ot  DATE,      -- (typo: declarado DATE)
+    observacion_cli_ot     VARCHAR(500),
+    observacion_ot         VARCHAR(500),
+    placa_mot_ot           VARCHAR(6),
+    documento_usu_rp_ot    VARCHAR(11),
+    documento_usu_mc_ot    VARCHAR(11),
+    cod_ot_est_ot          INTEGER,
+    fecha_fin_garantia_ot  DATE,
+    CONSTRAINT pk_ordenes_trabajo PRIMARY KEY (consecutivo_ot),
+    CONSTRAINT fk_ot_moto        FOREIGN KEY (placa_mot_ot)        REFERENCES motos (placa_mot),
+    CONSTRAINT fk_ot_recep       FOREIGN KEY (documento_usu_rp_ot) REFERENCES usuarios (documento_usu),
+    CONSTRAINT fk_ot_mecanico    FOREIGN KEY (documento_usu_mc_ot) REFERENCES usuarios (documento_usu),
+    CONSTRAINT fk_ot_estado      FOREIGN KEY (cod_ot_est_ot)       REFERENCES ot_estados (cod_ot_est)
+);
+
+CREATE TABLE detalle_orden_trabajo (
+    -- Se agrega una surrogate IDENTITY porque la
+    -- combinacion (orden, producto) puede repetirse (linea facturable + cortesia).
+    id_deto                 BIGINT GENERATED ALWAYS AS IDENTITY,
+    consecutivo_ot_deto     INTEGER NOT NULL,
+    cod_pro_deto            INTEGER NOT NULL,
+    fecha_confirmacion_deto DATE,
+    valor_unitario_deto     INTEGER,
+    cantidad_deto           INTEGER,
+    documento_usu_deto      VARCHAR(11),
+    CONSTRAINT pk_detalle_ot PRIMARY KEY (id_deto),
+    CONSTRAINT fk_deto_orden    FOREIGN KEY (consecutivo_ot_deto) REFERENCES ordenes_trabajo (consecutivo_ot),
+    CONSTRAINT fk_deto_producto FOREIGN KEY (cod_pro_deto)        REFERENCES productos (cod_pro),
+    CONSTRAINT fk_deto_usuario  FOREIGN KEY (documento_usu_deto)  REFERENCES usuarios (documento_usu)
+);
+
+CREATE TABLE reclamos (
+    cod_rec            INTEGER NOT NULL DEFAULT nextval('seq_reclamos'),
+    descripcion_rec    VARCHAR(500),
+    consecutivo_ot_rec INTEGER,
+    CONSTRAINT pk_reclamos PRIMARY KEY (cod_rec),
+    CONSTRAINT fk_reclamos_orden FOREIGN KEY (consecutivo_ot_rec) REFERENCES ordenes_trabajo (consecutivo_ot)
+);
+
+
+-- ========================================================
+-- >>> 03_views.sql
+-- ========================================================
+
+-- ============================================================
+-- 03_views.sql
+-- Vistas del esquema
+-- Notas:
+--   * SYSDATE                 -> CURRENT_DATE
+--   * TRUNC(SYSDATE - fecha)  -> (CURRENT_DATE - fecha)   [resta de date da entero de dias]
+--   * Se omite la vista duplicada "US_PPI"."VW_PRODUCTOS_CON_IMPUESTOS"
+--   * || (concatenacion), COALESCE, ROUND, ABS, CASE: validos en Postgres tal cual
+-- ============================================================
+
+-- ----- Ordenes de trabajo -----
+
+CREATE OR REPLACE VIEW vw_ordenes_trabajo_completa AS
+SELECT
+    ot.consecutivo_ot,
+    ot.fecha_elaboracion_ot,
+    ot.fecha_entrega_ot,
+    ot.kilometraje_ingreso_ot,
+    ot.observacion_cli_ot,
+    ot.observacion_ot,
+    ot.fecha_fin_garantia_ot,
+    m.placa_mot,
+    m.modelo_mot,
+    m.color_mot,
+    m.cilindraje_mot,
+    mar.nombre_mar AS marca_moto,
+    c.documento_cli,
+    c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo_cliente,
+    c.telefono_cli,
+    c.correo_cli,
+    c.direccion_cli,
+    urp.documento_usu AS documento_recepcionista,
+    urp.nombre_usu || ' ' || urp.apellido_1_usu AS recepcionista,
+    umc.documento_usu AS documento_mecanico,
+    umc.nombre_usu || ' ' || umc.apellido_1_usu AS mecanico,
+    ote.nombre_ot_est AS estado_ot,
+    ot.cod_ot_est_ot
+FROM ordenes_trabajo ot
+INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot
+INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli
+INNER JOIN marcas mar    ON m.cod_marca_mot = mar.cod_mar
+INNER JOIN usuarios urp  ON ot.documento_usu_rp_ot = urp.documento_usu
+INNER JOIN usuarios umc  ON ot.documento_usu_mc_ot = umc.documento_usu
+INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est;
+
+CREATE OR REPLACE VIEW vw_detalle_ot_productos AS
+SELECT
+    dot.consecutivo_ot_deto,
+    dot.cod_pro_deto,
+    p.nombre_pro,
+    p.descripcion_pro,
+    dot.cantidad_deto,
+    dot.valor_unitario_deto,
+    (ABS(dot.cantidad_deto) * dot.valor_unitario_deto) AS subtotal,
+    dot.fecha_confirmacion_deto,
+    u.nombre_usu || ' ' || u.apellido_1_usu AS usuario_confirmacion,
+    e.nombre_est AS estado_producto
+FROM detalle_orden_trabajo dot
+INNER JOIN productos p ON dot.cod_pro_deto = p.cod_pro
+INNER JOIN usuarios u  ON dot.documento_usu_deto = u.documento_usu
+INNER JOIN estados e   ON p.cod_est_pro = e.cod_est;
+
+CREATE OR REPLACE VIEW vw_resumen_financiero_ot AS
+SELECT
+    ot.consecutivo_ot,
+    ot.fecha_elaboracion_ot,
+    c.nombre_cli || ' ' || c.apellido_1_cli AS cliente,
+    m.placa_mot,
+    COUNT(CASE WHEN dot.cantidad_deto > 0 THEN dot.cod_pro_deto END) AS total_items,
+    SUM(CASE WHEN dot.cantidad_deto > 0 THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS subtotal_productos,
+    0 AS total_impuestos,
+    SUM(CASE WHEN dot.cantidad_deto > 0 THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS total_ot
+FROM ordenes_trabajo ot
+INNER JOIN detalle_orden_trabajo dot ON ot.consecutivo_ot = dot.consecutivo_ot_deto
+INNER JOIN motos m    ON ot.placa_mot_ot = m.placa_mot
+INNER JOIN clientes c ON m.documento_cli_mot = c.documento_cli
+GROUP BY ot.consecutivo_ot, ot.fecha_elaboracion_ot, c.nombre_cli, c.apellido_1_cli, m.placa_mot;
+
+CREATE OR REPLACE VIEW vw_ot_pendientes AS
+SELECT
+    ot.consecutivo_ot,
+    ot.fecha_elaboracion_ot,
+    (CURRENT_DATE - ot.fecha_elaboracion_ot) AS dias_pendiente,
+    c.nombre_cli || ' ' || c.apellido_1_cli AS cliente,
+    c.telefono_cli,
+    m.placa_mot,
+    mar.nombre_mar || ' ' || m.modelo_mot AS moto,
+    umc.nombre_usu || ' ' || umc.apellido_1_usu AS mecanico_asignado,
+    ote.nombre_ot_est AS estado
+FROM ordenes_trabajo ot
+INNER JOIN motos m        ON ot.placa_mot_ot = m.placa_mot
+INNER JOIN marcas mar     ON m.cod_marca_mot = mar.cod_mar
+INNER JOIN clientes c     ON m.documento_cli_mot = c.documento_cli
+INNER JOIN usuarios umc   ON ot.documento_usu_mc_ot = umc.documento_usu
+INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est
+WHERE ot.fecha_entrega_ot IS NULL
+ORDER BY ot.fecha_elaboracion_ot;
+
+CREATE OR REPLACE VIEW vw_reclamos_completo AS
+SELECT
+    rec.cod_rec,
+    rec.descripcion_rec,
+    rec.consecutivo_ot_rec,
+    ot.fecha_elaboracion_ot,
+    ot.fecha_entrega_ot,
+    ot.kilometraje_ingreso_ot,
+    ot.observacion_cli_ot,
+    ot.observacion_ot,
+    ot.fecha_fin_garantia_ot,
+    ote.nombre_ot_est AS estado_ot,
+    m.placa_mot,
+    m.modelo_mot,
+    m.color_mot,
+    m.cilindraje_mot,
+    mar.nombre_mar AS marca_moto,
+    mar.nombre_mar || ' ' || m.modelo_mot || ' (' || m.placa_mot || ')' AS moto_completa,
+    c.documento_cli,
+    c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo_cliente,
+    c.telefono_cli,
+    c.correo_cli,
+    c.direccion_cli,
+    urp.documento_usu AS documento_recepcionista,
+    urp.nombre_usu || ' ' || urp.apellido_1_usu AS recepcionista,
+    umc.documento_usu AS documento_mecanico,
+    umc.nombre_usu || ' ' || umc.apellido_1_usu AS mecanico,
+    CASE
+        WHEN ot.fecha_fin_garantia_ot >= CURRENT_DATE THEN 'VIGENTE'
+        WHEN ot.fecha_fin_garantia_ot <  CURRENT_DATE THEN 'VENCIDA'
+        ELSE 'SIN INFORMACIÓN'
+    END AS estado_garantia,
+    CASE
+        WHEN ot.fecha_fin_garantia_ot >= CURRENT_DATE
+        THEN (ot.fecha_fin_garantia_ot - CURRENT_DATE)
+        ELSE NULL
+    END AS dias_garantia_restantes
+FROM reclamos rec
+INNER JOIN ordenes_trabajo ot ON rec.consecutivo_ot_rec = ot.consecutivo_ot
+INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot
+INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli
+INNER JOIN marcas mar    ON m.cod_marca_mot = mar.cod_mar
+INNER JOIN usuarios urp  ON ot.documento_usu_rp_ot = urp.documento_usu
+INNER JOIN usuarios umc  ON ot.documento_usu_mc_ot = umc.documento_usu
+INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est;
+
+CREATE OR REPLACE VIEW vw_reclamos_detalle AS
+SELECT
+    rec.cod_rec,
+    rec.descripcion_rec,
+    ot.consecutivo_ot,
+    ot.fecha_elaboracion_ot,
+    ot.fecha_entrega_ot,
+    m.placa_mot,
+    c.nombre_cli || ' ' || c.apellido_1_cli AS cliente,
+    c.telefono_cli,
+    ote.nombre_ot_est AS estado_ot
+FROM reclamos rec
+INNER JOIN ordenes_trabajo ot ON rec.consecutivo_ot_rec = ot.consecutivo_ot
+INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot
+INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli
+INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est;
+
+-- ----- Productos / impuestos -----
+
+CREATE OR REPLACE VIEW vw_productos AS
+SELECT
+    p.cod_pro, p.nombre_pro, p.descripcion_pro, p.precio_pro,
+    p.stock_pro, p.stock_pro_min, p.cod_est_pro,
+    e.nombre_est AS estado_producto
+FROM productos p
+INNER JOIN estados e ON p.cod_est_pro = e.cod_est;
+
+CREATE OR REPLACE VIEW vw_productos_activos AS
+SELECT
+    p.cod_pro, p.nombre_pro, p.descripcion_pro, p.precio_pro,
+    p.stock_pro, p.stock_pro_min, p.cod_est_pro,
+    e.nombre_est AS estado_producto
+FROM productos p
+INNER JOIN estados e ON p.cod_est_pro = e.cod_est
+WHERE p.cod_est_pro = 1;
+
+CREATE OR REPLACE VIEW vw_productos_impuestos AS
+SELECT
+    pi.cod_pro_imp, pi.cod_imp_pro_imp, pi.cod_pro_pro_imp, pi.porcentaje_pro_imp,
+    i.cod_imp, i.nombre_imp, i.porcentaje_imp
+FROM productos_impuestos pi
+INNER JOIN impuestos i ON pi.cod_imp_pro_imp = i.cod_imp;
+
+CREATE OR REPLACE VIEW vw_productos_con_impuestos AS
+SELECT
+    p.cod_pro, p.nombre_pro, p.descripcion_pro, p.precio_pro,
+    p.stock_pro, p.stock_pro_min,
+    e.nombre_est AS estado_producto,
+    pi.cod_pro_imp, i.nombre_imp, pi.porcentaje_pro_imp,
+    ROUND(p.precio_pro * (pi.porcentaje_pro_imp / 100), 2) AS valor_impuesto,
+    ROUND(p.precio_pro + (p.precio_pro * (pi.porcentaje_pro_imp / 100)), 2) AS precio_con_impuesto
+FROM productos p
+INNER JOIN estados e ON p.cod_est_pro = e.cod_est
+LEFT JOIN productos_impuestos pi ON p.cod_pro = pi.cod_pro_pro_imp
+LEFT JOIN impuestos i ON pi.cod_imp_pro_imp = i.cod_imp;
+
+CREATE OR REPLACE VIEW vw_inventario_alertas AS
+SELECT
+    p.cod_pro, p.nombre_pro, p.descripcion_pro,
+    p.stock_pro, p.stock_pro_min, p.precio_pro,
+    e.nombre_est AS estado,
+    CASE
+        WHEN p.stock_pro = 0 THEN 'SIN STOCK'
+        WHEN p.stock_pro <= p.stock_pro_min THEN 'STOCK BAJO'
+        WHEN p.stock_pro > p.stock_pro_min AND p.stock_pro <= (p.stock_pro_min * 2) THEN 'STOCK MEDIO'
+        ELSE 'STOCK NORMAL'
+    END AS nivel_alerta,
+    (p.stock_pro_min - p.stock_pro) AS cantidad_a_pedir
+FROM productos p
+INNER JOIN estados e ON p.cod_est_pro = e.cod_est;
+
+-- ----- Clientes -----
+
+CREATE OR REPLACE VIEW vw_clientes AS
+SELECT
+    c.documento_cli, c.nombre_cli, c.apellido_1_cli, c.apellido_2_cli,
+    c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo,
+    c.telefono_cli, c.correo_cli, c.direccion_cli
+FROM clientes c;
+
+CREATE OR REPLACE VIEW vw_clientes_resumen AS
+SELECT
+    c.documento_cli,
+    c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo,
+    c.telefono_cli, c.correo_cli, c.direccion_cli,
+    COUNT(m.placa_mot) AS total_motos
+FROM clientes c
+LEFT JOIN motos m ON c.documento_cli = m.documento_cli_mot
+GROUP BY c.documento_cli, c.nombre_cli, c.apellido_1_cli, c.apellido_2_cli,
+         c.telefono_cli, c.correo_cli, c.direccion_cli;
+
+CREATE OR REPLACE VIEW vw_clientes_motos AS
+SELECT
+    c.documento_cli,
+    c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo,
+    c.telefono_cli, c.correo_cli, c.direccion_cli,
+    m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot,
+    mar.nombre_mar AS marca
+FROM clientes c
+INNER JOIN motos m   ON c.documento_cli = m.documento_cli_mot
+INNER JOIN marcas mar ON m.cod_marca_mot = mar.cod_mar;
+
+-- ----- Motos -----
+
+CREATE OR REPLACE VIEW vw_motos AS
+SELECT m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot,
+       m.documento_cli_mot, m.cod_marca_mot
+FROM motos m;
+
+CREATE OR REPLACE VIEW vw_motos_marcas AS
+SELECT m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot,
+       m.documento_cli_mot, m.cod_marca_mot,
+       mar.nombre_mar AS marca
+FROM motos m
+INNER JOIN marcas mar ON m.cod_marca_mot = mar.cod_mar;
+
+CREATE OR REPLACE VIEW vw_motos_detalle AS
+SELECT
+    m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot,
+    mar.nombre_mar AS marca,
+    c.documento_cli,
+    c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo_cliente,
+    c.telefono_cli, c.correo_cli
+FROM motos m
+INNER JOIN marcas mar ON m.cod_marca_mot = mar.cod_mar
+INNER JOIN clientes c ON m.documento_cli_mot = c.documento_cli;
+
+-- ----- Marcas -----
+
+CREATE OR REPLACE VIEW vw_marcas AS
+SELECT mar.cod_mar, mar.nombre_mar FROM marcas mar;
+
+CREATE OR REPLACE VIEW vw_marcas_resumen AS
+SELECT mar.cod_mar, mar.nombre_mar, COUNT(m.placa_mot) AS total_motos
+FROM marcas mar
+LEFT JOIN motos m ON mar.cod_mar = m.cod_marca_mot
+GROUP BY mar.cod_mar, mar.nombre_mar;
+
+CREATE OR REPLACE VIEW vw_marcas_motos AS
+SELECT mar.cod_mar, mar.nombre_mar,
+       m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot
+FROM marcas mar
+LEFT JOIN motos m ON mar.cod_mar = m.cod_marca_mot;
+
+-- ----- Auth: usuarios / perfiles / permisos -----
+
+CREATE OR REPLACE VIEW vw_usuarios_perfiles AS
+SELECT
+    u.documento_usu,
+    u.nombre_usu || ' ' || u.apellido_1_usu || ' ' || COALESCE(u.apellido_2_usu, '') AS nombre_completo,
+    u.correo_usu,
+    u.cod_tipo_usu,
+    e.nombre_est AS estado_usuario,
+    p.nombre_prf AS perfil,
+    p.descripcion_prf AS descripcion_perfil,
+    r.nombre_rol AS rol,
+    r.descripcion_rol AS descripcion_rol
+FROM usuarios u
+INNER JOIN estados e  ON u.cod_est_usu = e.cod_est
+INNER JOIN perfiles p ON u.cod_prf_usu = p.cod_prf AND u.cod_rol_prf_usu = p.cod_rol_prf
+INNER JOIN roles r    ON p.cod_rol_prf = r.cod_rol;
+
+CREATE OR REPLACE VIEW vw_perfiles AS
+SELECT
+    p.cod_prf, p.nombre_prf, p.descripcion_prf,
+    e.nombre_est AS nombre_est_prf,
+    r.nombre_rol AS nombre_rol_prf
+FROM perfiles p
+INNER JOIN estados e ON p.cod_est_prf = e.cod_est
+INNER JOIN roles r   ON p.cod_rol_prf = r.cod_rol
+ORDER BY p.cod_prf;
+
+CREATE OR REPLACE VIEW vw_perfiles_permisos_detalle AS
+SELECT
+    pf.cod_prf, pf.nombre_prf, r.nombre_rol,
+    pm.cod_prm, pm.nombre_prm, pm.descripcion_prm,
+    v.nombre_vis, v.ruta_vis,
+    e.nombre_est AS estado_permiso
+FROM perfiles_permisos pp
+INNER JOIN perfiles pf ON pp.cod_prf_pp = pf.cod_prf AND pp.cod_rol_prf_pp = pf.cod_rol_prf
+INNER JOIN roles r     ON pf.cod_rol_prf = r.cod_rol
+INNER JOIN permisos pm ON pp.cod_prm_pp = pm.cod_prm
+INNER JOIN vistas v    ON pm.ruta_vis_prm = v.ruta_vis
+INNER JOIN estados e   ON pp.cod_est_pp = e.cod_est;
+
+-- vw_permisos: no existia y el repo la ordena por una
+-- columna inexistente (cod_rol_prm). Se crea una version best-effort para que
+-- el endpoint no falle: lista los permisos con una columna cod_rol_prm nula.
+CREATE OR REPLACE VIEW vw_permisos AS
+SELECT
+    p.cod_prm, p.nombre_prm, p.descripcion_prm, p.ruta_vis_prm,
+    NULL::INTEGER AS cod_rol_prm
+FROM permisos p;
+
+
+-- ========================================================
+-- >>> 04_triggers.sql
+-- ========================================================
+
+-- ============================================================
+-- 04_triggers.sql
+-- Triggers FUNCIONALES en PL/pgSQL.
+-- Se portan SOLO los que afectan datos (decision de alcance):
+--   * tg_actualizar_stock     -> descuenta stock al insertar un detalle
+--   * tg_gen_consecutivo_ot   -> genera consecutivo_ot = MAX+1 si viene NULL
+--   * tg_calc_fecha_garantia  -> calcula fecha_fin_garantia_ot (1 mes) si estado=4
+-- Se OMITEN las validaciones de formato (email/placa/telefono/rangos) y
+-- tg_alerta_stock_bajo (lanzaba error en UPDATE, bloqueante).
+-- ============================================================
+
+-- ----- Descontar stock al confirmar un detalle de OT -----
+CREATE OR REPLACE FUNCTION fn_actualizar_stock()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE productos
+       SET stock_pro = stock_pro - NEW.cantidad_deto
+     WHERE cod_pro = NEW.cod_pro_deto;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_actualizar_stock
+AFTER INSERT ON detalle_orden_trabajo
+FOR EACH ROW
+EXECUTE FUNCTION fn_actualizar_stock();
+
+-- ----- Generar consecutivo de la orden de trabajo (MAX+1) -----
+CREATE OR REPLACE FUNCTION fn_gen_consecutivo_ot()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.consecutivo_ot IS NULL THEN
+        SELECT COALESCE(MAX(consecutivo_ot), 0) + 1
+          INTO NEW.consecutivo_ot
+          FROM ordenes_trabajo;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_gen_consecutivo_ot
+BEFORE INSERT ON ordenes_trabajo
+FOR EACH ROW
+EXECUTE FUNCTION fn_gen_consecutivo_ot();
+
+-- ----- Calcular fecha fin de garantia (1 mes desde entrega si estado = 4) -----
+CREATE OR REPLACE FUNCTION fn_calc_fecha_garantia()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.cod_ot_est_ot = 4 THEN
+        IF NEW.fecha_entrega_ot IS NOT NULL THEN
+            NEW.fecha_fin_garantia_ot := (NEW.fecha_entrega_ot + INTERVAL '1 month')::date;
+        END IF;
+    ELSE
+        NEW.fecha_fin_garantia_ot := NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_calc_fecha_garantia
+BEFORE INSERT OR UPDATE ON ordenes_trabajo
+FOR EACH ROW
+EXECUTE FUNCTION fn_calc_fecha_garantia();
+
+
+-- ========================================================
+-- >>> 05_audit.sql
+-- ========================================================
+
+-- ============================================================
+-- 05_audit.sql
+-- Auditoria en Postgres. Reemplaza el antiguo paquete PKG_AUDITORIA +
+-- UTL_FILE (que escribia a archivos .txt) por una TABLA audit_log poblada
+-- por una funcion trigger generica.
+-- ============================================================
+
+CREATE TABLE audit_log (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    fecha           TIMESTAMP    NOT NULL DEFAULT now(),
+    usuario         VARCHAR(100) DEFAULT session_user,
+    tabla           VARCHAR(100),
+    evento          CHAR(1),          -- I = insert, U = update, D = delete
+    valor_anterior  JSONB,
+    valor_nuevo     JSONB
+);
+
+CREATE OR REPLACE FUNCTION fn_audit()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO audit_log (tabla, evento, valor_nuevo)
+        VALUES (TG_TABLE_NAME, 'I', to_jsonb(NEW));
+        RETURN NEW;
+    ELSIF TG_OP = 'UPDATE' THEN
+        INSERT INTO audit_log (tabla, evento, valor_anterior, valor_nuevo)
+        VALUES (TG_TABLE_NAME, 'U', to_jsonb(OLD), to_jsonb(NEW));
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        INSERT INTO audit_log (tabla, evento, valor_anterior)
+        VALUES (TG_TABLE_NAME, 'D', to_jsonb(OLD));
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Triggers de auditoria sobre las tablas clave del negocio
+CREATE TRIGGER tg_audit_clientes
+AFTER INSERT OR UPDATE OR DELETE ON clientes
+FOR EACH ROW EXECUTE FUNCTION fn_audit();
+
+CREATE TRIGGER tg_audit_productos
+AFTER INSERT OR UPDATE OR DELETE ON productos
+FOR EACH ROW EXECUTE FUNCTION fn_audit();
+
+CREATE TRIGGER tg_audit_ordenes_trabajo
+AFTER INSERT OR UPDATE OR DELETE ON ordenes_trabajo
+FOR EACH ROW EXECUTE FUNCTION fn_audit();
+
+CREATE TRIGGER tg_audit_detalle_orden_trabajo
+AFTER INSERT OR UPDATE OR DELETE ON detalle_orden_trabajo
+FOR EACH ROW EXECUTE FUNCTION fn_audit();
+
+CREATE TRIGGER tg_audit_usuarios
+AFTER INSERT OR UPDATE OR DELETE ON usuarios
+FOR EACH ROW EXECUTE FUNCTION fn_audit();
+
+
+-- ========================================================
+-- >>> 06_seed.sql
+-- ========================================================
+
+-- ============================================================
 -- 06_seed.sql
 -- Datos semilla.
 -- Unica traduccion necesaria: seq_X.NEXTVAL -> nextval('seq_X').
@@ -1142,3 +1849,4 @@ COMMIT;
 --
 -- Orden 5: Andrea Moreno - VWX234 (BMW) - PENDIENTE
 --   Total Facturable: 410,000 (Aceite x3: 105,000 + Filtro: 18,000 + Guaya: 22,000 + Pastillas: 45,000 + Mano Obra x3: 240,000 + Bujías cortesía)
+
