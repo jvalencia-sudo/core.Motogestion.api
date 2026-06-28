@@ -14,6 +14,7 @@ from api.endpoints.motos.moto_api import router as motos_router
 from api.endpoints.ordenes_trabajo.orden_trabajo_api import router as ordenes_trabajo_router
 from api.endpoints.ordenes_trabajo.reclamo_api import router as reclamos_router
 from api.endpoints.talleres.taller_api import router as talleres_router
+from api.endpoints.dashboard.dashboard_api import router as dashboard_router
 
 api_router = APIRouter()
 
@@ -46,3 +47,6 @@ api_router.include_router(reclamos_router, tags=["Reclamos"])
 
 # Talleres (registro / onboarding)
 api_router.include_router(talleres_router, prefix="/talleres", tags=["Talleres"])
+
+# Dashboard (resumen para la home)
+api_router.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
