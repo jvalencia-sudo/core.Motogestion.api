@@ -93,6 +93,20 @@ class AdminUserRepository(BaseRepository):
             'total_pages': (total + limit - 1) // limit if limit > 0 else 0
         }
 
+    async def crear_pre_registrado(
+        self, documento: str, nombre: str, apellido_1: str, apellido_2: Optional[str],
+        correo: str, cod_prf: int, cod_rol: int, cod_est: int = 1, cod_tipo: int = 2
+    ) -> None:
+        # Usuario PRE-REGISTRADO en el taller actual (cod_taller por DEFAULT = app.tenant_id).
+        # sub NULL hasta su primer login (modelo de login cerrado por correo).
+        await self.db.execute_non_query(
+            f"INSERT INTO {self.table_name} "
+            "(documento_usu, nombre_usu, apellido_1_usu, apellido_2_usu, correo_usu, "
+            " contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, cod_rol_prf_usu) "
+            "VALUES (:1, :2, :3, :4, :5, 'auth0_managed', :6, :7, NULL, :8, :9)",
+            (documento, nombre, apellido_1, apellido_2, correo, cod_tipo, cod_est, cod_prf, cod_rol),
+        )
+
     async def get_user_by_sub(self, sub_id: str) -> Optional[Dict]:
         """Obtiene usuario por sub_id de Auth0"""
         return await self.get_one(

@@ -18,8 +18,11 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
+from fastapi import Depends
+
 from api import api_router
 from config import settings
+from infrastructure.dependencies.tenant_request import resolve_tenant
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.data.db_pool import init_pool, close_pool
 
@@ -73,7 +76,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=500)
-app.include_router(api_router, prefix=settings.api_url)
+app.include_router(api_router, prefix=settings.api_url, dependencies=[Depends(resolve_tenant)])
 
 
 @app.exception_handler(RequestValidationError)

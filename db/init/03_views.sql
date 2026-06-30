@@ -1,10 +1,10 @@
 -- ============================================================
 -- 03_views.sql
--- Vistas (migradas de Oracle ScripVistas.sql)
--- Cambios Oracle -> Postgres:
+-- Vistas del esquema
+-- Notas:
 --   * SYSDATE                 -> CURRENT_DATE
 --   * TRUNC(SYSDATE - fecha)  -> (CURRENT_DATE - fecha)   [resta de date da entero de dias]
---   * Se omite la vista duplicada Oracle "US_PPI"."VW_PRODUCTOS_CON_IMPUESTOS"
+--   * Se omite la vista duplicada "US_PPI"."VW_PRODUCTOS_CON_IMPUESTOS"
 --   * || (concatenacion), COALESCE, ROUND, ABS, CASE: validos en Postgres tal cual
 -- ============================================================
 
@@ -327,7 +327,7 @@ INNER JOIN permisos pm ON pp.cod_prm_pp = pm.cod_prm
 INNER JOIN vistas v    ON pm.ruta_vis_prm = v.ruta_vis
 INNER JOIN estados e   ON pp.cod_est_pp = e.cod_est;
 
--- vw_permisos: no existia en los scripts Oracle y el repo la ordena por una
+-- vw_permisos: no existia y el repo la ordena por una
 -- columna inexistente (cod_rol_prm). Se crea una version best-effort para que
 -- el endpoint no falle: lista los permisos con una columna cod_rol_prm nula.
 CREATE OR REPLACE VIEW vw_permisos AS

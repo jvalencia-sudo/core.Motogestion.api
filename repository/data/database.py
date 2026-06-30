@@ -4,20 +4,32 @@ from typing import Optional, Tuple, Any, List, Dict, NoReturn
 import pandas as pd
 
 from config import settings
+from infrastructure.utils.tenant_context import get_tenant
 from repository.data.db_pool import get_pool
 
 Params = Tuple[Any, ...]
 
-# Detecta binds estilo Oracle (:1, :2, ...)
+# Detecta binds estilo posicional (:1, :2, ...)
 _BIND_RE = re.compile(r":\d+")
 
 
-def _translate(query: str) -> str:
-    """Traduce binds estilo Oracle (:1, :2) al estilo de psycopg (%s).
+async def _apply_tenant(cursor) -> None:
+    """Fija app.tenant_id en la transacción actual (lo usa el RLS de Postgres).
 
-    Solo actua si la consulta usa binds Oracle. En ese caso, primero escapa
-    los '%' literales (para que psycopg no los interprete como placeholders)
-    y luego reemplaza :N -> %s. Las consultas que ya usan %s se dejan intactas.
+    Si no hay taller en el contexto, usa '-1' (un taller inexistente) para que el
+    RLS no devuelva nada en vez de fallar: aislamiento seguro por defecto.
+    """
+    tenant = get_tenant()
+    value = str(tenant) if tenant is not None else "-1"
+    await cursor.execute("SELECT set_config('app.tenant_id', %s, true)", (value,))
+
+
+def _translate(query: str) -> str:
+    """Traduce binds posicionales (:1, :2) al estilo de psycopg (%s).
+
+    Solo actua si la consulta usa binds :N. En ese caso, primero escapa los '%'
+    literales (para que psycopg no los interprete como placeholders) y luego
+    reemplaza :N -> %s. Las consultas que ya usan %s se dejan intactas.
     """
     if _BIND_RE.search(query):
         query = query.replace("%", "%%")
@@ -26,14 +38,13 @@ def _translate(query: str) -> str:
 
 
 def _columns_upper(description) -> List[str]:
-    """Nombres de columna en MAYUSCULAS para replicar el comportamiento de
-    Oracle (sobre el que se escribieron los modelos/servicios del proyecto)."""
+    """Nombres de columna en MAYUSCULAS (los modelos/servicios del proyecto leen
+    las claves en mayúsculas)."""
     return [col[0].upper() for col in description]
 
 
-class OracleDb:
-    """Wrapper de acceso a datos. Conserva el nombre y la API original para no
-    tocar los repositorios; internamente usa psycopg3 sobre PostgreSQL."""
+class Database:
+    """Wrapper de acceso a datos sobre PostgreSQL (psycopg3)."""
 
     def __init__(self):
         self.config = settings.db_config
@@ -43,6 +54,7 @@ class OracleDb:
         pool = get_pool()
         async with pool.connection() as conn:
             async with conn.cursor() as cursor:
+                await _apply_tenant(cursor)
                 await cursor.execute(_translate(query), params)
                 columns = _columns_upper(cursor.description)
                 rows = await cursor.fetchall()
@@ -53,6 +65,7 @@ class OracleDb:
         pool = get_pool()
         async with pool.connection() as conn:
             async with conn.cursor() as cursor:
+                await _apply_tenant(cursor)
                 await cursor.execute(_translate(query), params)
                 columns = _columns_upper(cursor.description)
                 rows = await cursor.fetchall()
@@ -63,6 +76,7 @@ class OracleDb:
         pool = get_pool()
         async with pool.connection() as conn:
             async with conn.cursor() as cursor:
+                await _apply_tenant(cursor)
                 await cursor.executemany(_translate(query), params)
                 await conn.commit()
 
@@ -73,6 +87,7 @@ class OracleDb:
         try:
             async with pool.connection() as conn:
                 async with conn.cursor() as cursor:
+                    await _apply_tenant(cursor)
                     if primary_key:
                         returning_query = f"{_translate(query)} RETURNING {primary_key}"
                         await cursor.execute(returning_query, params)
@@ -95,6 +110,7 @@ class OracleDb:
         try:
             async with pool.connection() as conn:
                 async with conn.cursor() as cursor:
+                    await _apply_tenant(cursor)
                     await cursor.execute(_translate(query), params)
                     await conn.commit()
         except Exception as e:
@@ -118,6 +134,7 @@ class OracleDb:
         pool = get_pool()
         async with pool.connection() as conn:
             async with conn.cursor() as cursor:
+                await _apply_tenant(cursor)
                 await cursor.executemany(_translate(query), params)
                 await conn.commit()
 
@@ -126,6 +143,7 @@ class OracleDb:
         pool = get_pool()
         async with pool.connection() as conn:
             async with conn.cursor() as cursor:
+                await _apply_tenant(cursor)
                 await cursor.execute(_translate(query), params)
                 row = await cursor.fetchone()
                 if row:

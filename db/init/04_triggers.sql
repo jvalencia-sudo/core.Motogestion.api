@@ -1,6 +1,6 @@
 -- ============================================================
 -- 04_triggers.sql
--- Triggers FUNCIONALES migrados de Oracle Scriptstriggers.sql a PL/pgSQL.
+-- Triggers FUNCIONALES en PL/pgSQL.
 -- Se portan SOLO los que afectan datos (decision de alcance):
 --   * tg_actualizar_stock     -> descuenta stock al insertar un detalle
 --   * tg_gen_consecutivo_ot   -> genera consecutivo_ot = MAX+1 si viene NULL

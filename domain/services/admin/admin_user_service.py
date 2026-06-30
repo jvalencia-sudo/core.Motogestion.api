@@ -26,95 +26,38 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         self, contract: AdminUserCreationContract
     ) -> UserModel:
         """
-        Crea un usuario completo (Auth0 + BD) con contraseña
-        Flujo: Primero Auth0, luego BD. Si falla BD, rollback de Auth0.
+        Crea un usuario en el taller actual, PRE-REGISTRADO por correo (login cerrado).
 
-        Args:
-            contract: Datos del usuario a crear
-
-        Returns:
-            UserModel: El usuario creado
-
-        Raises:
-            DomainException: Si el usuario ya existe o si hay errores
+        No se crea cuenta en Auth0: la persona entra luego con su correo (Google/Auth0)
+        y se le vincula el sub en su primer login. El `password` del contrato se ignora.
+        El taller sale del contexto de la petición (cod_taller por DEFAULT).
         """
-        # 1. Validar que no exista en BD
-        existing_user_by_email = await self.repository.get_user_by_email(
-            contract.correo_usu
-        )
-        if existing_user_by_email:
+        # Validar que no exista en este taller (RLS acota a su taller)
+        if await self.repository.get_user_by_email(contract.correo_usu):
             raise DomainException(
                 f"Ya existe un usuario con el correo {contract.correo_usu}"
             )
-
-        existing_user_by_doc = await self.repository.get_user_by_documento(
-            contract.documento_usu
-        )
-        if existing_user_by_doc:
+        if await self.repository.get_user_by_documento(contract.documento_usu):
             raise DomainException(
                 f"Ya existe un usuario con el documento {contract.documento_usu}"
             )
 
-        # 2. Crear usuario en Auth0
-        print(f"Creating user in Auth0: {contract.correo_usu}")
-        try:
-            # Crear contrato para Auth0
-            from domain.contracts.auth.user_contract import UserCreationContract
+        await self.repository.crear_pre_registrado(
+            documento=contract.documento_usu,
+            nombre=contract.nombre_usu,
+            apellido_1=contract.apellido_1_usu,
+            apellido_2=contract.apellido_2_usu,
+            correo=contract.correo_usu,
+            cod_prf=contract.cod_prf_usu,
+            cod_rol=contract.cod_rol_prf_usu,
+            cod_est=contract.cod_est_usu or 1,
+            cod_tipo=contract.cod_tipo_usu or 2,
+        )
 
-            auth0_contract = UserCreationContract(
-                name=f"{contract.nombre_usu} {contract.apellido_1_usu}",
-                email=contract.correo_usu,
-                password=contract.password,
-                sub_id_usu="",  # Se asignará después
-                is_creation=True,
-                documento_usu=contract.documento_usu,
-                nombre_usu=contract.nombre_usu,
-                apellido_1_usu=contract.apellido_1_usu,
-                apellido_2_usu=contract.apellido_2_usu,
-                cod_prf_usu=contract.cod_prf_usu,
-                cod_rol_prf_usu=contract.cod_rol_prf_usu,
-            )
-
-            auth0_user = await self.auth0_provider.create_user(auth0_contract)
-
-            if not auth0_user:
-                raise DomainException("Error al crear usuario en Auth0")
-
-            sub_id_usu = auth0_user.user_id
-
-        except Exception as e:
-            raise DomainException(f"Error al crear usuario en Auth0: {str(e)}")
-
-        # 3. Crear usuario en BD
-        try:
-            user_model = UserModel(
-                documento_usu=int(contract.documento_usu),
-                nombre_usu=contract.nombre_usu,
-                apellido_1_usu=contract.apellido_1_usu,
-                apellido_2_usu=contract.apellido_2_usu,
-                correo_usu=contract.correo_usu,
-                contrasena_usu="auth0_managed",
-                cod_est_usu=contract.cod_est_usu,
-                cod_tipo_usu=contract.cod_tipo_usu,
-                sub_id_usu=sub_id_usu,
-                cod_prf_usu=contract.cod_prf_usu,
-                cod_rol_prf_usu=contract.cod_rol_prf_usu,
-            )
-
-            await self.create(user_model)
-
-            # Buscar el usuario creado
-            created_user = await self.repository.get_user_by_sub(sub_id_usu)
-            if not created_user:
-                raise DomainException("Usuario creado pero no se pudo recuperar")
-
-            return self.__parse__(created_user)
-
-        except Exception as e:
-            # Rollback: eliminar usuario de Auth0
-            print(f"Error creating user in DB, rolling back Auth0 user: {str(e)}")
-            await self.auth0_provider.delete_user(sub_id_usu)
-            raise DomainException(f"Error al crear usuario en BD: {str(e)}")
+        created_user = await self.repository.get_user_by_documento(contract.documento_usu)
+        if not created_user:
+            raise DomainException("Usuario creado pero no se pudo recuperar")
+        return self.__parse__(created_user)
 
     async def update_user_admin(
         self, documento_usu: str, contract: AdminUserUpdateContract

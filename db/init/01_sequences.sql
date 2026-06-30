@@ -1,6 +1,6 @@
 -- ============================================================
 -- 01_sequences.sql
--- Secuencias (migradas de Oracle ScriptSequencias.sql)
+-- Secuencias del esquema
 -- En Postgres alimentan el DEFAULT de cada PK autogenerada.
 -- ============================================================
 

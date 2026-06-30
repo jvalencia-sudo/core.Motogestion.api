@@ -16,8 +16,11 @@ from domain.models.auth.user_model import (
 from domain.models.providers.auth0_user import Auth0UserModel
 from domain.services.auth.permiso_servicio import PermisoServicio
 from domain.services.base_service import BaseService
+from starlette.status import HTTP_403_FORBIDDEN
+
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
+from infrastructure.utils.tenant_context import set_tenant
 from repository.auth.user_repository import UserRepository
 from repository.auth.user_business_repository import UserBusinessRepository
 from infrastructure.commons.enums.user import UserTypeEnum
@@ -42,41 +45,54 @@ class UserService(BaseService[UserModel, UserRepository]):
 
     async def login(self, request: LoginContract) -> UserWithPermissionsModel:
         """
-        Login method that verifies token and returns user with permissions.
-        Creates user if doesn't exist.
+        Login CERRADO: solo entra quien YA esté registrado en el sistema.
+        - Si el usuario existe por sub (ya vinculado) -> entra.
+        - Si es su primer ingreso y su correo está pre-registrado (sin sub) -> se
+          vincula el sub y entra.
+        - Si no está registrado -> 403 (no se crean usuarios sueltos).
         """
-        auth_provider = Auth0Provider()
+        auth_user = await Auth0Provider().verify(request.token)
+        sub = auth_user.user_id
 
-        # Verify token with Auth0
-        auth_user = await auth_provider.verify(request.token)
+        existing_user = await self.repository.get_user_by_sub(sub)
 
-        # Search for existing user by sub_id
-        existing_user = await self.repository.get_user_by_sub(auth_user.user_id)
+        if not existing_user:
+            # Primer ingreso: el correo debe estar pre-registrado (registro de taller o invitación)
+            acceso = await self.repository.get_acceso_por_correo(request.email)
+            if not acceso:
+                raise DomainException("Usuario no registrado en el sistema", HTTP_403_FORBIDDEN)
+            set_tenant(acceso.get("COD_TALLER"))
+            await self.repository.vincular_sub(acceso.get("DOCUMENTO_USU"), sub)
+            existing_user = await self.repository.get_user_by_sub(sub)
 
-        if existing_user:
-            # User exists - map from DB to model
-            user = self._map_user_from_db(existing_user, auth_user.user_id, request)
-            print(f"Existing user found: {user.documento_usu}")
-        else:
-            # User doesn't exist - create new one
-            print(f'User not found, creating new user for sub_id: {auth_user.user_id}')
-            user = await self._create_new_user(auth_user.user_id, request)
-            print(f"New user created: {user.documento_usu}")
+        user = self._map_user_from_db(existing_user, sub, request)
 
-        # Get user permissions based on profile and role
         permissions = await self.permiso_servicio.obtener_permisos_por_perfil(
             user.cod_prf_usu,
             user.cod_rol_prf_usu
         )
         permission_names = [p.nombre_prm for p in permissions]
 
-        print(f"User: {user.documento_usu}, Permissions: {permission_names}")
+        nombre_tal = await self.repository.get_nombre_taller(existing_user.get("COD_TALLER"))
+        perfil = await self.repository.get_nombre_perfil(user.cod_prf_usu)
 
-        # Return user with permissions
         return UserWithPermissionsModel(
             **user.model_dump(),
             permissions=permission_names,
+            nombre_tal=nombre_tal,
+            perfil=perfil,
         )
+
+    async def invitar(self, contract) -> Dict:
+        """Crea un miembro del equipo en el taller actual (pre-registrado por correo).
+        El taller sale del contexto de la petición (resolve_tenant)."""
+        rol = contract.rol if contract.rol in (1, 2, 3) else 2
+        nombre, apellido_1, _ = self._split_full_name(contract.nombre)
+        documento = self.generate_provisional_document()
+        await self.repository.crear_pre_registrado(
+            documento, nombre, apellido_1, contract.correo, rol, rol
+        )
+        return {"correo": contract.correo, "documento_usu": documento, "rol": rol}
 
     def _map_user_from_db(self, db_user: Dict, sub_id: str, request: LoginContract) -> UserModel:
         """Maps database user record to UserModel"""
