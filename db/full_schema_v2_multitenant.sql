@@ -38,6 +38,7 @@ CREATE SEQUENCE seq_permisos             START WITH 1 INCREMENT BY 1 CACHE 1 NO 
 CREATE SEQUENCE seq_productos            START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 CREATE SEQUENCE seq_productos_impuestos  START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 CREATE SEQUENCE seq_reclamos             START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_movimientos_inventario START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 CREATE SEQUENCE seq_roles                START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 
 -- ============================================================
@@ -253,18 +254,51 @@ CREATE TABLE reclamos (
     CONSTRAINT fk_reclamos_orden  FOREIGN KEY (cod_taller, consecutivo_ot_rec) REFERENCES ordenes_trabajo (cod_taller, consecutivo_ot)
 );
 
+-- Inventario: kardex de movimientos de stock (ENTRADA/SALIDA/AJUSTE).
+CREATE TABLE movimientos_inventario (
+    cod_taller        INTEGER NOT NULL DEFAULT current_setting('app.tenant_id')::integer,
+    cod_mov           INTEGER NOT NULL DEFAULT nextval('seq_movimientos_inventario'),
+    cod_pro_mov       INTEGER NOT NULL,
+    tipo_mov          VARCHAR(10) NOT NULL,   -- ENTRADA / SALIDA / AJUSTE
+    cantidad_mov      INTEGER NOT NULL,       -- delta aplicado al stock (+entra, -sale)
+    stock_ant_mov     INTEGER,
+    stock_nue_mov     INTEGER,
+    motivo_mov        VARCHAR(255),
+    documento_usu_mov VARCHAR(11),            -- quién lo hizo (auditoría, sin FK)
+    fecha_mov         TIMESTAMP NOT NULL DEFAULT now(),
+    referencia_mov    VARCHAR(50),            -- ej. "OT #12"; a futuro el cod_compra
+    CONSTRAINT pk_mov_inv      PRIMARY KEY (cod_taller, cod_mov),
+    CONSTRAINT fk_mov_taller   FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
+    CONSTRAINT fk_mov_producto FOREIGN KEY (cod_taller, cod_pro_mov) REFERENCES productos (cod_taller, cod_pro),
+    CONSTRAINT chk_mov_tipo    CHECK (tipo_mov IN ('ENTRADA', 'SALIDA', 'AJUSTE'))
+);
+
 -- ============================================================
 -- 4. TRIGGERS funcionales (ajustados a multi-taller)
 -- ============================================================
 
--- Descontar stock al confirmar un detalle (acotado al taller del detalle)
+-- Descontar stock al confirmar un detalle (acotado al taller) + registrar el
+-- movimiento SALIDA en el kardex de inventario.
 CREATE OR REPLACE FUNCTION fn_actualizar_stock()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_ant INTEGER;
+    v_nue INTEGER;
 BEGIN
-    UPDATE productos
-       SET stock_pro = stock_pro - NEW.cantidad_deto
-     WHERE cod_pro = NEW.cod_pro_deto
-       AND cod_taller = NEW.cod_taller;
+    SELECT stock_pro INTO v_ant FROM productos
+     WHERE cod_pro = NEW.cod_pro_deto AND cod_taller = NEW.cod_taller;
+    v_nue := COALESCE(v_ant, 0) - NEW.cantidad_deto;
+
+    UPDATE productos SET stock_pro = v_nue
+     WHERE cod_pro = NEW.cod_pro_deto AND cod_taller = NEW.cod_taller;
+
+    INSERT INTO movimientos_inventario
+      (cod_taller, cod_pro_mov, tipo_mov, cantidad_mov, stock_ant_mov, stock_nue_mov,
+       motivo_mov, documento_usu_mov, referencia_mov)
+    VALUES
+      (NEW.cod_taller, NEW.cod_pro_deto, 'SALIDA', -NEW.cantidad_deto, v_ant, v_nue,
+       'Uso en orden de trabajo', NEW.documento_usu_deto, 'OT #' || NEW.consecutivo_ot_deto);
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -405,7 +439,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'perfiles','perfiles_permisos',
     'usuarios','clientes','marcas','motos','impuestos','productos',
-    'productos_impuestos','ordenes_trabajo','detalle_orden_trabajo','reclamos'
+    'productos_impuestos','ordenes_trabajo','detalle_orden_trabajo','reclamos','movimientos_inventario'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
