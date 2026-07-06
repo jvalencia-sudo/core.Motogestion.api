@@ -16,6 +16,7 @@ from api.endpoints.ordenes_trabajo.reclamo_api import router as reclamos_router
 from api.endpoints.talleres.taller_api import router as talleres_router
 from api.endpoints.dashboard.dashboard_api import router as dashboard_router
 from api.endpoints.tablero.tablero_api import router as tablero_router
+from api.endpoints.inventario.inventario_api import router as inventario_router
 
 api_router = APIRouter()
 
@@ -54,3 +55,6 @@ api_router.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboar
 
 # Tablero (órdenes de trabajo, alcance por rol)
 api_router.include_router(tablero_router, prefix="/tablero", tags=["Tablero"])
+
+# Inventario (movimientos de stock, entradas, toma física)
+api_router.include_router(inventario_router, prefix="/inventario", tags=["Inventario"])
