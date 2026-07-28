@@ -1,7 +1,8 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 
+from config import settings
 from domain.contracts.talleres.taller_contract import (
     TallerRegistroContract,
     TallerRegistroResponse,
@@ -10,12 +11,14 @@ from domain.contracts.talleres.taller_contract import (
 from domain.models.talleres.taller_model import TallerModel
 from domain.services.talleres.taller_servicio import TallerServicio
 from infrastructure.dependencies.current_user import require_super_admin
+from infrastructure.rate_limit.limiter import limiter
 
 router = APIRouter()
 
 
 @router.post("", response_model=TallerRegistroResponse, status_code=status.HTTP_201_CREATED)
-async def registrar_taller(contract: TallerRegistroContract):
+@limiter.limit(settings.rate_limit_config.registro)
+async def registrar_taller(request: Request, contract: TallerRegistroContract):
     """
     Registra un taller nuevo (endpoint público para la landing).
 

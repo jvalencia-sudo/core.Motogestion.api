@@ -45,6 +45,17 @@ class SapConfig(BaseSettingModel):
     base_prd_url: str = Field(..., alias="SAP_BASE_PRD_URL")
 
 
+class RateLimitConfig(BaseSettingModel):
+    # Interruptor general (desactivar en tests o si hiciera falta).
+    enabled: bool = Field(True, alias="RATE_LIMIT_ENABLED")
+    # Límite global por IP aplicado a toda la API.
+    default: str = Field("200/minute", alias="RATE_LIMIT_DEFAULT")
+    # Límite estricto para login (fuerza bruta de credenciales).
+    login: str = Field("10/minute", alias="RATE_LIMIT_LOGIN")
+    # Límite estricto para registro público de talleres.
+    registro: str = Field("5/minute", alias="RATE_LIMIT_REGISTER")
+
+
 class Settings(BaseSettingModel):
     environment: str
     project_name: str
@@ -52,6 +63,7 @@ class Settings(BaseSettingModel):
     docs_url: Optional[str] = "/docs"
     db_config: DbConfig = DbConfig()
     auth0_config: Auth0Config = Auth0Config()
+    rate_limit_config: RateLimitConfig = RateLimitConfig()
     #aws_config: AwsConfig = AwsConfig()
     #quotation_config: QuotationConfig = QuotationConfig()
     #sap_config: SapConfig = SapConfig()

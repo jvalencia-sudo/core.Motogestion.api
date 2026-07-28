@@ -14,6 +14,8 @@ from fastapi.responses import JSONResponse
 # from opentelemetry.sdk.trace import TracerProvider
 # from opentelemetry.sdk.trace.export import BatchSpanProcessor
 # from opentelemetry.trace.status import Status, StatusCode
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -24,6 +26,7 @@ from api import api_router
 from config import settings
 from infrastructure.dependencies.tenant_request import resolve_tenant
 from infrastructure.exceptions.domain_exception import DomainException
+from infrastructure.rate_limit.limiter import limiter, rate_limit_exceeded_handler
 from repository.data.db_pool import init_pool, close_pool
 
 # psycopg async en Windows requiere SelectorEventLoop (el ProactorEventLoop por
@@ -67,6 +70,12 @@ app = FastAPI(
 
 # FastAPIInstrumentor.instrument_app(app)
 # PsycopgInstrumentor().instrument()
+
+# Rate limiting (por IP, en memoria). SlowAPIMiddleware aplica el límite global
+# por defecto a toda la API; los endpoints sensibles añaden @limiter.limit(...).
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

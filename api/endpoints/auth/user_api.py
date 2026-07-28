@@ -1,9 +1,11 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from starlette.status import HTTP_204_NO_CONTENT, HTTP_201_CREATED
 
+from config import settings
 from domain.contracts.auth.login_contract import LoginContract
+from infrastructure.rate_limit.limiter import limiter
 from domain.contracts.auth.user_contract import (
     UserCreationContract,
     UserUpdateContract,
@@ -23,8 +25,9 @@ async def get():
 
 
 @router.post("/login")
-async def login(request: LoginContract):
-    return await UserService().login(request)
+@limiter.limit(settings.rate_limit_config.login)
+async def login(request: Request, contract: LoginContract):
+    return await UserService().login(contract)
 
 
 @router.post("/invitar", status_code=HTTP_201_CREATED, dependencies=[Depends(require_admin)])
