@@ -6,10 +6,11 @@ class ProductoModelo(BaseSchema):
     cod_pro: int = 0
     nombre_pro: str
     descripcion_pro: Optional[str] = None
-    stock_pro: int
-    stock_pro_min: int
+    stock_pro: Optional[int] = None       # NULL para SERVICIO/PAQUETE
+    stock_pro_min: Optional[int] = None
     cod_est_pro: int
     precio_pro: int
+    tipo_pro: str = "BIEN"                 # BIEN | SERVICIO | PAQUETE
 
 
 class VwProductosConImpuestos(BaseSchema):

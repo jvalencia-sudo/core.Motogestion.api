@@ -13,13 +13,22 @@ class PerfilPermisoRepositorio(BaseRepository):
         return await self.execute("SELECT * FROM vw_perfiles_permisos_detalle ORDER BY cod_prf, cod_prm", None)
 
     async def obtener_permisos_por_perfil(self, cod_prf: int, cod_rol: int) -> List[Dict]:
-        """Obtiene permisos asignados a un perfil específico desde la vista"""
+        """Obtiene permisos asignados a un perfil específico desde la vista.
+        Filtra por cod_rol directo (la vista ya lo expone; sin subconsulta a `roles`)."""
         query = """
             SELECT * FROM vw_perfiles_permisos_detalle
-            WHERE cod_prf = :1 AND nombre_rol = (SELECT nombre_rol FROM roles WHERE cod_rol = :2)
+            WHERE cod_prf = :1 AND cod_rol = :2
             ORDER BY nombre_prm
         """
         return await self.execute(query, (cod_prf, cod_rol))
+
+    async def obtener_cod_prm_asignados(self, cod_prf: int, cod_rol: int) -> List[Dict]:
+        """Códigos de permiso ya asignados a un perfil (cualquier estado). Su propia tabla."""
+        return await self.execute(
+            "SELECT cod_prm_pp FROM perfiles_permisos "
+            "WHERE cod_prf_pp = :1 AND cod_rol_prf_pp = :2",
+            (cod_prf, cod_rol),
+        )
 
     async def verificar_permiso_existe(self, cod_prf: int, cod_rol: int, cod_prm: int) -> Optional[Dict]:
         """Verifica si un permiso ya está asignado a un perfil usando get_by_multiple_fields"""
@@ -39,17 +48,3 @@ class PerfilPermisoRepositorio(BaseRepository):
         """
         await self.execute_non_query(query, (cod_est, cod_prf, cod_rol, cod_prm))
 
-    async def obtener_permisos_disponibles(self, cod_prf: int, cod_rol: int) -> List[Dict]:
-        """Obtiene permisos que NO están asignados al perfil"""
-        query = """
-            SELECT p.*
-            FROM permisos p
-            WHERE NOT EXISTS (
-                SELECT 1 FROM perfiles_permisos pp
-                WHERE pp.cod_prm_pp = p.cod_prm
-                AND pp.cod_prf_pp = :1
-                AND pp.cod_rol_prf_pp = :2
-            )
-            ORDER BY p.nombre_prm
-        """
-        return await self.execute(query, (cod_prf, cod_rol))

@@ -30,6 +30,7 @@ from repository.ordenes_trabajo.detalle_orden_trabajo_repositorio import Detalle
 from repository.ordenes_trabajo.ot_estado_repositorio import OtEstadoRepositorio
 from repository.motos.moto_repositorio import MotoRepositorio
 from repository.productos.producto_repositorio import ProductoRepositorio
+from repository.productos.paquete_componente_repositorio import PaqueteComponenteRepositorio
 from infrastructure.exceptions.domain_exception import DomainException
 
 
@@ -40,9 +41,40 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         self.estado_repository = OtEstadoRepositorio()
         self.moto_repository = MotoRepositorio()
         self.producto_repository = ProductoRepositorio()
+        self.paquete_repository = PaqueteComponenteRepositorio()
 
     def __parse__(self, record: Dict) -> OrdenTrabajoModelo:
         return OrdenTrabajoModelo.model_validate(record)
+
+    async def _validar_stock(self, producto: ProductoModelo, cantidad) -> None:
+        """Valida stock disponible antes de insertar un detalle facturable (cantidad>0).
+        - BIEN: valida su propio stock.
+        - PAQUETE: valida el stock de cada componente BIEN (cantidad_comp * cantidad).
+        - SERVICIO: no valida (no maneja stock).
+        El descuento real lo hace el trigger de la BD.
+        """
+        if cantidad <= 0:
+            return
+        if producto.tipo_pro == "BIEN":
+            if (producto.stock_pro or 0) < cantidad:
+                raise DomainException(
+                    f"Stock insuficiente para el producto {producto.nombre_pro}. "
+                    f"Disponible: {producto.stock_pro}, Solicitado: {cantidad}",
+                    HTTP_400_BAD_REQUEST
+                )
+        elif producto.tipo_pro == "PAQUETE":
+            componentes = await self.paquete_repository.listar_por_paquete(producto.cod_pro)
+            for c in componentes:
+                if c.get("TIPO_PRO") == "BIEN":
+                    requerido = c.get("CANTIDAD_COMP") * cantidad
+                    disponible = c.get("STOCK_PRO") or 0
+                    if disponible < requerido:
+                        raise DomainException(
+                            f"Stock insuficiente para el componente {c.get('NOMBRE_PRO')} "
+                            f"del paquete {producto.nombre_pro}. Disponible: {disponible}, "
+                            f"Requerido: {requerido}",
+                            HTTP_400_BAD_REQUEST
+                        )
 
     async def obtener_todas_ordenes(self) -> List[OrdenTrabajoResumenContract]:
         """Obtiene todas las ordenes de trabajo con informacion resumida"""
@@ -215,13 +247,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             # Parsear a modelo Pydantic para tipado estático
             producto = self.__parse_custom__(producto_dict, ProductoModelo)
 
-            # Validar stock disponible SOLO si la cantidad es positiva (se factura)
-            if detalle.cantidad_deto > 0:
-                if producto.stock_pro < detalle.cantidad_deto:
-                    raise DomainException(
-                        f"Stock insuficiente para el producto {producto.nombre_pro}. Disponible: {producto.stock_pro}, Solicitado: {detalle.cantidad_deto}",
-                        HTTP_400_BAD_REQUEST
-                    )
+            # Validar stock (type-aware): BIEN valida su stock, PAQUETE el de sus
+            # componentes BIEN, SERVICIO no valida. El descuento lo hace el trigger.
+            await self._validar_stock(producto, detalle.cantidad_deto)
 
         # Crear el modelo de orden de trabajo
         orden_modelo = OrdenTrabajoModelo(
@@ -250,7 +278,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             if not valor_unitario:
                 valor_unitario = producto.precio_pro
 
-            # Crear detalle
+            # Crear detalle. El stock lo maneja el trigger de la BD (tg_actualizar_stock),
+            # que descuenta según el tipo de producto (BIEN descuenta, SERVICIO no, PAQUETE
+            # explota componentes) y deja el movimiento en el kardex. Aquí NO tocamos stock.
             await self.detalle_repository.crear_detalle(
                 consecutivo_ot=consecutivo_ot,
                 cod_pro=detalle.cod_pro_deto,
@@ -258,14 +288,6 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 valor_unitario=valor_unitario,
                 documento_usu=documento_usu_creador
             )
-
-            # Actualizar stock del producto según el signo de la cantidad
-            # IMPORTANTE: Productos NO facturables (cantidad negativa) NO afectan el stock
-            if detalle.cantidad_deto > 0:
-                # Producto SE FACTURA: restar del stock
-                nuevo_stock = producto.stock_pro - detalle.cantidad_deto
-                await self.producto_repository.actualizar_stock(detalle.cod_pro_deto, nuevo_stock)
-            # Si cantidad < 0 (NO se factura): NO hacer nada con el stock
 
         # Retornar la orden creada completa
         return await self.obtener_orden_por_id(consecutivo_ot)
@@ -435,16 +457,12 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         # Parsear a modelo Pydantic para tipado estático
         producto = self.__parse_custom__(producto_dict, ProductoModelo)
 
-        # Validar stock disponible SOLO si la cantidad es positiva (se factura)
-        if detalle_contract.cantidad_deto > 0:
-            if producto.stock_pro < detalle_contract.cantidad_deto:
-                raise DomainException(
-                    f"Stock insuficiente. Disponible: {producto.stock_pro}, Solicitado: {detalle_contract.cantidad_deto}",
-                    HTTP_400_BAD_REQUEST
-                )
+        # Validar stock (type-aware: BIEN, PAQUETE→componentes, SERVICIO no aplica).
+        await self._validar_stock(producto, detalle_contract.cantidad_deto)
 
-        # Verificar si el producto ya existe en la orden
-        if await self.detalle_repository.existe_detalle(consecutivo_ot, detalle_contract.cod_pro_deto):
+        # Verificar duplicados solo para BIEN. La mano de obra (SERVICIO) y los
+        # paquetes (PAQUETE) pueden agregarse en varias líneas dentro de la misma orden.
+        if producto.tipo_pro == "BIEN" and await self.detalle_repository.existe_detalle(consecutivo_ot, detalle_contract.cod_pro_deto):
             raise DomainException(
                 f"El producto {producto.nombre_pro} ya existe en esta orden",
                 HTTP_400_BAD_REQUEST
@@ -455,7 +473,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         if not valor_unitario:
             valor_unitario = producto.precio_pro
 
-        # Crear detalle
+        # Crear detalle. El stock lo maneja el trigger de la BD (type-aware). No lo tocamos aquí.
         await self.detalle_repository.crear_detalle(
             consecutivo_ot=consecutivo_ot,
             cod_pro=detalle_contract.cod_pro_deto,
@@ -463,14 +481,6 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             valor_unitario=valor_unitario,
             documento_usu=documento_usu
         )
-
-        # Actualizar stock según el signo de la cantidad
-        # IMPORTANTE: Productos NO facturables (cantidad negativa) NO afectan el stock
-        if detalle_contract.cantidad_deto > 0:
-            # Producto SE FACTURA: restar del stock
-            nuevo_stock = producto.stock_pro - detalle_contract.cantidad_deto
-            await self.producto_repository.actualizar_stock(detalle_contract.cod_pro_deto, nuevo_stock)
-        # Si cantidad < 0 (NO se factura): NO hacer nada con el stock
 
         return await self.obtener_orden_por_id(consecutivo_ot)
 
@@ -515,44 +525,25 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         cantidad_anterior = detalle_actual.cantidad_deto
         cantidad_nueva = detalle_contract.cantidad_deto
 
-        # IMPORTANTE: Productos NO facturables (cantidad negativa) NO afectan el stock
-        # Solo calculamos el delta (cambio neto) considerando esto
-
-        # Calcular efecto de la cantidad anterior en el stock
-        if cantidad_anterior > 0:
-            efecto_anterior = -cantidad_anterior  # Se restó del stock
-        else:
-            efecto_anterior = 0  # NO afectó el stock
-
-        # Calcular efecto de la cantidad nueva en el stock
-        if cantidad_nueva > 0:
-            efecto_nuevo = -cantidad_nueva  # Se restará del stock
-        else:
-            efecto_nuevo = 0  # NO afectará el stock
-
-        # Calcular el cambio neto en el stock
-        delta_stock = efecto_nuevo - efecto_anterior
-
-        # Validar stock disponible si es necesario
-        if delta_stock < 0:  # Si vamos a restar stock
-            stock_resultante = producto.stock_pro + delta_stock
-            if stock_resultante < 0:
+        # Validación de stock solo para BIEN: comprobar que el aumento de consumo no
+        # deje el stock negativo. El ajuste real de stock + kardex lo hace el trigger
+        # de UPDATE (tg_ajustar_stock). Solo cuentan las cantidades positivas (cortesía = 0).
+        if producto.tipo_pro == "BIEN":
+            efecto_anterior = cantidad_anterior if cantidad_anterior > 0 else 0
+            efecto_nuevo = cantidad_nueva if cantidad_nueva > 0 else 0
+            delta_consumo = efecto_nuevo - efecto_anterior  # > 0: consume más stock
+            if delta_consumo > 0 and (producto.stock_pro or 0) < delta_consumo:
                 raise DomainException(
-                    f"Stock insuficiente. Disponible: {producto.stock_pro}, Requerido: {abs(delta_stock)}",
+                    f"Stock insuficiente. Disponible: {producto.stock_pro}, Requerido: {delta_consumo}",
                     HTTP_400_BAD_REQUEST
                 )
 
-        # Actualizar cantidad en el detalle
+        # Actualizar cantidad en el detalle (el trigger ajusta stock + kardex).
         await self.detalle_repository.actualizar_cantidad_detalle(
             consecutivo_ot,
             cod_pro,
             cantidad_nueva
         )
-
-        # Actualizar stock del producto solo si hay cambio neto
-        if delta_stock != 0:
-            nuevo_stock = producto.stock_pro + delta_stock
-            await self.producto_repository.actualizar_stock(cod_pro, nuevo_stock)
 
         return await self.obtener_orden_por_id(consecutivo_ot)
 
@@ -570,27 +561,30 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 HTTP_404_NOT_FOUND
             )
 
-        # Parsear a modelo Pydantic para tipado estático
-        detalle = self.__parse_custom__(detalle_dict, DetalleOrdenTrabajoModelo)
-
-        # Obtener cantidad para revertir el efecto en el stock
-        cantidad = detalle.cantidad_deto
-
-        # Eliminar detalle
+        # Eliminar detalle. El trigger de DELETE (tg_revertir_stock) devuelve el stock
+        # y deja el movimiento de reversa en el kardex (solo para BIEN facturable).
         await self.detalle_repository.eliminar_detalle(consecutivo_ot, cod_pro)
 
-        # Revertir el efecto en el stock
-        # IMPORTANTE: Solo revertir si la cantidad era positiva (se facturaba)
-        if cantidad > 0:
-            producto_dict = await self.producto_repository.get_by_id(cod_pro)
-            if producto_dict:
-                producto = self.__parse_custom__(producto_dict, ProductoModelo)
-                # Se había restado del stock, devolverlo
-                nuevo_stock = producto.stock_pro + cantidad
-                await self.producto_repository.actualizar_stock(cod_pro, nuevo_stock)
-        # Si cantidad < 0 (NO se facturaba): NO hacer nada con el stock
-
         return await self.obtener_orden_por_id(consecutivo_ot)
+
+    async def obtener_orden_para_documento(self, consecutivo_ot: int):
+        """Obtiene una OT validando que sea apta para generar su documento/PDF.
+        Reglas de negocio (viven en el servicio, no en el controlador):
+        estado válido y al menos un ítem."""
+        orden = await self.obtener_orden_por_id(consecutivo_ot)  # lanza 404 si no existe
+        estados_validos = ["En Proceso", "Completada", "Entregada"]
+        if orden.estado_ot not in estados_validos:
+            raise DomainException(
+                f"Solo se puede generar el documento para órdenes en estado "
+                f"'En Proceso', 'Completada' o 'Entregada'. Estado actual: {orden.estado_ot}",
+                HTTP_400_BAD_REQUEST,
+            )
+        if not orden.detalles or len(orden.detalles) == 0:
+            raise DomainException(
+                "La orden debe tener al menos un producto para generar el documento",
+                HTTP_400_BAD_REQUEST,
+            )
+        return orden
 
     async def obtener_ordenes_pendientes(self) -> List[dict]:
         """Obtiene todas las ordenes pendientes de entrega"""

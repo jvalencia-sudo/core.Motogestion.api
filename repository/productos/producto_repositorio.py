@@ -54,3 +54,20 @@ class ProductoRepositorio(BaseRepository):
         """Actualiza el stock de un producto"""
         query = "UPDATE productos SET stock_pro = :1 WHERE cod_pro = :2"
         await self.execute_non_query(query, (nuevo_stock, cod_pro))
+
+    async def obtener_stock(self, cod_pro: int) -> Optional[int]:
+        """Devuelve el stock actual de un producto (None si no existe)."""
+        row = await self.get_one(
+            "SELECT stock_pro FROM productos WHERE cod_pro = :1", (cod_pro,)
+        )
+        return row.get("STOCK_PRO") if row else None
+
+    async def listar_bienes_con_stock(self) -> List[Dict]:
+        """Productos tipo BIEN activos con su stock (para inventario: entrada / toma física)."""
+        return await self.execute(
+            "SELECT cod_pro, nombre_pro, COALESCE(stock_pro, 0) AS stock_pro, stock_pro_min "
+            "FROM productos "
+            "WHERE COALESCE(cod_est_pro, 1) = 1 AND COALESCE(tipo_pro, 'BIEN') = 'BIEN' "
+            "ORDER BY nombre_pro",
+            None,
+        )

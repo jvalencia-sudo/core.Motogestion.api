@@ -5,6 +5,7 @@ from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 from domain.models.tablero.tablero_model import MecanicoItem, TableroItem, TableroResponse
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.tablero.tablero_repositorio import TableroRepositorio
+from repository.admin.admin_user_repository import AdminUserRepository
 
 ROL_MECANICO = 2
 ROLES_GESTOR = (1, 3)  # Administrador, Recepcionista
@@ -17,6 +18,8 @@ ESTADOS_MECANICO = {1, 2, 3}  # Pendiente, En Proceso, Completada
 class TableroServicio:
     def __init__(self):
         self.repo = TableroRepositorio()
+        # Los mecánicos son usuarios: se leen por el repo dueño de esa tabla.
+        self.usuario_repo = AdminUserRepository()
 
     async def obtener(self, current: Optional[Dict], mecanico_param: Optional[str]) -> TableroResponse:
         """Alcance por ROL (enforced en el backend, NO por permisos editables):
@@ -35,7 +38,7 @@ class TableroServicio:
 
         mecanicos = []
         if es_gestor:
-            filas = await self.repo.listar_mecanicos()
+            filas = await self.usuario_repo.listar_mecanicos()
             mecanicos = [
                 MecanicoItem(documento_usu=f.get("DOCUMENTO_USU"), nombre=f.get("NOMBRE"))
                 for f in filas

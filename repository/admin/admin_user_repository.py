@@ -169,3 +169,9 @@ class AdminUserRepository(BaseRepository):
         """
         query = "SELECT * FROM vw_usuarios_perfiles WHERE documento_usu = :1"
         return await self.db.get_first(query, (documento,))
+
+    async def listar_mecanicos(self) -> List[Dict]:
+        """Mecánicos activos del taller (para el tablero). Lee la vista de dominio."""
+        return await self.db.execute(
+            "SELECT documento_usu, nombre FROM vw_mecanicos ORDER BY nombre", None
+        )

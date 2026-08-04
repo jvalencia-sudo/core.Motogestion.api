@@ -1,4 +1,5 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
+from decimal import Decimal
 from pydantic import Field
 
 from domain.contracts.base_contract import BaseContractSchema
@@ -17,24 +18,44 @@ class ImpuestoResponseContract(BaseContractSchema):
     porcentaje: float
 
 
+class ComponenteContract(BaseContractSchema):
+    """Un componente de un paquete/combo (producto incluido + cantidad)."""
+    cod_pro_comp: int = Field(..., gt=0, description="Código del producto incluido")
+    cantidad_comp: Decimal = Field(..., gt=0, description="Cantidad del componente en el paquete")
+
+
+class ComponenteResponseContract(BaseContractSchema):
+    """Componente de un paquete, con datos del producto incluido."""
+    cod_pro_comp: int
+    nombre_pro: str
+    tipo_pro: str
+    cantidad_comp: Decimal
+
+
 class ProductoCreateContract(BaseContractSchema):
     """Contrato para crear un producto con sus impuestos"""
     nombre_pro: str = Field(..., min_length=1, max_length=70, description="Nombre del producto")
     descripcion_pro: str = Field(..., min_length=1, max_length=500, description="Descripción del producto")
-    stock_pro: int = Field(..., gt=0, description="Stock actual del producto (debe ser mayor a 0)")
-    stock_pro_min: int = Field(..., gt=0, description="Stock mínimo del producto (debe ser mayor a 0)")
+    # BIEN maneja stock; SERVICIO (mano de obra) no; PAQUETE es un combo de precio fijo.
+    tipo_pro: Literal["BIEN", "SERVICIO", "PAQUETE"] = Field("BIEN", description="Tipo: BIEN, SERVICIO o PAQUETE")
+    stock_pro: Optional[int] = Field(None, ge=0, description="Stock actual (solo BIEN)")
+    stock_pro_min: Optional[int] = Field(None, ge=0, description="Stock mínimo (solo BIEN)")
     precio_pro: int = Field(..., gt=0, description="Precio del producto (debe ser mayor a 0)")
     impuestos: Optional[List[ImpuestoProductoContract]] = Field(default=[], description="Lista de impuestos a aplicar")
+    # Componentes de la "receta" cuando tipo_pro == PAQUETE.
+    componentes: Optional[List[ComponenteContract]] = Field(default=[], description="Componentes del paquete (solo PAQUETE)")
 
 
 class ProductoUpdateContract(BaseContractSchema):
     """Contrato para actualizar un producto"""
     nombre_pro: Optional[str] = Field(None, min_length=1, max_length=70, description="Nombre del producto")
     descripcion_pro: Optional[str] = Field(None, min_length=1, max_length=500, description="Descripción del producto")
-    stock_pro: Optional[int] = Field(None, gt=0, description="Stock actual del producto (debe ser mayor a 0)")
-    stock_pro_min: Optional[int] = Field(None, gt=0, description="Stock mínimo del producto (debe ser mayor a 0)")
+    tipo_pro: Optional[Literal["BIEN", "SERVICIO", "PAQUETE"]] = Field(None, description="Tipo: BIEN, SERVICIO o PAQUETE")
+    stock_pro: Optional[int] = Field(None, ge=0, description="Stock actual (solo BIEN)")
+    stock_pro_min: Optional[int] = Field(None, ge=0, description="Stock mínimo (solo BIEN)")
     precio_pro: Optional[int] = Field(None, gt=0, description="Precio del producto (debe ser mayor a 0)")
     impuestos: Optional[List[ImpuestoProductoContract]] = Field(None, description="Lista de impuestos a aplicar")
+    componentes: Optional[List[ComponenteContract]] = Field(None, description="Componentes del paquete (solo PAQUETE, reemplaza los existentes)")
 
 
 class ProductoResponseContract(BaseContractSchema):
@@ -42,9 +63,11 @@ class ProductoResponseContract(BaseContractSchema):
     cod_pro: int
     nombre_pro: str
     descripcion_pro: Optional[str]
-    stock_pro: int
-    stock_pro_min: int
+    tipo_pro: str = "BIEN"
+    stock_pro: Optional[int] = None
+    stock_pro_min: Optional[int] = None
     cod_est_pro: int
     precio_pro: int
     estado_producto: Optional[str] = None
     impuestos: Optional[List[ImpuestoResponseContract]] = []
+    componentes: Optional[List[ComponenteResponseContract]] = []

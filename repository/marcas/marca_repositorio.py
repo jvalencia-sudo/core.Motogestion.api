@@ -1,7 +1,5 @@
 from typing import Dict, List, Optional
-from pydantic import BaseModel
 from repository.base_repository import BaseRepository
-from repository.data.db_pool import get_pool
 
 
 class MarcaRepositorio(BaseRepository):
@@ -29,5 +27,11 @@ class MarcaRepositorio(BaseRepository):
         """Obtiene marcas con total de motos registradas (vw_marcas_resumen)"""
         query = "SELECT * FROM vw_marcas_resumen ORDER BY nombre_mar"
         return await self.execute(query, None)
+
+    async def crear(self, nombre_mar: str) -> None:
+        """Crea una marca en el taller actual (cod_taller por DEFAULT app.tenant_id)."""
+        await self.execute_non_query(
+            "INSERT INTO marcas (nombre_mar) VALUES (:1)", (nombre_mar,)
+        )
 
 

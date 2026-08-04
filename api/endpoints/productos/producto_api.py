@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, status
 from starlette.responses import Response
 
@@ -16,17 +16,25 @@ router = APIRouter()
 @router.get("", response_model=List[ProductoResponseContract])
 async def obtener_todos_productos(
     activos_solo: bool = False,
+    tipo: Optional[str] = None,
     # user=Depends(AuthRequest(permissions=["productos:leer"]))
 ):
     """
     Obtiene todos los productos con sus impuestos.
 
     - **activos_solo**: Si es True, solo retorna productos activos
+    - **tipo**: Filtra por tipo de producto (BIEN, SERVICIO, PAQUETE). Opcional.
     """
     servicio = ProductoServicio()
     if activos_solo:
-        return await servicio.obtener_productos_activos()
-    return await servicio.obtener_todos_productos()
+        productos = await servicio.obtener_productos_activos()
+    else:
+        productos = await servicio.obtener_todos_productos()
+
+    if tipo:
+        tipo = tipo.upper()
+        productos = [p for p in productos if p.tipo_pro == tipo]
+    return productos
 
 
 @router.get("/{cod_pro}", response_model=ProductoResponseContract)

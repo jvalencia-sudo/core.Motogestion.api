@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Optional, Literal
 
-from pydantic import EmailStr
+from pydantic import EmailStr, Field
 
 from domain.models.base_model import BaseSchema
 
@@ -27,3 +27,13 @@ class TallerUpdateContract(BaseSchema):
     telefono_tal: Optional[str] = None
     estado_tal: Optional[str] = None      # prueba | activo | suspendido
     plan_tal: Optional[str] = None
+
+
+class TallerConfigManoObraContract(BaseSchema):
+    """Configuración de cómo el taller cobra la mano de obra.
+
+    - HORAS: tarifa fija por hora (tarifa_hora_pred). El front cobra horas * tarifa.
+    - LIBRE: el usuario define el valor de la mano de obra en cada orden.
+    """
+    modo_mano_obra: Literal["HORAS", "LIBRE"]
+    tarifa_hora_pred: int = Field(0, ge=0, description="Tarifa por hora por defecto (modo HORAS)")
