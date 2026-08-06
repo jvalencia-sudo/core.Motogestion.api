@@ -17,3 +17,10 @@ class ImpuestoRepositorio(BaseRepository):
             "INSERT INTO impuestos (nombre_imp, porcentaje_imp) VALUES (:1, :2)",
             (nombre_imp, porcentaje_imp),
         )
+
+    async def listar(self):
+        """Todos los impuestos del taller actual (RLS)."""
+        return await self.execute(
+            "SELECT cod_imp, nombre_imp, porcentaje_imp FROM impuestos ORDER BY nombre_imp",
+            None,
+        )

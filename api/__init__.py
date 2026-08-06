@@ -17,6 +17,7 @@ from api.endpoints.talleres.taller_api import router as talleres_router
 from api.endpoints.dashboard.dashboard_api import router as dashboard_router
 from api.endpoints.tablero.tablero_api import router as tablero_router
 from api.endpoints.inventario.inventario_api import router as inventario_router
+from api.endpoints.impuestos.impuesto_api import router as impuestos_router
 
 api_router = APIRouter()
 
@@ -58,3 +59,6 @@ api_router.include_router(tablero_router, prefix="/tablero", tags=["Tablero"])
 
 # Inventario (movimientos de stock, entradas, toma física)
 api_router.include_router(inventario_router, prefix="/inventario", tags=["Inventario"])
+
+# Impuestos (catálogo del taller para asignar a productos)
+api_router.include_router(impuestos_router, prefix="/impuestos", tags=["Impuestos"])

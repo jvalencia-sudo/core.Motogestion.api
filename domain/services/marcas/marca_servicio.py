@@ -93,3 +93,24 @@ class MarcaServicio(BaseService[MarcaModelo, MarcaRepositorio]):
 
         await self.repository.update(marca_modelo)
         return MarcaResponseContract(cod_mar=marca_modelo.cod_mar, nombre_mar=marca_modelo.nombre_mar)
+
+    async def eliminar_marca(self, cod_mar: int) -> dict:
+        """Elimina una marca. Rechaza si hay motos que la usan (integridad referencial)."""
+        marca_dict = await self.repository.get_by_id(cod_mar)
+        if not marca_dict:
+            raise DomainException(
+                f"Marca con código {cod_mar} no encontrada", HTTP_404_NOT_FOUND
+            )
+        try:
+            await self.repository.delete(cod_mar)
+        except Exception as e:
+            error_msg = str(e)
+            if ("ERROR_INTEGRIDAD_REFERENCIAL" in error_msg
+                    or "foreign key" in error_msg.lower()
+                    or "constraint" in error_msg.lower()):
+                raise DomainException(
+                    "No se puede eliminar la marca: hay motos registradas con esta marca",
+                    HTTP_400_BAD_REQUEST,
+                )
+            raise DomainException(f"Error al eliminar la marca: {error_msg}", HTTP_400_BAD_REQUEST)
+        return {"message": f"Marca {cod_mar} eliminada exitosamente", "cod_mar": cod_mar}
