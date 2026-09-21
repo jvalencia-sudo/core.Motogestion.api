@@ -45,6 +45,21 @@ class SapConfig(BaseSettingModel):
     base_prd_url: str = Field(..., alias="SAP_BASE_PRD_URL")
 
 
+class WompiConfig(BaseSettingModel):
+    # Opcionales: si no hay llaves, la app arranca igual y el checkout responde
+    # "pagos no configurados" en vez de romper el arranque.
+    public_key: str = Field("", alias="WOMPI_PUBLIC_KEY")
+    private_key: str = Field("", alias="WOMPI_PRIVATE_KEY")
+    events_secret: str = Field("", alias="WOMPI_EVENTS_SECRET")
+    integrity_secret: str = Field("", alias="WOMPI_INTEGRITY_SECRET")
+    checkout_url: str = Field("https://checkout.wompi.co/p/", alias="WOMPI_CHECKOUT_URL")
+    base_url: str = Field("https://sandbox.wompi.co/v1", alias="WOMPI_BASE_URL")
+
+    @property
+    def configurado(self) -> bool:
+        return bool(self.public_key and self.integrity_secret and self.events_secret)
+
+
 class Settings(BaseSettingModel):
     environment: str
     project_name: str
@@ -52,11 +67,22 @@ class Settings(BaseSettingModel):
     docs_url: Optional[str] = "/docs"
     db_config: DbConfig = DbConfig()
     auth0_config: Auth0Config = Auth0Config()
+    wompi_config: WompiConfig = WompiConfig()
     #aws_config: AwsConfig = AwsConfig()
     #quotation_config: QuotationConfig = QuotationConfig()
     #sap_config: SapConfig = SapConfig()
-    allowed_origin: str
+    # Orígenes permitidos por CORS. `cors_origins` es una lista separada por comas
+    # (env CORS_ORIGINS); `allowed_origin` se mantiene por compatibilidad.
+    cors_origins: str = ""
+    allowed_origin: str = ""
     frontend_url: str
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        """Une CORS_ORIGINS y allowed_origin sin vacíos, sin '/' final y sin duplicados."""
+        raw = [*self.cors_origins.split(","), self.allowed_origin]
+        origins = [o.strip().rstrip("/") for o in raw]
+        return list(dict.fromkeys(o for o in origins if o))
 
     @field_validator("docs_url")
     def none_docs_url(cls, v, info: ValidationInfo):

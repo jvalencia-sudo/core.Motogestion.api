@@ -1,11 +1,15 @@
 import random
 import time
+from datetime import date, timedelta
 from typing import Dict, List, Optional
+
+from starlette.status import HTTP_400_BAD_REQUEST
 
 from domain.contracts.talleres.taller_contract import (
     TallerConfigManoObraContract,
     TallerRegistroContract,
     TallerRegistroResponse,
+    TallerSuscripcionContract,
     TallerUpdateContract,
 )
 from domain.models.talleres.taller_model import TallerModel
@@ -21,6 +25,9 @@ from repository.productos.impuesto_repositorio import ImpuestoRepositorio
 # Catálogos base con que arranca un taller nuevo (política de onboarding).
 MARCAS_INICIALES = ["Yamaha", "Honda", "Suzuki", "Kawasaki", "Bajaj", "AKT", "KTM", "Auteco"]
 IMPUESTOS_INICIALES = [("IVA", 19.00), ("IVA Reducido", 5.00), ("Excluido", 0.00)]
+
+# Política de prueba gratis (días). Anti-abuso: 1 correo = 1 taller (índice único).
+DIAS_PRUEBA = 30
 
 
 class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
@@ -71,15 +78,41 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         await self.repository.actualizar(cod_taller, contract.model_dump())
         return await self.obtener_config_mano_obra(cod_taller)
 
+    # ---- Suscripción (estado del plan/trial para el front) ----
+
+    async def obtener_suscripcion(self, cod_taller: int) -> TallerSuscripcionContract:
+        susc = await self.repository.get_suscripcion(cod_taller)
+        if not susc:
+            raise DomainException("Taller no encontrado", 404)
+        estado = susc.get("ESTADO_TAL")
+        fecha_fin = susc.get("FECHA_FIN_SUSC_TAL")
+        dias = (fecha_fin - date.today()).days if fecha_fin else None
+        vencido = estado == "prueba" and fecha_fin is not None and fecha_fin < date.today()
+        return TallerSuscripcionContract(
+            estado=estado,
+            plan=susc.get("PLAN_TAL"),
+            fecha_fin=str(fecha_fin) if fecha_fin else None,
+            dias_restantes=dias,
+            vencido=vencido,
+        )
+
     # ---- Registro / onboarding ----
 
     async def registrar(self, contract: TallerRegistroContract) -> TallerRegistroResponse:
         """Registra un taller nuevo: crea el tenant, su usuario dueño (pre-registrado)
         y los catálogos base. El dueño entra luego con su correo (login cerrado)."""
-        # 1) Crear el taller (talleres no tiene RLS, no requiere contexto)
+        # 0) Anti-abuso: un correo = un taller (evita renovar el trial con otra cuenta).
         set_tenant(None)
+        if await self.repository.existe_por_correo(contract.correo):
+            raise DomainException(
+                "Ya existe un taller registrado con ese correo.",
+                HTTP_400_BAD_REQUEST,
+            )
+
+        # 1) Crear el taller con su ventana de prueba (fecha_fin_susc = hoy + DIAS_PRUEBA).
+        fecha_fin = date.today() + timedelta(days=DIAS_PRUEBA)
         cod_taller = await self.repository.crear_taller(
-            contract.nombre_tal, contract.correo, contract.nit_tal
+            contract.nombre_tal, contract.correo, contract.nit_tal, fecha_fin
         )
 
         # 2) Desde aquí, lo que se inserte cae en el taller nuevo (DEFAULT app.tenant_id).

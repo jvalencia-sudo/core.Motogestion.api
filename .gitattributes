@@ -1,0 +1,2 @@
+# Los scripts de shell se ejecutan en Linux: fin de línea LF siempre (un CRLF los rompe).
+*.sh text eol=lf

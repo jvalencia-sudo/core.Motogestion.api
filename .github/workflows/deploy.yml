@@ -1,48 +1,102 @@
-name: Deploy backend al VPS
+name: Deploy backend a Oracle
 
-# Se ejecuta al hacer merge/push a main, o manualmente desde la pestaña Actions.
+# Cada push a main construye la imagen (arm64, como la VM de Oracle) en GitHub,
+# la publica en GHCR y la despliega en la VM por SSH. También se puede lanzar a mano.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
 
+# Un solo deploy a la vez; si llega otro push, espera al que está en curso.
 concurrency:
   group: deploy-backend
   cancel-in-progress: false
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+permissions:
+  contents: read
 
-      - name: Configurar clave SSH
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/motogestion-backend
+
+jobs:
+  build:
+    name: Construir imagen arm64
+    # Runner arm64 nativo y gratis en repos públicos (sin emulación QEMU).
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build y push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          # Enlaza el paquete con este repo (hereda su visibilidad pública).
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Desplegar en la VM
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          # Huella fija de la VM (no ssh-keyscan a ciegas): evita un man-in-the-middle.
+          echo "${{ secrets.VM_HOST }} ${{ secrets.VM_HOST_KEY }}" > ~/.ssh/known_hosts
+          printf 'Host vm\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n' \
+            "${{ secrets.VM_HOST }}" "${{ secrets.VM_USER }}" > ~/.ssh/config
 
-      - name: Crear carpeta destino en el VPS
+      # Solo se sincronizan archivos de infraestructura, SIN --delete: el .env, el
+      # Caddyfile, los backups y los volúmenes de la VM nunca se tocan. El código del
+      # backend viaja dentro de la imagen, no por rsync.
+      - name: Sincronizar archivos de infraestructura
         run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "mkdir -p /root/motogestion"
+          rsync -az \
+            docker-compose.prod.yml \
+            db/init-prod db/full_schema_v2_multitenant.sql \
+            scripts \
+            vm:~/app/ --relative
 
-      - name: Subir código (rsync)
+      - name: Actualizar backend
         run: |
-          rsync -az --delete \
-            --exclude '.git' \
-            --exclude '.venv' \
-            --exclude '.env' \
-            --exclude '.env.*' \
-            --exclude '__pycache__' \
-            --exclude '.pytest_cache' \
-            --exclude 'node_modules' \
-            -e "ssh -i ~/.ssh/id_deploy" \
-            ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/root/motogestion/"
+          ssh vm "set -e; cd ~/app
+            export BACKEND_TAG=${{ github.sha }}
+            docker compose pull backend
+            docker compose up -d --no-build --no-deps backend
+            docker image prune -f"
 
-      - name: Build + restart del contenedor
+      - name: Verificar salud
         run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "cd /root/motogestion && docker compose -f docker-compose.prod.yml up -d --build && docker image prune -f"
+          for i in $(seq 1 24); do
+            if curl -fsS -m 10 https://api-jfv.duckdns.org/health | grep -q '"ok"'; then
+              echo "Backend saludable (intento $i)"; exit 0
+            fi
+            sleep 5
+          done
+          echo "El backend no respondió /health tras el deploy"
+          ssh vm "cd ~/app && docker compose logs --tail=50 backend"
+          exit 1

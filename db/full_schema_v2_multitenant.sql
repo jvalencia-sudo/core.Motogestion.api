@@ -31,6 +31,44 @@ CREATE TABLE talleres (
     CONSTRAINT chk_taller_modo_mo CHECK (modo_mano_obra IN ('HORAS', 'LIBRE'))
 );
 
+-- Anti-abuso del trial: un correo = un taller.
+CREATE UNIQUE INDEX ux_talleres_correo ON talleres (lower(correo_tal));
+
+-- Catálogo GLOBAL de planes (sin RLS). talleres.plan_tal referencia nombre_plan.
+CREATE SEQUENCE seq_planes START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE TABLE planes (
+    cod_plan     INTEGER      NOT NULL DEFAULT nextval('seq_planes'),
+    nombre_plan  VARCHAR(50)  NOT NULL,
+    precio_plan  INTEGER      NOT NULL DEFAULT 0,
+    max_usuarios INTEGER,
+    max_motos    INTEGER,
+    features     JSONB        NOT NULL DEFAULT '{}',
+    orden        INTEGER      NOT NULL DEFAULT 0,
+    CONSTRAINT pk_planes PRIMARY KEY (cod_plan),
+    CONSTRAINT ux_planes_nombre UNIQUE (nombre_plan)
+);
+INSERT INTO planes (nombre_plan, precio_plan, max_usuarios, max_motos, features, orden) VALUES
+    ('Prueba',       0,     3,    NULL, '{"reportes": true}', 1),
+    ('Profesional',  49000, NULL, NULL, '{"reportes": true}', 2),
+    ('Premium',      99000, NULL, NULL, '{"reportes": true, "multi_sucursal": true}', 3);
+
+-- Pagos / suscripciones (billing de plataforma, SIN RLS: el webhook llega sin sesión).
+CREATE SEQUENCE seq_pagos START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE TABLE pagos (
+    cod_pago             INTEGER      NOT NULL DEFAULT nextval('seq_pagos'),
+    cod_taller           INTEGER      NOT NULL,
+    nombre_plan          VARCHAR(50)  NOT NULL,
+    monto                INTEGER      NOT NULL,
+    referencia           VARCHAR(80)  NOT NULL,
+    estado               VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
+    wompi_transaction_id VARCHAR(80),
+    fecha                TIMESTAMP    NOT NULL DEFAULT now(),
+    CONSTRAINT pk_pagos PRIMARY KEY (cod_pago),
+    CONSTRAINT ux_pagos_referencia UNIQUE (referencia),
+    CONSTRAINT fk_pagos_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
+    CONSTRAINT chk_pagos_estado CHECK (estado IN ('PENDING', 'APPROVED', 'DECLINED'))
+);
+
 -- ============================================================
 -- 1. SECUENCIAS (surrogates; siguen siendo únicas globalmente)
 -- ============================================================
@@ -1092,8 +1130,8 @@ INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
 (nextval('seq_permisos'),'eliminar:reclamos','Permite eliminar - desactivar reclamos','/reclamos');
 
 -- ---- TALLER #1 (migración de los datos actuales) ----
-INSERT INTO talleres (cod_taller, nombre_tal, nit_tal, correo_tal, estado_tal)
-VALUES (nextval('seq_talleres'), 'MotoGestión Demo', '900000000-1', 'demo@motogestion.com', 'activo');
+INSERT INTO talleres (cod_taller, nombre_tal, nit_tal, correo_tal, estado_tal, plan_tal)
+VALUES (nextval('seq_talleres'), 'MotoGestión Demo', '900000000-1', 'demo@motogestion.com', 'activo', 'Premium');
 
 -- A partir de aquí, todo lo POR TALLER se asigna al taller actual:
 SET app.tenant_id = '1';

@@ -29,6 +29,15 @@ class TallerUpdateContract(BaseSchema):
     plan_tal: Optional[str] = None
 
 
+class TallerSuscripcionContract(BaseSchema):
+    """Estado de suscripción del taller (para el front: banner/gating)."""
+    estado: str                       # prueba | activo | suspendido
+    plan: Optional[str] = None
+    fecha_fin: Optional[str] = None   # ISO date
+    dias_restantes: Optional[int] = None
+    vencido: bool = False
+
+
 class TallerConfigManoObraContract(BaseSchema):
     """Configuración de cómo el taller cobra la mano de obra.
 
