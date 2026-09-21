@@ -23,7 +23,8 @@ env:
 jobs:
   build:
     name: Construir imagen arm64
-    # Runner arm64 nativo y gratis en repos públicos (sin emulación QEMU).
+    # Runner arm64 nativo (sin emulación QEMU). Consume los minutos gratis del plan,
+    # tanto en repos públicos como privados.
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -47,7 +48,7 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:latest
-          # Enlaza el paquete con este repo (hereda su visibilidad pública).
+          # Enlaza el paquete con este repo (hereda su visibilidad y permisos).
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -57,6 +58,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
@@ -81,13 +85,24 @@ jobs:
             scripts \
             vm:~/app/ --relative
 
+      # El paquete de GHCR es privado (el repo es privado). La VM se autentica solo
+      # durante el deploy con el GITHUB_TOKEN de esta corrida (caduca al terminar el
+      # job) y cierra sesión después: no queda ninguna credencial guardada en la VM.
       - name: Actualizar backend
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         run: |
+          printf '%s' "$GHCR_TOKEN" | ssh vm "docker login ghcr.io -u '$GHCR_USER' --password-stdin"
           ssh vm "set -e; cd ~/app
             export BACKEND_TAG=${{ github.sha }}
             docker compose pull backend
             docker compose up -d --no-build --no-deps backend
             docker image prune -f"
+
+      - name: Cerrar sesión de GHCR en la VM
+        if: always()
+        run: ssh vm "docker logout ghcr.io" || true
 
       - name: Verificar salud
         run: |
