@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 from domain.models.base_model import BaseSchema
 
@@ -8,7 +9,7 @@ class DetalleOrdenTrabajoModelo(BaseSchema):
     cod_pro_deto: int
     fecha_confirmacion_deto: Optional[datetime] = None
     valor_unitario_deto: int
-    cantidad_deto: int
+    cantidad_deto: Decimal
     documento_usu_deto: str
 
 
@@ -17,7 +18,7 @@ class VwDetalleOtProductos(BaseSchema):
     cod_pro_deto: int
     nombre_pro: str
     descripcion_pro: Optional[str] = None
-    cantidad_deto: int
+    cantidad_deto: Decimal
     valor_unitario_deto: int
     subtotal: float
     fecha_confirmacion_deto: Optional[datetime] = None

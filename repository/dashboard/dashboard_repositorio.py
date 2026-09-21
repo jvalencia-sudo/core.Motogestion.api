@@ -16,29 +16,12 @@ class DashboardRepositorio(BaseRepository):
         )
 
     async def resumen_escalares(self) -> Dict:
-        return await self.get_one(
-            """
-            SELECT
-              (SELECT count(*) FROM clientes)        AS total_clientes,
-              (SELECT count(*) FROM motos)           AS total_motos,
-              (SELECT count(*) FROM productos)       AS total_productos,
-              (SELECT count(*) FROM ordenes_trabajo) AS total_ordenes,
-              (SELECT count(*) FROM ordenes_trabajo WHERE cod_ot_est_ot IN (1, 2, 6)) AS ot_activas,
-              (SELECT count(*) FROM productos
-                 WHERE cod_est_pro = 1 AND stock_pro <= stock_pro_min)               AS productos_bajo_stock,
-              (SELECT count(*) FROM reclamos)        AS total_reclamos
-            """,
-            None,
-        )
+        # Lee la vista de dominio (agrega varias tablas; el RLS acota por taller).
+        return await self.get_one("SELECT * FROM vw_dashboard_resumen", None)
 
     async def ordenes_por_estado(self) -> List[Dict]:
         return await self.execute(
-            """
-            SELECT e.cod_ot_est, e.nombre_ot_est, COUNT(o.consecutivo_ot) AS cantidad
-            FROM ot_estados e
-            LEFT JOIN ordenes_trabajo o ON o.cod_ot_est_ot = e.cod_ot_est
-            GROUP BY e.cod_ot_est, e.nombre_ot_est
-            ORDER BY e.cod_ot_est
-            """,
+            "SELECT cod_ot_est, nombre_ot_est, cantidad "
+            "FROM vw_dashboard_ordenes_por_estado ORDER BY cod_ot_est",
             None,
         )

@@ -7,14 +7,21 @@
 El sistema de permisos por endpoint del backend estaba dormido; estas dependencias son
 el guardia mínimo para los endpoints sensibles (gestión de talleres, auto-edición de rol).
 """
+from datetime import date
 from typing import Dict, Optional
 
 from fastapi import Request
-from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
+from starlette.status import (
+    HTTP_401_UNAUTHORIZED,
+    HTTP_402_PAYMENT_REQUIRED,
+    HTTP_403_FORBIDDEN,
+)
 
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
 from repository.auth.user_repository import UserRepository
+from repository.talleres.taller_repositorio import TallerRepositorio
+from repository.planes.plan_repositorio import PlanRepositorio
 
 # Taller plataforma: sus administradores son los super-admin del sistema.
 PLATFORM_TALLER = 1
@@ -58,6 +65,50 @@ async def require_admin(request: Request) -> Dict:
     if user.get("COD_ROL_PRF_USU") != ADMIN_ROL:
         raise DomainException("Requiere permisos de administrador", HTTP_403_FORBIDDEN)
     return user
+
+
+async def require_active_subscription(request: Request) -> Dict:
+    """Exige que la suscripción del taller esté vigente. Fail-closed:
+    - suspendido -> 403
+    - prueba vencida (fecha_fin_susc_tal < hoy) -> 402 (Payment Required)
+    - activo / prueba vigente -> pasa.
+    Se aplica a los routers operativos (productos, órdenes, inventario, etc.)."""
+    user = await get_current_usuario(request)
+    if user is None:
+        raise DomainException("No autenticado", HTTP_401_UNAUTHORIZED)
+    susc = await TallerRepositorio().get_suscripcion(user.get("COD_TALLER"))
+    if not susc:
+        raise DomainException("Taller no encontrado", HTTP_403_FORBIDDEN)
+    estado = susc.get("ESTADO_TAL")
+    fecha_fin = susc.get("FECHA_FIN_SUSC_TAL")
+    if estado == "suspendido":
+        raise DomainException("La suscripción del taller está suspendida.", HTTP_403_FORBIDDEN)
+    if estado == "prueba" and fecha_fin is not None and fecha_fin < date.today():
+        raise DomainException(
+            "Tu período de prueba terminó. Activa un plan para continuar.",
+            HTTP_402_PAYMENT_REQUIRED,
+        )
+    return user
+
+
+def require_feature(feature: str):
+    """Depends factory: exige que el plan del taller incluya `feature`. Durante la
+    prueba vigente el taller tiene todas las features; si es 'activo' se valida contra
+    `planes.features` de su `plan_tal`."""
+    async def _dep(request: Request) -> Dict:
+        user = await require_active_subscription(request)  # además valida vigencia
+        susc = await TallerRepositorio().get_suscripcion(user.get("COD_TALLER"))
+        if susc.get("ESTADO_TAL") == "prueba":
+            return user  # trial: acceso a todo
+        features = await PlanRepositorio().features_de(susc.get("PLAN_TAL"))
+        if not features.get(feature):
+            raise DomainException(
+                f"Tu plan no incluye esta función ({feature}). Actualiza tu plan.",
+                HTTP_403_FORBIDDEN,
+            )
+        return user
+
+    return _dep
 
 
 def assert_no_self_role_change(

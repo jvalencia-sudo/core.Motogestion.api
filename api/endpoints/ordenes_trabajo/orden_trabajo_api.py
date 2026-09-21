@@ -65,29 +65,8 @@ async def generar_pdf_orden_trabajo(consecutivo_ot: int):
     """Genera un PDF con la informacion completa de la orden de trabajo"""
     servicio = OrdenTrabajoServicio()
 
-    # Obtener la orden de trabajo
-    try:
-        orden = await servicio.obtener_orden_por_id(consecutivo_ot)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Orden de trabajo {consecutivo_ot} no encontrada"
-        )
-
-    # Validar que el estado sea válido para generar PDF
-    estados_validos = ["En Proceso", "Completada", "Entregada"]
-    if orden.estado_ot not in estados_validos:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Solo se puede generar PDF para órdenes en estado 'En Proceso', 'Completada' o 'Entregada'. Estado actual: {orden.estado_ot}"
-        )
-
-    # Validar que haya al menos un producto
-    if not orden.detalles or len(orden.detalles) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La orden debe tener al menos un producto para generar el PDF"
-        )
+    # La validación de negocio (existencia, estado válido, tiene ítems) vive en el servicio.
+    orden = await servicio.obtener_orden_para_documento(consecutivo_ot)
 
     # Generar el PDF
     try:

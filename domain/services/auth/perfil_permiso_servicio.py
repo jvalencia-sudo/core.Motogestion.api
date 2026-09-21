@@ -9,11 +9,14 @@ from domain.contracts.auth.perfil_permiso_contract import (
 from domain.models.auth.perfil_permiso_modelo import PerfilPermisoModelo, VwPerfilesPermisosDetalle
 from domain.services.base_service import BaseService
 from repository.auth.perfil_permiso_repositorio import PerfilPermisoRepositorio
+from repository.auth.permiso_repositorio import PermisoRepositorio
 
 
 class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoRepositorio]):
     def __init__(self):
         super().__init__(PerfilPermisoRepositorio())
+        # Los permisos (catálogo) los provee su repo dueño.
+        self.permiso_repo = PermisoRepositorio()
 
     def __parse__(self, record: Dict) -> PerfilPermisoModelo:
         return PerfilPermisoModelo.model_validate(record)
@@ -29,9 +32,14 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         return self.__parse_all_custom__(registros, PermisoAsignadoContract)
 
     async def obtener_permisos_disponibles(self, cod_prf: int, cod_rol: int) -> List[PermisoDisponibleContract]:
-        """Obtiene permisos que NO están asignados al perfil"""
-        registros = await self.repository.obtener_permisos_disponibles(cod_prf, cod_rol)
-        return self.__parse_all_custom__(registros, PermisoDisponibleContract)
+        """Permisos que NO están asignados al perfil. Se orquesta: catálogo completo
+        (repo de permisos) menos los ya asignados (repo de perfiles_permisos)."""
+        todos = await self.permiso_repo.obtener_vw_permisos()
+        asignados = await self.repository.obtener_cod_prm_asignados(cod_prf, cod_rol)
+        ids_asignados = {a.get("COD_PRM_PP") for a in asignados}
+        disponibles = [p for p in todos if p.get("COD_PRM") not in ids_asignados]
+        disponibles.sort(key=lambda p: (p.get("NOMBRE_PRM") or ""))
+        return self.__parse_all_custom__(disponibles, PermisoDisponibleContract)
 
     async def asignar_permiso(self, contract: AsignarPermisoContract) -> dict:
         """Asigna un nuevo permiso a un perfil"""

@@ -14,3 +14,5 @@ class TallerModel(BaseSchema):
     plan_tal: Optional[str] = None
     fecha_creacion_tal: Optional[datetime] = None
     fecha_fin_susc_tal: Optional[date] = None
+    modo_mano_obra: Optional[str] = None       # HORAS | LIBRE
+    tarifa_hora_pred: Optional[int] = None

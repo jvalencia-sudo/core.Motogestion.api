@@ -10,13 +10,19 @@ from domain.models.inventario.inventario_model import (
 )
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.inventario.inventario_repositorio import InventarioRepositorio
+from repository.productos.producto_repositorio import ProductoRepositorio
 
 ROLES_GESTOR = (1, 3)  # Administrador, Recepcionista gestionan inventario
 
 
 class InventarioServicio:
+    """Orquesta el inventario: el stock de los productos lo maneja ProductoRepositorio
+    y el kardex (movimientos) lo maneja InventarioRepositorio. El servicio coordina
+    ambos; ningún repositorio toca la tabla del otro."""
+
     def __init__(self):
-        self.repo = InventarioRepositorio()
+        self.movimientos_repo = InventarioRepositorio()
+        self.producto_repo = ProductoRepositorio()
 
     @staticmethod
     def _exigir_gestor(current: Optional[Dict]) -> str:
@@ -28,11 +34,11 @@ class InventarioServicio:
         return current.get("DOCUMENTO_USU")
 
     async def listar_movimientos(self, cod_pro: Optional[int]) -> List[MovimientoItem]:
-        filas = await self.repo.listar_movimientos(cod_pro)
+        filas = await self.movimientos_repo.listar_movimientos(cod_pro)
         return [self._map(f) for f in filas]
 
     async def listar_productos(self) -> List[ProductoStock]:
-        filas = await self.repo.listar_productos()
+        filas = await self.producto_repo.listar_bienes_con_stock()
         return [
             ProductoStock(
                 cod_pro=f.get("COD_PRO"),
@@ -45,11 +51,13 @@ class InventarioServicio:
 
     async def entrada(self, current: Optional[Dict], contract: EntradaContract) -> Dict:
         documento = self._exigir_gestor(current)
-        stock = await self.repo.get_stock(contract.cod_pro)
+        stock = await self.producto_repo.obtener_stock(contract.cod_pro)
         if stock is None:
             raise DomainException("Producto no encontrado", HTTP_404_NOT_FOUND)
         nuevo = stock + contract.cantidad
-        await self.repo.aplicar_movimiento(
+        # Stock: dueño = ProductoRepositorio. Movimiento: dueño = InventarioRepositorio.
+        await self.producto_repo.actualizar_stock(contract.cod_pro, nuevo)
+        await self.movimientos_repo.insertar_movimiento(
             contract.cod_pro, "ENTRADA", contract.cantidad, stock, nuevo,
             contract.motivo or "Reabastecimiento", documento,
         )
@@ -60,11 +68,12 @@ class InventarioServicio:
         motivo = contract.motivo or "Toma física"
         ajustados = 0
         for item in contract.items:
-            stock = await self.repo.get_stock(item.cod_pro)
+            stock = await self.producto_repo.obtener_stock(item.cod_pro)
             if stock is None or item.cantidad_fisica == stock:
                 continue
             diff = item.cantidad_fisica - stock
-            await self.repo.aplicar_movimiento(
+            await self.producto_repo.actualizar_stock(item.cod_pro, item.cantidad_fisica)
+            await self.movimientos_repo.insertar_movimiento(
                 item.cod_pro, "AJUSTE", diff, stock, item.cantidad_fisica, motivo, documento,
             )
             ajustados += 1
