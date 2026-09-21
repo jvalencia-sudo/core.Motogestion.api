@@ -1,5 +1,6 @@
 from typing import Optional
 from datetime import date, datetime
+from decimal import Decimal
 from pydantic import Field
 from domain.contracts.base_contract import BaseContractSchema
 
@@ -7,7 +8,8 @@ from domain.contracts.base_contract import BaseContractSchema
 class DetalleOrdenTrabajoContract(BaseContractSchema):
     """Contrato para agregar un producto a una orden de trabajo"""
     cod_pro_deto: int = Field(..., gt=0, description="Codigo del producto")
-    cantidad_deto: int = Field(..., ge=-99, le=99, description="Cantidad del producto. Positivo: se factura, Negativo: no se factura")
+    # Decimal para permitir fracciones (p.ej. 1.5 h de mano de obra).
+    cantidad_deto: Decimal = Field(..., ge=-99, le=99, description="Cantidad. Positivo: se factura, Negativo: no se factura (permite decimales)")
     valor_unitario_deto: Optional[int] = Field(None, gt=0, description="Valor unitario (si no se provee, se toma del producto)")
 
 
@@ -17,7 +19,7 @@ class DetalleOrdenTrabajoResponseContract(BaseContractSchema):
     cod_pro_deto: int
     nombre_pro: str
     descripcion_pro: Optional[str] = None
-    cantidad_deto: int
+    cantidad_deto: Decimal
     valor_unitario_deto: int
     subtotal: float
     fecha_confirmacion_deto: Optional[datetime] = None
@@ -27,4 +29,4 @@ class DetalleOrdenTrabajoResponseContract(BaseContractSchema):
 
 class DetalleOrdenUpdateContract(BaseContractSchema):
     """Contrato para actualizar cantidad de un producto en orden de trabajo"""
-    cantidad_deto: int = Field(..., ge=-99, le=99, description="Nueva cantidad. Positivo: se factura, Negativo: no se factura")
+    cantidad_deto: Decimal = Field(..., ge=-99, le=99, description="Nueva cantidad. Positivo: se factura, Negativo: no se factura (permite decimales)")

@@ -62,3 +62,14 @@ async def actualizar_marca(cod_mar: int, marca: MarcaUpdateContract):
     """
     servicio = MarcaServicio()
     return await servicio.actualizar_marca(cod_mar, marca)
+
+
+@router.delete("/{cod_mar}")
+async def eliminar_marca(cod_mar: int):
+    """
+    Elimina una marca. Falla si hay motos registradas con esa marca.
+
+    - **cod_mar**: Código de la marca a eliminar
+    """
+    servicio = MarcaServicio()
+    return await servicio.eliminar_marca(cod_mar)

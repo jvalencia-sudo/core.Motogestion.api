@@ -8,7 +8,8 @@ class VwProductoModelo(BaseSchema):
     nombre_pro: str
     descripcion_pro: Optional[str] = None
     precio_pro: int
-    stock_pro: int
-    stock_pro_min: int
+    stock_pro: Optional[int] = None       # NULL para SERVICIO/PAQUETE
+    stock_pro_min: Optional[int] = None
     cod_est_pro: int
     estado_producto: Optional[str] = None
+    tipo_pro: str = "BIEN"                 # BIEN | SERVICIO | PAQUETE

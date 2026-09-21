@@ -1,31 +1,36 @@
-# Docker Compose para desarrollo local.
-# Levanta PostgreSQL y carga el esquema (db/init/*.sql) en el primer arranque.
-# La app FastAPI se corre aparte con `uv run python main.py` apuntando a localhost:5432.
+# Docker Compose para desarrollo local (multi-tenant).
+# Levanta PostgreSQL y, en el PRIMER arranque, ejecuta db/init/:
+#   00_roles.sql  -> crea el rol mt_app (NO superusuario) y lo hace dueño del schema
+#   01_load.sql   -> carga el esquema multi-tenant COMO mt_app (para que el RLS aplique)
+# La app FastAPI se corre aparte con `uv run python main.py` conectando como mt_app.
 #
 # Uso:
 #   docker compose up -d
-#   docker compose ps
+#   docker compose ps            # motogestion-db (healthy)
 #   docker compose logs -f db
+#   docker compose down -v       # borra el volumen y recarga todo desde cero
 #
-# Las credenciales se toman de .env (DB_USER/DB_PASSWORD/DB_NAME/DB_PORT).
+# Admin de Postgres = postgres/postgres (solo para administrar el contenedor).
+# La app NUNCA usa el admin: usa mt_app (no-superusuario) para que el RLS aísle por taller.
 services:
     db:
         image: postgres:16
         container_name: motogestion-db
         restart: unless-stopped
         environment:
-            POSTGRES_USER: ${DB_USER}
-            POSTGRES_PASSWORD: ${DB_PASSWORD}
-            POSTGRES_DB: ${DB_NAME}
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: ${DB_NAME:-motogestion}
         ports:
             - "${DB_PORT:-5432}:5432"
         volumes:
-            # Scripts de inicializacion: se ejecutan en orden alfabetico solo
-            # cuando el volumen de datos esta vacio (primer arranque).
+            # Se ejecutan en orden alfabético solo cuando el volumen está vacío.
             - ./db/init:/docker-entrypoint-initdb.d:ro
+            # El esquema multi-tenant, montado para que 01_load.sql lo cargue con \i.
+            - ./db/full_schema_v2_multitenant.sql:/schema.sql:ro
             - pgdata:/var/lib/postgresql/data
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+            test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME:-motogestion}"]
             interval: 5s
             timeout: 5s
             retries: 10

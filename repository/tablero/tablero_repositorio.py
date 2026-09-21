@@ -16,16 +16,6 @@ class TableroRepositorio(BaseRepository):
             omit_key=True,
         )
 
-    async def listar_mecanicos(self) -> List[Dict]:
-        return await self.execute(
-            "select documento_usu, "
-            "       nombre_usu || ' ' || coalesce(apellido_1_usu, '') as nombre "
-            "from usuarios "
-            "where cod_rol_prf_usu = 2 and cod_est_usu = 1 "
-            "order by nombre_usu",
-            None,
-        )
-
     async def listar_ordenes(self, documento_mecanico: Optional[str]) -> List[Dict]:
         # Tablero Kanban: todas las OT del taller (todos los estados). Más antiguas primero.
         base = (

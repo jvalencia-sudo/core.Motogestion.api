@@ -23,6 +23,9 @@ from infrastructure.providers.auth.auth0_provider import Auth0Provider
 from infrastructure.utils.tenant_context import set_tenant
 from repository.auth.user_repository import UserRepository
 from repository.auth.user_business_repository import UserBusinessRepository
+from repository.auth.identidad_repositorio import IdentidadRepositorio
+from repository.auth.perfil_repositorio import PerfilRepositorio
+from repository.talleres.taller_repositorio import TallerRepositorio
 from infrastructure.commons.enums.user import UserTypeEnum
 
 
@@ -31,6 +34,10 @@ class UserService(BaseService[UserModel, UserRepository]):
         super().__init__(UserRepository())
         self.user_business_repository = UserBusinessRepository()
         self.permiso_servicio = PermisoServicio()
+        # Repos dueños de las tablas que el login consulta además de `usuarios`.
+        self.identidad_repo = IdentidadRepositorio()
+        self.taller_repo = TallerRepositorio()
+        self.perfil_repo = PerfilRepositorio()
 
     def __parse__(self, record: Dict) -> UserModel:
         return UserModel.model_validate(record)
@@ -58,7 +65,7 @@ class UserService(BaseService[UserModel, UserRepository]):
 
         if not existing_user:
             # Primer ingreso: el correo debe estar pre-registrado (registro de taller o invitación)
-            acceso = await self.repository.get_acceso_por_correo(request.email)
+            acceso = await self.identidad_repo.get_acceso_por_correo(request.email)
             if not acceso:
                 raise DomainException("Usuario no registrado en el sistema", HTTP_403_FORBIDDEN)
             set_tenant(acceso.get("COD_TALLER"))
@@ -73,8 +80,8 @@ class UserService(BaseService[UserModel, UserRepository]):
         )
         permission_names = [p.nombre_prm for p in permissions]
 
-        nombre_tal = await self.repository.get_nombre_taller(existing_user.get("COD_TALLER"))
-        perfil = await self.repository.get_nombre_perfil(user.cod_prf_usu)
+        nombre_tal = await self.taller_repo.get_nombre(existing_user.get("COD_TALLER"))
+        perfil = await self.perfil_repo.get_nombre(user.cod_prf_usu)
 
         return UserWithPermissionsModel(
             **user.model_dump(),

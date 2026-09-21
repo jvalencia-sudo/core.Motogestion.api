@@ -1,5 +1,8 @@
-from typing import Dict, List, Optional
+from decimal import Decimal
+from typing import Dict, List, Optional, Union
 from repository.base_repository import BaseRepository
+
+Cantidad = Union[int, Decimal]
 
 
 class DetalleOrdenTrabajoRepositorio(BaseRepository):
@@ -24,7 +27,7 @@ class DetalleOrdenTrabajoRepositorio(BaseRepository):
         self,
         consecutivo_ot: int,
         cod_pro: int,
-        cantidad: int,
+        cantidad: Cantidad,
         valor_unitario: int,
         documento_usu: str
     ) -> bool:
@@ -56,7 +59,7 @@ class DetalleOrdenTrabajoRepositorio(BaseRepository):
         self,
         consecutivo_ot: int,
         cod_pro: int,
-        nueva_cantidad: int
+        nueva_cantidad: Cantidad
     ) -> bool:
         """Actualiza la cantidad de un producto en el detalle"""
         query = """

@@ -9,7 +9,7 @@ from fastapi import Request
 
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
 from infrastructure.utils.tenant_context import set_tenant
-from repository.auth.user_repository import UserRepository
+from repository.auth.identidad_repositorio import IdentidadRepositorio
 
 
 async def resolve_tenant(request: Request) -> None:
@@ -21,7 +21,7 @@ async def resolve_tenant(request: Request) -> None:
     token = authorization[7:].strip()
     try:
         auth_user = await Auth0Provider().verify(token)
-        cod_taller = await UserRepository().get_taller_by_sub(auth_user.user_id)
+        cod_taller = await IdentidadRepositorio().get_taller_by_sub(auth_user.user_id)
         set_tenant(cod_taller)
     except Exception:
         # Token inválido o usuario sin taller: se queda sin tenant (RLS = sin datos).

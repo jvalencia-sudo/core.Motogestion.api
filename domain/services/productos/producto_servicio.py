@@ -5,21 +5,63 @@ from domain.contracts.productos.producto_contract import (
     ProductoCreateContract,
     ProductoUpdateContract,
     ProductoResponseContract,
-    ImpuestoResponseContract
+    ImpuestoResponseContract,
+    ComponenteContract,
+    ComponenteResponseContract,
 )
 from domain.models.productos.producto_modelo import ProductoModelo
 from domain.models.productos.producto_impuesto_modelo import ProductoImpuestoModelo
+from domain.models.productos.paquete_componente_modelo import PaqueteComponenteModelo
 from domain.models.productos.vw_producto_modelo import VwProductoModelo
 from domain.services.base_service import BaseService
 from domain.services.productos.producto_impuesto_servicio import ProductoImpuestoServicio
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.productos.producto_repositorio import ProductoRepositorio
+from repository.productos.paquete_componente_repositorio import PaqueteComponenteRepositorio
 
 
 class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
     def __init__(self):
         super().__init__(ProductoRepositorio())
         self.producto_impuesto_service = ProductoImpuestoServicio()
+        self.paquete_repo = PaqueteComponenteRepositorio()
+
+    # ---- Componentes de paquetes (combos) ----
+
+    async def _guardar_componentes(self, cod_pro_paq: int, componentes: list) -> None:
+        """Valida y guarda los componentes de un paquete (reemplazo total)."""
+        await self.paquete_repo.eliminar_por_paquete(cod_pro_paq)
+        for comp in componentes or []:
+            if comp.cod_pro_comp == cod_pro_paq:
+                raise DomainException("Un paquete no puede incluirse a sí mismo", HTTP_400_BAD_REQUEST)
+            comp_dict = await self.repository.get_by_id(comp.cod_pro_comp)
+            if not comp_dict:
+                raise DomainException(
+                    f"El componente con código {comp.cod_pro_comp} no existe", HTTP_400_BAD_REQUEST
+                )
+            comp_modelo = self.__parse_custom__(comp_dict, ProductoModelo)
+            if comp_modelo.tipo_pro == "PAQUETE":
+                raise DomainException(
+                    "Un paquete no puede contener otro paquete", HTTP_400_BAD_REQUEST
+                )
+            await self.paquete_repo.create(PaqueteComponenteModelo(
+                cod_pro_paq=cod_pro_paq,
+                cod_pro_comp=comp.cod_pro_comp,
+                cantidad_comp=comp.cantidad_comp,
+            ))
+
+    async def _obtener_componentes(self, cod_pro_paq: int) -> list:
+        """Devuelve los componentes de un paquete como contratos de respuesta."""
+        filas = await self.paquete_repo.listar_por_paquete(cod_pro_paq)
+        return [
+            ComponenteResponseContract(
+                cod_pro_comp=f.get("COD_PRO_COMP"),
+                nombre_pro=f.get("NOMBRE_PRO"),
+                tipo_pro=f.get("TIPO_PRO"),
+                cantidad_comp=f.get("CANTIDAD_COMP"),
+            )
+            for f in filas
+        ]
 
     def __parse__(self, record: Dict) -> ProductoModelo:
         return ProductoModelo.model_validate(record)
@@ -48,17 +90,24 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                 for imp in impuestos_modelos
             ]
 
+            componentes_lista = (
+                await self._obtener_componentes(producto_modelo.cod_pro)
+                if producto_modelo.tipo_pro == "PAQUETE" else []
+            )
+
             # Crear el contrato de respuesta del producto
             resultado.append(ProductoResponseContract(
                 cod_pro=producto_modelo.cod_pro,
                 nombre_pro=producto_modelo.nombre_pro,
                 descripcion_pro=producto_modelo.descripcion_pro,
+                tipo_pro=producto_modelo.tipo_pro,
                 stock_pro=producto_modelo.stock_pro,
                 stock_pro_min=producto_modelo.stock_pro_min,
                 cod_est_pro=producto_modelo.cod_est_pro,
                 precio_pro=producto_modelo.precio_pro,
                 estado_producto=producto_modelo.estado_producto,
-                impuestos=impuestos_lista
+                impuestos=impuestos_lista,
+                componentes=componentes_lista
             ))
 
         return resultado
@@ -87,17 +136,24 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                 for imp in impuestos_modelos
             ]
 
+            componentes_lista = (
+                await self._obtener_componentes(producto_modelo.cod_pro)
+                if producto_modelo.tipo_pro == "PAQUETE" else []
+            )
+
             # Crear el contrato de respuesta del producto
             resultado.append(ProductoResponseContract(
                 cod_pro=producto_modelo.cod_pro,
                 nombre_pro=producto_modelo.nombre_pro,
                 descripcion_pro=producto_modelo.descripcion_pro,
+                tipo_pro=producto_modelo.tipo_pro,
                 stock_pro=producto_modelo.stock_pro,
                 stock_pro_min=producto_modelo.stock_pro_min,
                 cod_est_pro=producto_modelo.cod_est_pro,
                 precio_pro=producto_modelo.precio_pro,
                 estado_producto=producto_modelo.estado_producto,
-                impuestos=impuestos_lista
+                impuestos=impuestos_lista,
+                componentes=componentes_lista
             ))
 
         return resultado
@@ -128,16 +184,23 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
             for imp in impuestos_modelos
         ]
 
+        componentes_lista = (
+            await self._obtener_componentes(cod_pro)
+            if producto_modelo.tipo_pro == "PAQUETE" else []
+        )
+
         return ProductoResponseContract(
             cod_pro=producto_modelo.cod_pro,
             nombre_pro=producto_modelo.nombre_pro,
             descripcion_pro=producto_modelo.descripcion_pro,
+            tipo_pro=producto_modelo.tipo_pro,
             stock_pro=producto_modelo.stock_pro,
             stock_pro_min=producto_modelo.stock_pro_min,
             cod_est_pro=producto_modelo.cod_est_pro,
             precio_pro=producto_modelo.precio_pro,
             estado_producto=producto_modelo.estado_producto,
-            impuestos=impuestos_lista
+            impuestos=impuestos_lista,
+            componentes=componentes_lista
         )
 
     async def crear_producto(self, contract: ProductoCreateContract) -> ProductoResponseContract:
@@ -150,22 +213,30 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                 HTTP_400_BAD_REQUEST
             )
 
-        # Validar stock mínimo
-        if contract.stock_pro < contract.stock_pro_min:
-            raise DomainException(
-                "El stock actual no puede ser menor que el stock mínimo",
-                HTTP_400_BAD_REQUEST
-            )
+        # El stock solo aplica a los BIEN. SERVICIO (mano de obra) no maneja stock.
+        es_bien = contract.tipo_pro == "BIEN"
+        if es_bien:
+            stock_pro = contract.stock_pro if contract.stock_pro is not None else 0
+            stock_pro_min = contract.stock_pro_min if contract.stock_pro_min is not None else 0
+            if stock_pro < stock_pro_min:
+                raise DomainException(
+                    "El stock actual no puede ser menor que el stock mínimo",
+                    HTTP_400_BAD_REQUEST
+                )
+        else:
+            stock_pro = None
+            stock_pro_min = None
 
         # Crear el producto (siempre activo por defecto: cod_est_pro = 1)
         nuevo_producto = ProductoModelo(
             cod_pro=0,
             nombre_pro=contract.nombre_pro,
             descripcion_pro=contract.descripcion_pro,
-            stock_pro=contract.stock_pro,
-            stock_pro_min=contract.stock_pro_min,
+            stock_pro=stock_pro,
+            stock_pro_min=stock_pro_min,
             cod_est_pro=1,  # Activo
-            precio_pro=contract.precio_pro
+            precio_pro=contract.precio_pro,
+            tipo_pro=contract.tipo_pro
         )
 
         cod_pro = await self.repository.create(nuevo_producto)
@@ -181,6 +252,10 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                     porcentaje_pro_imp=impuesto.porcentaje
                 )
                 await self.producto_impuesto_service.create(producto_impuesto)
+
+        # Si es un PAQUETE, guardar su receta de componentes
+        if contract.tipo_pro == "PAQUETE" and contract.componentes:
+            await self._guardar_componentes(cod_pro, contract.componentes)
 
         # Retornar el producto creado
         return await self.obtener_producto_por_id(cod_pro)
@@ -207,15 +282,23 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                     HTTP_400_BAD_REQUEST
                 )
 
-        # Validar stock mínimo
-        stock_actual = contract.stock_pro if contract.stock_pro is not None else producto_actual_modelo.stock_pro
-        stock_min = contract.stock_pro_min if contract.stock_pro_min is not None else producto_actual_modelo.stock_pro_min
+        # Tipo efectivo tras la actualización (puede venir en el contrato o mantenerse)
+        tipo_pro = contract.tipo_pro if contract.tipo_pro is not None else producto_actual_modelo.tipo_pro
 
-        if stock_actual < stock_min:
-            raise DomainException(
-                "El stock actual no puede ser menor que el stock mínimo",
-                HTTP_400_BAD_REQUEST
-            )
+        # El stock solo aplica a los BIEN. Si el producto es/queda SERVICIO → NULL.
+        if tipo_pro == "BIEN":
+            stock_actual = contract.stock_pro if contract.stock_pro is not None else producto_actual_modelo.stock_pro
+            stock_min = contract.stock_pro_min if contract.stock_pro_min is not None else producto_actual_modelo.stock_pro_min
+            stock_actual = stock_actual if stock_actual is not None else 0
+            stock_min = stock_min if stock_min is not None else 0
+            if stock_actual < stock_min:
+                raise DomainException(
+                    "El stock actual no puede ser menor que el stock mínimo",
+                    HTTP_400_BAD_REQUEST
+                )
+        else:
+            stock_actual = None
+            stock_min = None
 
         # Preparar el modelo actualizado
         producto_actualizado = ProductoModelo(
@@ -225,7 +308,8 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
             stock_pro=stock_actual,
             stock_pro_min=stock_min,
             cod_est_pro=producto_actual_modelo.cod_est_pro,
-            precio_pro=contract.precio_pro if contract.precio_pro is not None else producto_actual_modelo.precio_pro
+            precio_pro=contract.precio_pro if contract.precio_pro is not None else producto_actual_modelo.precio_pro,
+            tipo_pro=tipo_pro
         )
 
         await self.repository.update(producto_actualizado)
@@ -244,6 +328,10 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                     porcentaje_pro_imp=impuesto.porcentaje
                 )
                 await self.producto_impuesto_service.create(producto_impuesto)
+
+        # Reemplazar componentes del paquete si se proporcionan
+        if contract.componentes is not None:
+            await self._guardar_componentes(cod_pro, contract.componentes)
 
         # Retornar el producto actualizado
         return await self.obtener_producto_por_id(cod_pro)

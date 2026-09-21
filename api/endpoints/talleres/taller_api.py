@@ -1,15 +1,21 @@
-from typing import List
+from typing import Dict, List
 
 from fastapi import APIRouter, Depends, status
 
 from domain.contracts.talleres.taller_contract import (
+    TallerConfigManoObraContract,
     TallerRegistroContract,
     TallerRegistroResponse,
+    TallerSuscripcionContract,
     TallerUpdateContract,
 )
 from domain.models.talleres.taller_model import TallerModel
 from domain.services.talleres.taller_servicio import TallerServicio
-from infrastructure.dependencies.current_user import require_super_admin
+from infrastructure.dependencies.current_user import (
+    get_current_usuario,
+    require_admin,
+    require_super_admin,
+)
 
 router = APIRouter()
 
@@ -23,6 +29,34 @@ async def registrar_taller(contract: TallerRegistroContract):
     El dueño inicia sesión luego con ese correo (el login es cerrado a usuarios registrados).
     """
     return await TallerServicio().registrar(contract)
+
+
+# Config de mano de obra del PROPIO taller (dueño/Admin). El taller se toma del
+# token (no de un path param): 'talleres' no tiene RLS, así que el tenant debe
+# venir del usuario autenticado. Se declara antes de las rutas /{cod_taller}.
+
+@router.get("/config", response_model=TallerConfigManoObraContract)
+async def obtener_config_mano_obra(current: Dict = Depends(require_admin)):
+    """Obtiene la configuración de mano de obra del taller del usuario."""
+    return await TallerServicio().obtener_config_mano_obra(current.get("COD_TALLER"))
+
+
+@router.put("/config", response_model=TallerConfigManoObraContract)
+async def actualizar_config_mano_obra(
+    contract: TallerConfigManoObraContract,
+    current: Dict = Depends(require_admin),
+):
+    """Actualiza el modo de cobro de mano de obra (HORAS/LIBRE) y la tarifa por defecto."""
+    return await TallerServicio().actualizar_config_mano_obra(current.get("COD_TALLER"), contract)
+
+
+@router.get("/suscripcion", response_model=TallerSuscripcionContract)
+async def obtener_suscripcion(current: Dict = Depends(get_current_usuario)):
+    """Estado de suscripción del taller del usuario (para banner/gating en el front)."""
+    if current is None:
+        from infrastructure.exceptions.domain_exception import DomainException
+        raise DomainException("No autenticado", status.HTTP_401_UNAUTHORIZED)
+    return await TallerServicio().obtener_suscripcion(current.get("COD_TALLER"))
 
 
 # Endpoints de gestión: solo super-admin (Admin del taller plataforma) puede

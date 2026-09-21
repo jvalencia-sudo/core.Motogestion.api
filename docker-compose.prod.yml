@@ -1,0 +1,155 @@
+# Docker Compose de PRODUCCIÓN (Oracle Cloud, Ubuntu 24.04 ARM64).
+#
+# Servicios: caddy (único con puertos publicados), db (Postgres 16), backend (FastAPI)
+# y n8n. Todo habla por la red interna `app_net`; el Caddyfile enruta por nombre de
+# servicio (`backend:8000`, `n8n:5678`).
+#
+# Los secretos salen del archivo `.env` (plantilla: .env.prod.example). Para que
+# `docker compose up -d` use ESTE archivo y no el docker-compose.yaml de desarrollo,
+# el .env de la VM incluye COMPOSE_FILE=docker-compose.prod.yml.
+#
+# Guía de despliegue: DEPLOY_ORACLE.md
+
+x-logging: &default-logging
+    driver: json-file
+    options:
+        max-size: "10m"
+        max-file: "3"
+
+services:
+    caddy:
+        image: caddy:2
+        restart: unless-stopped
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+            - caddy_data:/data
+            - caddy_config:/config
+        networks:
+            - app_net
+        logging: *default-logging
+
+    db:
+        image: postgres:16
+        restart: unless-stopped
+        environment:
+            # Superusuario del contenedor: SOLO para administrar y hacer backups.
+            POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+            POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
+            # Los usa db/init-prod/00_init.sh en el primer arranque (volumen vacío).
+            APP_DB_USER: ${APP_DB_USER:?Falta APP_DB_USER en .env}
+            APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Falta APP_DB_PASSWORD en .env}
+            N8N_DB_NAME: ${N8N_DB_NAME:?Falta N8N_DB_NAME en .env}
+            N8N_DB_USER: ${N8N_DB_USER:?Falta N8N_DB_USER en .env}
+            N8N_DB_PASSWORD: ${N8N_DB_PASSWORD:?Falta N8N_DB_PASSWORD en .env}
+        volumes:
+            - db_data:/var/lib/postgresql/data
+            # Se ejecuta solo cuando db_data está vacío.
+            - ./db/init-prod:/docker-entrypoint-initdb.d:ro
+            - ./db/full_schema_v2_multitenant.sql:/schema.sql:ro
+        healthcheck:
+            # -h 127.0.0.1 (TCP) es clave: durante el init el servidor temporal solo
+            # escucha en el socket unix, y sin -h el healthcheck marcaría "healthy"
+            # antes de que terminen los scripts de init.
+            test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+            start_period: 30s
+        networks:
+            - app_net
+        logging: *default-logging
+
+    backend:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        # El deploy automático (GitHub Actions) descarga esta imagen ya construida.
+        # `build` queda como respaldo para construir a mano en la VM.
+        image: ghcr.io/jvalencia-sudo/motogestion-backend:${BACKEND_TAG:-latest}
+        restart: unless-stopped
+        depends_on:
+            db:
+                condition: service_healthy
+        environment:
+            ENVIRONMENT: ${ENVIRONMENT:-prod}
+            PROJECT_NAME: ${PROJECT_NAME:-moto-api}
+            # CORS: lista separada por comas. Debe incluir el dominio de Vercel.
+            CORS_ORIGINS: ${CORS_ORIGINS:?Falta CORS_ORIGINS en .env}
+            FRONTEND_URL: ${FRONTEND_URL:?Falta FRONTEND_URL en .env}
+            # Base de datos: el backend usa el rol de la app (NO el superusuario) para
+            # que el RLS aísle por taller.
+            DB_HOST: db
+            DB_PORT: "5432"
+            DB_NAME: ${POSTGRES_DB}
+            DB_USER: ${APP_DB_USER}
+            DB_PASSWORD: ${APP_DB_PASSWORD}
+            AUTH0_DOMAIN: ${AUTH0_DOMAIN:?Falta AUTH0_DOMAIN en .env}
+            AUTH0_API_AUDIENCE: ${AUTH0_API_AUDIENCE:?Falta AUTH0_API_AUDIENCE en .env}
+            AUTH0_ALGORITHMS: ${AUTH0_ALGORITHMS:-RS256}
+            AUTH0_MANAGEMENT_CLIENT_ID: ${AUTH0_MANAGEMENT_CLIENT_ID:?Falta AUTH0_MANAGEMENT_CLIENT_ID en .env}
+            AUTH0_MANAGEMENT_CLIENT_SECRET: ${AUTH0_MANAGEMENT_CLIENT_SECRET:?Falta AUTH0_MANAGEMENT_CLIENT_SECRET en .env}
+            AUTH0_MANAGEMENT_AUDIENCE: ${AUTH0_MANAGEMENT_AUDIENCE:?Falta AUTH0_MANAGEMENT_AUDIENCE en .env}
+            AUTH0_CONNECTION_ID: ${AUTH0_CONNECTION_ID:-Username-Password-Authentication}
+            AUTH0_CUSTOMER_ROLE: ${AUTH0_CUSTOMER_ROLE:?Falta AUTH0_CUSTOMER_ROLE en .env}
+            AUTH0_ADMIN_ROLE: ${AUTH0_ADMIN_ROLE:?Falta AUTH0_ADMIN_ROLE en .env}
+            # Wompi es opcional: sin llaves el checkout responde "pagos no configurados".
+            WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-}
+            WOMPI_PRIVATE_KEY: ${WOMPI_PRIVATE_KEY:-}
+            WOMPI_EVENTS_SECRET: ${WOMPI_EVENTS_SECRET:-}
+            WOMPI_INTEGRITY_SECRET: ${WOMPI_INTEGRITY_SECRET:-}
+            WOMPI_CHECKOUT_URL: ${WOMPI_CHECKOUT_URL:-https://checkout.wompi.co/p/}
+            WOMPI_BASE_URL: ${WOMPI_BASE_URL:-https://sandbox.wompi.co/v1}
+        healthcheck:
+            test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
+        networks:
+            - app_net
+        logging: *default-logging
+
+    n8n:
+        image: n8nio/n8n:${N8N_VERSION:-latest}
+        restart: unless-stopped
+        depends_on:
+            db:
+                condition: service_healthy
+        environment:
+            # Base de datos propia (BD y usuario separados de los de la app).
+            DB_TYPE: postgresdb
+            DB_POSTGRESDB_HOST: db
+            DB_POSTGRESDB_PORT: "5432"
+            DB_POSTGRESDB_DATABASE: ${N8N_DB_NAME}
+            DB_POSTGRESDB_USER: ${N8N_DB_USER}
+            DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
+            # Detrás de Caddy con HTTPS.
+            N8N_HOST: n8n-jfv.duckdns.org
+            N8N_PORT: "5678"
+            N8N_PROTOCOL: https
+            WEBHOOK_URL: https://n8n-jfv.duckdns.org/
+            # n8n 2.x depreca WEBHOOK_URL a favor de esta; se mantienen ambas con el mismo valor.
+            N8N_WEBHOOK_URL: https://n8n-jfv.duckdns.org/
+            N8N_PROXY_HOPS: "1"
+            N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Falta N8N_ENCRYPTION_KEY en .env}
+            GENERIC_TIMEZONE: America/Bogota
+            TZ: America/Bogota
+        volumes:
+            - n8n_data:/home/node/.n8n
+        networks:
+            - app_net
+        logging: *default-logging
+
+networks:
+    app_net:
+        driver: bridge
+
+volumes:
+    db_data:
+    n8n_data:
+    caddy_data:
+    caddy_config:

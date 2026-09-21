@@ -1,3 +1,5 @@
+from typing import Dict, Optional
+
 from repository.base_repository import BaseRepository
 
 
@@ -11,36 +13,51 @@ class TallerRepositorio(BaseRepository):
             sequence_name="seq_talleres",
         )
 
-    async def crear_taller(self, nombre_tal: str, correo_tal: str, nit_tal: str = None) -> int:
-        """Crea el taller (tenant) y devuelve su cod_taller. talleres no tiene RLS."""
+    async def crear_taller(
+        self, nombre_tal: str, correo_tal: str, nit_tal: str = None, fecha_fin_susc=None
+    ) -> int:
+        """Crea el taller (tenant) en modo 'prueba' con su ventana de trial ya fijada
+        (fecha_fin_susc) y devuelve su cod_taller. talleres no tiene RLS."""
         res = await self.db.insert(
-            "INSERT INTO talleres (nombre_tal, correo_tal, nit_tal, estado_tal) "
-            "VALUES (:1, :2, :3, 'prueba')",
-            (nombre_tal, correo_tal, nit_tal),
+            "INSERT INTO talleres (nombre_tal, correo_tal, nit_tal, estado_tal, fecha_fin_susc_tal) "
+            "VALUES (:1, :2, :3, 'prueba', :4)",
+            (nombre_tal, correo_tal, nit_tal, fecha_fin_susc),
             primary_key="cod_taller",
         )
         return res["cod_taller"]
 
-    async def sembrar_perfiles(self) -> None:
-        """Crea los perfiles por defecto del taller (Admin/Mecánico/Recepcionista)
-        con sus permisos, vía la función fn_seed_perfiles_taller. El taller se toma
-        del contexto (app.tenant_id, ya fijado por el servicio). Debe llamarse ANTES
-        de crear_dueno (el dueño referencia el perfil Admin del taller)."""
-        await self.db.execute_non_query(
-            "SELECT fn_seed_perfiles_taller(current_setting('app.tenant_id')::integer)"
+    async def existe_por_correo(self, correo_tal: str) -> bool:
+        """¿Ya hay un taller con ese correo? (anti-abuso del trial). talleres no tiene RLS."""
+        row = await self.db.get_first(
+            "SELECT 1 FROM talleres WHERE lower(correo_tal) = lower(:1) LIMIT 1",
+            (correo_tal,),
+        )
+        return row is not None
+
+    async def get_nombre(self, cod_taller: int) -> str:
+        """Nombre del taller (talleres no tiene RLS: se consulta directo)."""
+        row = await self.db.get_first(
+            "SELECT nombre_tal FROM talleres WHERE cod_taller = :1", (cod_taller,)
+        )
+        return row.get("NOMBRE_TAL") if row else None
+
+    async def get_suscripcion(self, cod_taller: int) -> Optional[Dict]:
+        """Estado de suscripción del taller (para el gating). talleres no tiene RLS."""
+        return await self.db.get_first(
+            "SELECT estado_tal, plan_tal, fecha_fin_susc_tal FROM talleres WHERE cod_taller = :1",
+            (cod_taller,),
         )
 
-    async def crear_dueno(self, documento: str, nombre: str, apellido: str, correo: str) -> None:
-        """Crea el usuario dueño (perfil Admin) PRE-REGISTRADO: sin sub aún (se
-        vincula en su primer login). cod_taller lo pone el DEFAULT (app.tenant_id) y
-        el perfil Admin se resuelve del propio taller (el RLS filtra perfiles)."""
+    async def activar_suscripcion(self, cod_taller: int, nombre_plan: str, dias: int = 30) -> None:
+        """Activa/renueva la suscripción tras un pago aprobado: estado='activo',
+        fija el plan y extiende la vigencia `dias` desde hoy (o desde la fecha fin
+        vigente si aún no venció). talleres no tiene RLS."""
         await self.db.execute_non_query(
-            "INSERT INTO usuarios "
-            "(documento_usu, nombre_usu, apellido_1_usu, correo_usu, contrasena_usu, "
-            " cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, cod_rol_prf_usu) "
-            "VALUES (:1, :2, :3, :4, 'auth0_managed', 1, 1, NULL, "
-            "        (SELECT cod_prf FROM perfiles WHERE cod_rol_prf = 1 LIMIT 1), 1)",
-            (documento, nombre, apellido, correo),
+            "UPDATE talleres SET estado_tal = 'activo', plan_tal = :1, "
+            "  fecha_fin_susc_tal = (GREATEST(COALESCE(fecha_fin_susc_tal, CURRENT_DATE), CURRENT_DATE) "
+            "                        + make_interval(days => :2))::date "
+            "WHERE cod_taller = :3",
+            (nombre_plan, dias, cod_taller),
         )
 
     async def actualizar(self, cod_taller: int, campos: dict) -> None:
@@ -51,16 +68,3 @@ class TallerRepositorio(BaseRepository):
         params = tuple(campos.values()) + (cod_taller,)
         query = f"UPDATE talleres SET {sets} WHERE cod_taller = :{len(campos) + 1}"
         await self.db.execute_non_query(query, params)
-
-    async def sembrar_catalogos(self) -> None:
-        """Catálogos base para que el taller sea usable desde el primer día.
-        cod_taller lo pone el DEFAULT (app.tenant_id, ya fijado por el servicio)."""
-        for nombre_mar in ["Yamaha", "Honda", "Suzuki", "Kawasaki", "Bajaj", "AKT", "KTM", "Auteco"]:
-            await self.db.execute_non_query(
-                "INSERT INTO marcas (nombre_mar) VALUES (:1)", (nombre_mar,)
-            )
-        for nombre_imp, pct in [("IVA", 19.00), ("IVA Reducido", 5.00), ("Excluido", 0.00)]:
-            await self.db.execute_non_query(
-                "INSERT INTO impuestos (nombre_imp, porcentaje_imp) VALUES (:1, :2)",
-                (nombre_imp, pct),
-            )
