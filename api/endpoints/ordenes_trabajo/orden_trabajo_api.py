@@ -1,6 +1,7 @@
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, status, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import (
     OrdenTrabajoCreateContract,
     OrdenTrabajoUpdateContract,
@@ -16,8 +17,10 @@ from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
 )
 from domain.services.ordenes_trabajo.orden_trabajo_servicio import OrdenTrabajoServicio
 from infrastructure.dependencies.auth_request import AuthRequest
+from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
-import os
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/ordenes-trabajo",
@@ -68,27 +71,27 @@ async def generar_pdf_orden_trabajo(consecutivo_ot: int):
     # La validación de negocio (existencia, estado válido, tiene ítems) vive en el servicio.
     orden = await servicio.obtener_orden_para_documento(consecutivo_ot)
 
-    # Generar el PDF
+    # Generar el PDF (en memoria, nunca se escribe a disco: ver nota de
+    # seguridad en OrdenTrabajoPDFGenerator.generar_pdf)
     try:
         pdf_generator = OrdenTrabajoPDFGenerator()
         nombre_archivo = f"orden_trabajo_{consecutivo_ot}.pdf"
-        ruta_pdf = os.path.join("pdfs", "ordenes_trabajo", nombre_archivo)
+        pdf_bytes = pdf_generator.generar_pdf(orden)
 
-        pdf_generator.generar_pdf(orden, ruta_pdf)
-
-        # Retornar el archivo PDF
-        return FileResponse(
-            path=ruta_pdf,
+        return Response(
+            content=pdf_bytes,
             media_type="application/pdf",
-            filename=nombre_archivo,
             headers={
                 "Content-Disposition": f"attachment; filename={nombre_archivo}"
             }
         )
-    except Exception as e:
+    except DomainException:
+        raise
+    except Exception:
+        logger.exception("Error generando PDF de la orden %s", consecutivo_ot)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al generar el PDF: {str(e)}"
+            detail="Error al generar el PDF"
         )
 
 
@@ -97,24 +100,26 @@ async def generar_factura_orden_trabajo(consecutivo_ot: int):
     """Genera un PDF de factura en formato POS (ticket de 80mm)"""
     servicio = OrdenTrabajoServicio()
 
-    # Generar la factura (toda la lógica de negocio está en el servicio)
+    # Generar la factura (toda la lógica de negocio está en el servicio,
+    # en memoria: ver nota de seguridad en OrdenTrabajoPDFGenerator.generar_pdf)
     try:
-        ruta_pdf = await servicio.generar_factura_pos(consecutivo_ot)
+        pdf_bytes = await servicio.generar_factura_pos(consecutivo_ot)
         nombre_archivo = f"factura_{consecutivo_ot}.pdf"
 
-        # Retornar el archivo PDF
-        return FileResponse(
-            path=ruta_pdf,
+        return Response(
+            content=pdf_bytes,
             media_type="application/pdf",
-            filename=nombre_archivo,
             headers={
                 "Content-Disposition": f"inline; filename={nombre_archivo}"
             }
         )
-    except Exception as e:
+    except DomainException:
+        raise
+    except Exception:
+        logger.exception("Error generando factura de la orden %s", consecutivo_ot)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al generar la factura: {str(e)}"
+            detail="Error al generar la factura"
         )
 
 

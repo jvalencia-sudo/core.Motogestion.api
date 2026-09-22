@@ -2,10 +2,10 @@
 Generador de PDF para Facturas POS (Ticket de 80mm)
 """
 from datetime import datetime
+import io
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
-import os
 
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import OrdenTrabajoResponseContract
 
@@ -20,19 +20,22 @@ class FacturaPOSPDFGenerator:
         self.margen = 5 * mm
         self.ancho_util = self.ancho_ticket - (2 * self.margen)
 
-    def generar_factura(self, orden: OrdenTrabajoResponseContract, ruta_salida: str):
+    def generar_factura(self, orden: OrdenTrabajoResponseContract) -> bytes:
         """
-        Genera una factura en formato POS
+        Genera una factura en formato POS, en memoria (ver nota de seguridad
+        en OrdenTrabajoPDFGenerator.generar_pdf: consecutivo_ot no es único
+        globalmente, solo por taller).
 
         Args:
             orden: Contrato con los datos de la orden de trabajo
-            ruta_salida: Ruta donde se guardará el PDF
+
+        Returns:
+            bytes: Contenido del PDF generado
         """
-        # Crear directorio si no existe
-        os.makedirs(os.path.dirname(ruta_salida), exist_ok=True)
+        buffer = io.BytesIO()
 
         # Crear el canvas
-        c = canvas.Canvas(ruta_salida, pagesize=(self.ancho_ticket, self.alto_ticket))
+        c = canvas.Canvas(buffer, pagesize=(self.ancho_ticket, self.alto_ticket))
         # Sin esto, reportlab deja el default "(anonymous)" como título/autor
         # del PDF, visible en la pestaña del navegador al abrirlo.
         c.setTitle(f"Factura #{orden.consecutivo_ot}")
@@ -51,6 +54,8 @@ class FacturaPOSPDFGenerator:
 
         # Finalizar PDF
         c.save()
+
+        return buffer.getvalue()
 
     def _texto_centrado(self, c: canvas.Canvas, texto: str, y: float, tamano: int = 10, fuente: str = "Courier-Bold") -> float:
         """

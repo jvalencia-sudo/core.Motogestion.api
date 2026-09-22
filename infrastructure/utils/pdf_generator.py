@@ -8,6 +8,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from reportlab.graphics.shapes import Drawing, Circle, Line, Rect
 from reportlab.graphics import renderPDF
+import io
 import os
 
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import OrdenTrabajoResponseContract
@@ -321,25 +322,27 @@ class OrdenTrabajoPDFGenerator:
 
         return elementos
 
-    def generar_pdf(self, orden: OrdenTrabajoResponseContract, ruta_salida: str) -> str:
+    def generar_pdf(self, orden: OrdenTrabajoResponseContract) -> bytes:
         """
-        Genera un PDF con la información de la orden de trabajo
+        Genera un PDF con la información de la orden de trabajo, en memoria.
+
+        No se escribe a disco: consecutivo_ot es único por taller (no global,
+        la llave primaria real es cod_taller+consecutivo_ot), así que un
+        nombre de archivo basado solo en consecutivo_ot podía colisionar
+        entre dos talleres y filtrar el PDF de uno al otro. El RLS no
+        protege esto porque ocurre fuera de la base de datos.
 
         Args:
             orden: Contrato con toda la información de la orden
-            ruta_salida: Ruta completa donde se guardará el PDF
 
         Returns:
-            str: Ruta del archivo PDF generado
+            bytes: Contenido del PDF generado
         """
-        # Crear directorio si no existe
-        directorio = os.path.dirname(ruta_salida)
-        if directorio and not os.path.exists(directorio):
-            os.makedirs(directorio)
+        buffer = io.BytesIO()
 
         # Crear el documento con márgenes más pequeños
         doc = SimpleDocTemplate(
-            ruta_salida,
+            buffer,
             pagesize=letter,
             rightMargin=1.5*cm,
             leftMargin=1.5*cm,
@@ -363,4 +366,4 @@ class OrdenTrabajoPDFGenerator:
         # Generar el PDF
         doc.build(elementos)
 
-        return ruta_salida
+        return buffer.getvalue()
