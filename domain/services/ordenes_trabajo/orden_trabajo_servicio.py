@@ -671,21 +671,19 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             for estado in estados_modelos
         ]
 
-    async def generar_factura_pos(self, consecutivo_ot: int) -> str:
+    async def generar_factura_pos(self, consecutivo_ot: int) -> bytes:
         """
         Genera una factura en formato POS (ticket 80mm) para una orden entregada.
-        Retorna la ruta del archivo PDF generado.
 
         Args:
             consecutivo_ot: Consecutivo de la orden de trabajo
 
         Returns:
-            str: Ruta del archivo PDF generado
+            bytes: Contenido del PDF generado
 
         Raises:
             DomainException: Si la orden no existe, no está entregada o no tiene productos facturables
         """
-        import os
         from infrastructure.utils.factura_pos_generator import FacturaPOSPDFGenerator
 
         # Obtener la orden de trabajo
@@ -726,9 +724,4 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
         # Generar el PDF en formato POS
         pdf_generator = FacturaPOSPDFGenerator()
-        nombre_archivo = f"factura_{consecutivo_ot}.pdf"
-        ruta_pdf = os.path.join("pdfs", "facturas", nombre_archivo)
-
-        pdf_generator.generar_factura(orden, ruta_pdf)
-
-        return ruta_pdf
+        return pdf_generator.generar_factura(orden)
