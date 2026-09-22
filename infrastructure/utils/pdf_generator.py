@@ -344,7 +344,11 @@ class OrdenTrabajoPDFGenerator:
             rightMargin=1.5*cm,
             leftMargin=1.5*cm,
             topMargin=1.5*cm,
-            bottomMargin=1.5*cm
+            bottomMargin=1.5*cm,
+            # Sin esto, reportlab deja el default "(anonymous)" como título/autor
+            # del PDF, visible en la pestaña del navegador al abrirlo.
+            title=f"Orden de Trabajo #{orden.consecutivo_ot}",
+            author="Motogestion",
         )
 
         # Construir el contenido

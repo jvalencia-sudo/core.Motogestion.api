@@ -33,6 +33,10 @@ class FacturaPOSPDFGenerator:
 
         # Crear el canvas
         c = canvas.Canvas(ruta_salida, pagesize=(self.ancho_ticket, self.alto_ticket))
+        # Sin esto, reportlab deja el default "(anonymous)" como título/autor
+        # del PDF, visible en la pestaña del navegador al abrirlo.
+        c.setTitle(f"Factura #{orden.consecutivo_ot}")
+        c.setAuthor("Motogestion")
 
         # Posición inicial
         y = self.alto_ticket - 10 * mm
