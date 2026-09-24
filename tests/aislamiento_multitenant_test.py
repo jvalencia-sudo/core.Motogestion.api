@@ -9,10 +9,11 @@ con `docker compose up -d` local o el servicio postgres de CI.
 import psycopg
 import pytest
 
-from config import settings
-from tests.conftest import TALLER_A, TALLER_B, auth_headers
+from tests.conftest import TALLER_A, TALLER_B, _dsn, auth_headers
 
-pytestmark = pytest.mark.db
+# mock_auth0 no es autouse (ver conftest.py): este archivo entero lo necesita porque
+# todas sus clases hacen requests HTTP simuladas con tokens de prueba.
+pytestmark = [pytest.mark.db, pytest.mark.usefixtures("mock_auth0")]
 
 
 class TestControl:
@@ -225,6 +226,14 @@ class TestExcepcionesRLS:
         assert r.status_code == 200
         assert cod_pago_ajeno not in {p["COD_PAGO"] for p in r.json()}
 
+    def test_config_devuelve_la_del_propio_taller_no_la_ajena(self, client, seed_talleres):
+        """/talleres/config toma el taller del token, no de un path param (talleres
+        no tiene RLS). tarifa_hora_pred = cod_taller en el seed, así que un valor
+        cruzado confirmaría que se coló la config de otro taller."""
+        r = client.get("/api/talleres/config", headers=auth_headers(TALLER_A))
+        assert r.status_code == 200
+        assert r.json()["tarifaHoraPred"] == TALLER_A
+
     def test_usuario_normal_no_puede_leer_taller_ajeno(self, client, seed_talleres):
         r = client.get(f"/api/talleres/{TALLER_B}", headers=auth_headers(TALLER_A))
         assert r.status_code == 403
@@ -254,9 +263,8 @@ class TestEscrituraCruzada:
 
     @pytest.fixture
     def conn_propia(self):
-        c = settings.db_config
         conn = psycopg.connect(
-            f"host={c.host} port={c.port} dbname={c.dbname} user={c.user} password={c.password}",
+            _dsn(),
             autocommit=True,
         )
         yield conn
