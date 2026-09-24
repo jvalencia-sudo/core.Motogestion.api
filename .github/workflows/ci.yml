@@ -9,19 +9,35 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    services:
+      # Postgres real: tests/rls_coverage_test.py (marcados @pytest.mark.db) verifican
+      # el RLS multi-tenant contra catálogos de sistema reales, no se pueden mockear.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: motogestion
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      # Valores falsos con formato válido: solo para que Settings() (Pydantic)
-      # pueda instanciarse al importar el código. No se usan para nada real —
-      # los tests que sí necesitan Auth0 real (auth0_provider_test.py) se
-      # saltan en CI (ver ese archivo).
+      # DB_* ya apuntan al servicio postgres de arriba (valores reales). El resto
+      # sigue siendo falso, solo para que Settings() (Pydantic) pueda instanciarse —
+      # los tests que sí necesitan Auth0 real (auth0_provider_test.py) se saltan en
+      # CI (ver ese archivo).
       ENVIRONMENT: test
       PROJECT_NAME: motogestion-backend-ci
       FRONTEND_URL: https://ci-placeholder.example.com
       DB_HOST: localhost
       DB_PORT: "5432"
-      DB_USER: ci
-      DB_PASSWORD: ci
-      DB_NAME: ci
+      DB_USER: mt_app
+      DB_PASSWORD: test123
+      DB_NAME: motogestion
       AUTH0_DOMAIN: ci-placeholder.auth0.com
       AUTH0_ALGORITHMS: RS256
       AUTH0_API_AUDIENCE: https://ci-placeholder.example.com/api
@@ -33,6 +49,20 @@ jobs:
       AUTH0_ADMIN_ROLE: rol_ci_placeholder
     steps:
       - uses: actions/checkout@v4
+
+      # Mismo orden que db/init/ en desarrollo (ver docker-compose.yaml): crea el rol
+      # mt_app (no superusuario) y le pasa el esquema, ambos como pasos explícitos
+      # porque los service containers arrancan antes del checkout y no pueden montar
+      # docker-entrypoint-initdb.d de forma confiable.
+      - name: Crear rol de la app (mt_app)
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d motogestion -f db/init/00_roles.sql
+
+      - name: Cargar el esquema multi-tenant
+        env:
+          PGPASSWORD: test123
+        run: psql -h localhost -U mt_app -d motogestion -f db/full_schema_v2_multitenant.sql
 
       - uses: astral-sh/setup-uv@v5
         with:
