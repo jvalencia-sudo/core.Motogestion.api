@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 from contextlib import asynccontextmanager
 import psycopg
@@ -26,11 +27,14 @@ from infrastructure.dependencies.tenant_request import resolve_tenant
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.data.db_pool import init_pool, close_pool
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # psycopg async en Windows requiere SelectorEventLoop (el ProactorEventLoop por
 # defecto no soporta add_reader/add_writer que usa psycopg para I/O asíncrono).
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    print("🔧 Usando SelectorEventLoop para compatibilidad con psycopg en Windows")
+    logger.info("Usando SelectorEventLoop para compatibilidad con psycopg en Windows")
 
 
 @asynccontextmanager
@@ -39,9 +43,9 @@ async def lifespan(app: FastAPI):
     # Startup
     try:
         await init_pool()
-        print("🚀 Aplicación iniciada correctamente")
-    except Exception as e:
-        print(f"❌ Error en startup: {e}")
+        logger.info("Aplicación iniciada correctamente")
+    except Exception:
+        logger.exception("Error en startup")
         raise
 
     yield  # La aplicación está corriendo
@@ -49,9 +53,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     try:
         await close_pool()
-        print("👋 Aplicación cerrada correctamente")
-    except Exception as e:
-        print(f"❌ Error en shutdown: {e}")
+        logger.info("Aplicación cerrada correctamente")
+    except Exception:
+        logger.exception("Error en shutdown")
 
 
 app = FastAPI(
@@ -83,7 +87,7 @@ app.include_router(api_router, prefix=settings.api_url, dependencies=[Depends(re
 async def request_validation_exception_handler(
     request: Request, exc: RequestValidationError
 ):
-    print(exc)
+    logger.warning("Error de validación en %s: %s", request.url.path, exc)
     # current_span = trace.get_current_span()
     # current_span.record_exception(exc)
     # current_span.set_status(Status(StatusCode.ERROR, str(exc)))
@@ -97,7 +101,7 @@ async def request_validation_exception_handler(
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
-    print(exc)
+    logger.warning("HTTPException %s en %s: %s", exc.status_code, request.url.path, exc.detail)
     # current_span = trace.get_current_span()
     # current_span.record_exception(exc)
     # current_span.set_status(Status(StatusCode.ERROR, str(exc)))
@@ -111,7 +115,7 @@ async def http_exception_handler(request, exc: HTTPException):
 
 @app.exception_handler(DomainException)
 async def domain_exception_handler(request, exc: DomainException):
-    print(exc)
+    logger.warning("DomainException %s en %s: %s", exc.code, request.url.path, exc.message)
     # current_span = trace.get_current_span()
     # current_span.record_exception(exc)
     # current_span.set_status(Status(StatusCode.ERROR, str(exc)))
@@ -123,7 +127,7 @@ async def domain_exception_handler(request, exc: DomainException):
 
 @app.exception_handler(psycopg.Error)
 async def db_exception_handler(request, exc: Exception):
-    print(exc)
+    logger.error("Error de base de datos en %s: %s", request.url.path, exc, exc_info=exc)
     # current_span = trace.get_current_span()
     # current_span.record_exception(exc)
     # current_span.set_status(Status(StatusCode.ERROR, str(exc)))

@@ -32,19 +32,6 @@ class AwsConfig(BaseSettingModel):
     bucket_name: str = Field(..., alias="S3_BUCKET")
 
 
-class QuotationConfig(BaseSettingModel):
-    national_url: str = Field(..., alias="NATIONAL_QUOTATION_URL")
-    international_url: str = Field(..., alias="INTERNATIONAL_QUOTATION_URL")
-
-
-class SapConfig(BaseSettingModel):
-    pending_orders_url: str = Field(..., alias="SAP_PENDING_ORDERS_URL")
-    username: str = Field(..., alias="SAP_USERNAME")
-    password: str = Field(..., alias="SAP_PASSWORD")
-    base_dev_url: str = Field(..., alias="SAP_BASE_DEV_URL")
-    base_prd_url: str = Field(..., alias="SAP_BASE_PRD_URL")
-
-
 class WompiConfig(BaseSettingModel):
     # Opcionales: si no hay llaves, la app arranca igual y el checkout responde
     # "pagos no configurados" en vez de romper el arranque.
@@ -69,8 +56,6 @@ class Settings(BaseSettingModel):
     auth0_config: Auth0Config = Auth0Config()
     wompi_config: WompiConfig = WompiConfig()
     #aws_config: AwsConfig = AwsConfig()
-    #quotation_config: QuotationConfig = QuotationConfig()
-    #sap_config: SapConfig = SapConfig()
     # Orígenes permitidos por CORS. `cors_origins` es una lista separada por comas
     # (env CORS_ORIGINS); `allowed_origin` se mantiene por compatibilidad.
     cors_origins: str = ""

@@ -1,5 +1,5 @@
 [project]
-name = "iluma-orders-api"
+name = "motogestion-backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
