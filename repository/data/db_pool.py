@@ -22,6 +22,24 @@ def _build_conninfo() -> str:
     )
 
 
+async def _verificar_rol_no_privilegiado(cursor) -> None:
+    """El RLS (FORCE ROW LEVEL SECURITY) solo aísla datos si el rol de la app no es
+    superusuario ni tiene BYPASSRLS: cualquiera de los dos anula el RLS por completo
+    y de forma silenciosa. Se verifica en cada arranque para que un despliegue con el
+    rol equivocado falle ruidosamente en vez de exponer datos entre talleres."""
+    await cursor.execute(
+        "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+    )
+    row = await cursor.fetchone()
+    rolsuper, rolbypassrls = row
+    if rolsuper or rolbypassrls:
+        raise RuntimeError(
+            "El rol de BD configurado anula el RLS (rolsuper="
+            f"{rolsuper}, rolbypassrls={rolbypassrls}). Usa un rol NOSUPERUSER "
+            "sin BYPASSRLS para que el aislamiento entre talleres funcione."
+        )
+
+
 async def init_pool():
     """Inicializa el pool de conexiones async de PostgreSQL."""
     global pool
@@ -45,6 +63,7 @@ async def init_pool():
             async with conn.cursor() as cursor:
                 await cursor.execute("SELECT 1")
                 await cursor.fetchone()
+                await _verificar_rol_no_privilegiado(cursor)
         logger.info("✅ Test del pool exitoso")
 
         logger.info("✅ Pool de PostgreSQL inicializado correctamente")
