@@ -61,13 +61,50 @@ el archivo con otro método: una PAR de lectura generada al momento en la consol
 "Download" de la consola.
 
 ```bash
-# 1. Bajar el backup (reemplaza la URL por la que generes para leer ese objeto)
-curl -o motogestion.sql.gz "<PAR_DE_LECTURA_O_URL_FIRMADA>"
+# 1. Bajar el backup (botón Download en la consola, o una PAR de lectura generada
+#    al momento para ese objeto) y verificar que no quedó corrupto.
+gzip -t motogestion_<fecha>.sql.gz
 
-# 2. Restaurar en una BD limpia (ejemplo con un Postgres nuevo, ajusta host/usuario):
-gunzip -c motogestion.sql.gz | psql -U mt_app -h <host> -d motogestion_restaurada
+# 2. Postgres limpio y separado (no toca la BD real). El dump no crea la BD ni el
+#    rol — el esquema restaurado espera que el dueño (mt_app) ya exista:
+docker run -d --name restore-test-db -e POSTGRES_PASSWORD=<algo> -p 15432:5432 postgres:16
+docker exec restore-test-db psql -U postgres -c \
+  "CREATE ROLE mt_app LOGIN PASSWORD '<algo>' NOSUPERUSER;"
+docker exec restore-test-db createdb -U postgres -O mt_app motogestion_restaurada
 
-# 3. Apuntar una instancia de la API a esa BD (DB_NAME=motogestion_restaurada en su
-#    .env) y confirmar que responde: GET /health y algún endpoint que lea datos
-#    reales (ej. GET /api/clientes con un usuario válido).
+# 3. Restaurar (-v ON_ERROR_STOP=1 para que cualquier error real corte el restore
+#    en vez de seguir de largo):
+gunzip -c motogestion_<fecha>.sql.gz \
+  | docker exec -i restore-test-db psql -U postgres -d motogestion_restaurada -v ON_ERROR_STOP=1
+
+# 4. Confirmar RLS intacto y datos reales presentes (ajusta el cod_taller):
+docker exec restore-test-db psql -U mt_app -d motogestion_restaurada -c \
+  "SET app.tenant_id='1'; SELECT count(*) FROM clientes; SELECT count(*) FROM ordenes_trabajo;"
+
+# 5. La prueba fuerte: la API real, apuntada a esta BD restaurada, respondiendo con
+#    datos reales (no solo la BD sirviendo queries sueltas):
+docker run -d --name restore-test-backend -p 18000:8000 \
+  --link restore-test-db \
+  -e DB_HOST=restore-test-db -e DB_PORT=5432 -e DB_USER=mt_app -e DB_PASSWORD=<algo> \
+  -e DB_NAME=motogestion_restaurada \
+  -e ENVIRONMENT=prod -e PROJECT_NAME=restore-test -e FRONTEND_URL=https://x.example.com \
+  -e CORS_ORIGINS=https://x.example.com -e AUTH0_DOMAIN=x.auth0.com -e AUTH0_ALGORITHMS=RS256 \
+  -e AUTH0_API_AUDIENCE=https://x.example.com/api -e AUTH0_MANAGEMENT_CLIENT_ID=x \
+  -e AUTH0_MANAGEMENT_CLIENT_SECRET=x -e AUTH0_MANAGEMENT_AUDIENCE=https://x.auth0.com/api/v2/ \
+  -e AUTH0_CONNECTION_ID=Username-Password-Authentication -e AUTH0_CUSTOMER_ROLE=x -e AUTH0_ADMIN_ROLE=x \
+  ghcr.io/jvalencia-sudo/motogestion-backend:<tag-actual-en-produccion>
+curl http://localhost:18000/health                    # {"status":"ok"}
+curl http://localhost:18000/api/suscripciones/planes   # catálogo público, lee de la BD restaurada
+
+# 6. Limpieza (no afecta producción, todo esto vivió en contenedores aparte):
+docker rm -f restore-test-backend restore-test-db
 ```
+
+**Restauración probada de extremo a extremo el 2026-09-24**: se bajó un backup real
+generado ese día desde el bucket (`motogestion_20260924_212528.sql.gz`), se restauró
+en un Postgres 16 limpio replicando el rol `mt_app`, el RLS quedó intacto
+(`relrowsecurity`/`relforcerowsecurity` en `true`, datos reales visibles solo bajo el
+tenant correcto — 10 clientes y 5 órdenes de trabajo para el taller de prueba), y la
+imagen real del backend (`ghcr.io/jvalencia-sudo/motogestion-backend`), apuntada a esa
+BD restaurada, respondió `{"status":"ok"}` en `/health` y devolvió datos reales en
+`/api/suscripciones/planes`.
