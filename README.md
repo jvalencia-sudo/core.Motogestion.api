@@ -41,16 +41,41 @@ El aislamiento a nivel de aplicación de estas tres excepciones se prueba en
 servidor) en la VM de producción y hace, por cada BD (`motogestion` y `n8n`):
 
 1. `pg_dump` comprimido con `gzip`, verificado con `gzip -t` antes de darlo por bueno.
-2. Copia fuera de la VM: `PUT` a un bucket de Oracle Object Storage vía una
-   **Pre-Authenticated Request de solo escritura** (`BACKUP_PAR_URL` en `.env` —
-   ver `.env.prod.example`). Sin esta variable, el backup sigue corriendo pero
-   queda solo local (para no romper si el bucket aún no existe).
+2. Copia fuera de la VM: `PUT` en streaming (sin cargar el archivo entero en memoria)
+   a un bucket de Oracle Object Storage vía una **Pre-Authenticated Request de solo
+   escritura** (`BACKUP_PAR_URL` en `.env` — ver `.env.prod.example`). Sin esta
+   variable, el backup sigue corriendo pero queda solo local (para no romper si el
+   bucket aún no existe) — **excepto si ya hay heartbeat configurado**: en ese caso
+   faltar el PAR es un error de configuración, no un modo válido, y el script aborta
+   en vez de quedar en verde sin subir nada.
 3. Rotación local a 7 días (`KEEP_DAYS`). En el bucket, 30 días por una regla de
    ciclo de vida configurada directamente en la consola de Oracle (Object Storage →
    bucket → Lifecycle Policy Rules) — el script no la gestiona.
 4. Si todo lo anterior salió bien, un ping a Healthchecks.io (`BACKUP_HEALTHCHECK_URL`
    en `.env`). Si un día el backup no corre o falla, Healthchecks.io avisa por correo
-   por no haber recibido el ping a tiempo.
+   por no haber recibido el ping a tiempo; además, si algún paso falla, el script
+   avisa de inmediato (`.../fail`) en vez de esperar el periodo de gracia.
+
+Las dos variables de arriba se leen del `.env` como texto plano (solo esas dos líneas),
+**nunca con `source .env`**: ese archivo está pensado para Docker Compose, no para
+bash, y una contraseña con `$` o `&` (válida ahí) ejecutada como código rompería el
+backup de un día para otro.
+
+### Mantenimiento periódico
+
+- **`backups/backup.log` crece sin límite** — en la VM está configurado con
+  `logrotate` (`/etc/logrotate.d/motogestion-backup`, rotación semanal, 8 semanas de
+  histórico, comprimido).
+- **Simulacro de restauración**: repetir el procedimiento de abajo cada 3 meses, no
+  solo cuando algo se rompe. El objetivo es notar si el procedimiento se desactualizó
+  antes de necesitarlo de verdad.
+- **PAR de subida y objetos inmutables**: la PAR es de solo escritura (no puede leer
+  ni listar), pero *sí* puede sobrescribir un objeto existente si alguien adivina o
+  filtra su nombre (son predecibles: `motogestion_AAAAMMDD_HHMMSS.sql.gz`). Mitigado
+  con una **Retention Rule de 30 días** en el bucket (Object Storage → bucket →
+  Retention Rules → Create — misma duración que la Lifecycle Rule de borrado), que
+  hace los objetos inmutables mientras dura la retención: ni el dueño del bucket ni
+  quien tenga la PAR pueden sobrescribirlos o borrarlos antes de esos 30 días.
 
 ### Restaurar un backup
 

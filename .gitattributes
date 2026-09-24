@@ -1,2 +1,4 @@
-# Los scripts de shell se ejecutan en Linux: fin de línea LF siempre (un CRLF los rompe).
+# Los scripts de shell y configs que se despliegan a la VM (Linux) van con LF siempre
+# (un CRLF los rompe o los hace comportarse raro).
 *.sh text eol=lf
+scripts/*.conf text eol=lf

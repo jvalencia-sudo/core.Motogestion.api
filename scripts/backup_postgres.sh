@@ -22,12 +22,26 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # Las dos variables de arriba viven en el .env de la app (no en el contenedor de
-# Postgres), así que se cargan acá si el archivo existe.
-if [ -f .env ]; then
-    set -a
-    # shellcheck disable=SC1091
-    source .env
-    set +a
+# Postgres). NO se hace `source .env`: ese archivo está pensado para Docker Compose,
+# no para bash, y una contraseña con '$' o '&' (perfectamente válida ahí) rompería el
+# script al ejecutarse como código en vez de leerse como texto. Se lee solo lo que
+# hace falta, como texto plano.
+leer_env() {
+    [ -f .env ] || return 0
+    # El `|| true` es necesario: con `pipefail`, que la variable simplemente no esté
+    # en el .env (grep sin match, el caso normal) abortaría el script entero.
+    grep -E "^$1=" .env | tail -n1 | cut -d= -f2- | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//' || true
+}
+BACKUP_PAR_URL="${BACKUP_PAR_URL:-$(leer_env BACKUP_PAR_URL)}"
+BACKUP_HEALTHCHECK_URL="${BACKUP_HEALTHCHECK_URL:-$(leer_env BACKUP_HEALTHCHECK_URL)}"
+
+# El modo "solo local" (sin BACKUP_PAR_URL) tiene sentido en desarrollo, pero en
+# producción ya hay heartbeat configurado — si un día falta el PAR (.env recreado,
+# despliegue nuevo) el backup dejaría de salir de la VM y Healthchecks seguiría en
+# verde igual. Falla fuerte en vez de fallar en silencio.
+if [ -n "$BACKUP_HEALTHCHECK_URL" ] && [ -z "$BACKUP_PAR_URL" ]; then
+    echo "$(date -Is) ERROR hay BACKUP_HEALTHCHECK_URL pero falta BACKUP_PAR_URL: el backup no saldría de la VM" >&2
+    exit 1
 fi
 
 BACKUP_DIR="${BACKUP_DIR:-$PWD/backups}"
@@ -47,8 +61,9 @@ dump() { # $1 = nombre del archivo, $2 = variable del contenedor con el nombre d
     subir_fuera_de_la_vm "$out"
 }
 
-# Si BACKUP_PAR_URL no está configurada, el backup sigue siendo válido pero solo
-# local (comportamiento de antes) — no falla el script por no tener aún el bucket.
+# Si BACKUP_PAR_URL no está configurada y tampoco hay heartbeat (el caso de
+# desarrollo, sin bucket todavía), el backup sigue siendo válido pero solo local. Si
+# hay heartbeat sin PAR, el chequeo de arriba ya abortó el script antes de llegar acá.
 subir_fuera_de_la_vm() {
     local file="$1"
     local nombre
@@ -57,12 +72,20 @@ subir_fuera_de_la_vm() {
         echo "$(date -Is) AVISO BACKUP_PAR_URL no configurada: $nombre queda solo local"
         return 0
     fi
-    curl -fsS --max-time 120 -X PUT --data-binary "@$file" \
+    # -T sube el archivo en streaming (PUT), sin cargarlo entero en memoria como hacía
+    # --data-binary — importa en una VM chica a medida que crece la base. El timeout
+    # queda holgado porque la BD de n8n (historial de ejecuciones) puede crecer rápido.
+    curl -fsS --max-time 300 -X PUT -T "$file" \
         "${BACKUP_PAR_URL%/}/$nombre" > /dev/null
     echo "$(date -Is) OK subido a Object Storage: $nombre"
 }
 
-trap 'rm -f "$BACKUP_DIR"/*.tmp' ERR
+avisar_falla() {
+    rm -f "$BACKUP_DIR"/*.tmp
+    # Aviso inmediato en vez de esperar el periodo de gracia de Healthchecks.
+    [ -n "$BACKUP_HEALTHCHECK_URL" ] && curl -fsS --max-time 10 "${BACKUP_HEALTHCHECK_URL%/}/fail" > /dev/null || true
+}
+trap avisar_falla ERR
 dump motogestion POSTGRES_DB
 dump n8n N8N_DB_NAME
 
