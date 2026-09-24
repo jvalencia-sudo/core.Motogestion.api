@@ -17,7 +17,11 @@
 #                           escritura, sobre el bucket de backups.
 #   BACKUP_HEALTHCHECK_URL  Ping de Healthchecks.io al terminar con éxito (si un día
 #                           no llega, Healthchecks.io avisa por correo).
-set -euo pipefail
+# -E (errtrace): sin esto, el trap ERR de más abajo NO se ejecuta cuando el error
+# ocurre dentro de una función (dump, subir_fuera_de_la_vm) — que es donde pasa
+# todo el trabajo real de este script. Sin -E, un pg_dump/gzip/curl fallido corta
+# el script por `set -e` en silencio, sin avisar_falla ni el ping a /fail.
+set -Eeuo pipefail
 
 cd "$(dirname "$0")/.."
 
@@ -28,25 +32,42 @@ cd "$(dirname "$0")/.."
 # hace falta, como texto plano.
 leer_env() {
     [ -f .env ] || return 0
+    # `tr -d '\r'`: si el .env se editó alguna vez desde Windows, las líneas quedan
+    # con \r al final; grep en Linux no lo quita solo, y un \r invisible al final de
+    # la URL hace que curl falle de forma difícil de diagnosticar en los logs.
     # El `|| true` es necesario: con `pipefail`, que la variable simplemente no esté
     # en el .env (grep sin match, el caso normal) abortaría el script entero.
-    grep -E "^$1=" .env | tail -n1 | cut -d= -f2- | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//' || true
+    grep -E "^$1=" .env | tail -n1 | cut -d= -f2- | tr -d '\r' \
+        | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//' || true
 }
 BACKUP_PAR_URL="${BACKUP_PAR_URL:-$(leer_env BACKUP_PAR_URL)}"
 BACKUP_HEALTHCHECK_URL="${BACKUP_HEALTHCHECK_URL:-$(leer_env BACKUP_HEALTHCHECK_URL)}"
 
-# El modo "solo local" (sin BACKUP_PAR_URL) tiene sentido en desarrollo, pero en
-# producción ya hay heartbeat configurado — si un día falta el PAR (.env recreado,
-# despliegue nuevo) el backup dejaría de salir de la VM y Healthchecks seguiría en
-# verde igual. Falla fuerte en vez de fallar en silencio.
-if [ -n "$BACKUP_HEALTHCHECK_URL" ] && [ -z "$BACKUP_PAR_URL" ]; then
-    echo "$(date -Is) ERROR hay BACKUP_HEALTHCHECK_URL pero falta BACKUP_PAR_URL: el backup no saldría de la VM" >&2
-    exit 1
-fi
-
 BACKUP_DIR="${BACKUP_DIR:-$PWD/backups}"
 KEEP_DAYS="${KEEP_DAYS:-7}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
+
+# Definido temprano (antes del chequeo de más abajo) para que el aviso inmediato de
+# falla cubra también el caso de configuración inválida, no solo los errores de
+# pg_dump/gzip/curl que pasan por acá vía el trap ERR.
+avisar_falla() {
+    rm -f "$BACKUP_DIR"/*.tmp 2>/dev/null || true
+    # Aviso inmediato en vez de esperar el periodo de gracia de Healthchecks.
+    [ -n "$BACKUP_HEALTHCHECK_URL" ] && curl -fsS --max-time 10 "${BACKUP_HEALTHCHECK_URL%/}/fail" > /dev/null || true
+}
+trap avisar_falla ERR
+
+# El modo "solo local" (sin BACKUP_PAR_URL) tiene sentido en desarrollo, pero en
+# producción ya hay heartbeat configurado — si un día falta el PAR (.env recreado,
+# despliegue nuevo) el backup dejaría de salir de la VM y Healthchecks seguiría en
+# verde igual. Falla fuerte en vez de fallar en silencio. `exit` no dispara el trap
+# ERR, así que se llama a avisar_falla a mano para no esperar el periodo de gracia.
+if [ -n "$BACKUP_HEALTHCHECK_URL" ] && [ -z "$BACKUP_PAR_URL" ]; then
+    echo "$(date -Is) ERROR hay BACKUP_HEALTHCHECK_URL pero falta BACKUP_PAR_URL: el backup no saldría de la VM" >&2
+    avisar_falla
+    exit 1
+fi
+
 mkdir -p "$BACKUP_DIR"
 
 # pg_dump corre DENTRO del contenedor con el superusuario, así que lee los nombres
@@ -80,12 +101,6 @@ subir_fuera_de_la_vm() {
     echo "$(date -Is) OK subido a Object Storage: $nombre"
 }
 
-avisar_falla() {
-    rm -f "$BACKUP_DIR"/*.tmp
-    # Aviso inmediato en vez de esperar el periodo de gracia de Healthchecks.
-    [ -n "$BACKUP_HEALTHCHECK_URL" ] && curl -fsS --max-time 10 "${BACKUP_HEALTHCHECK_URL%/}/fail" > /dev/null || true
-}
-trap avisar_falla ERR
 dump motogestion POSTGRES_DB
 dump n8n N8N_DB_NAME
 
