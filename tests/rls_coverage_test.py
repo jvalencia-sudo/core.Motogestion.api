@@ -2,28 +2,22 @@
 multi-tenant sigue cubriendo lo que debería cubrir, sin depender de que alguien se
 acuerde de revisarlo a mano cada vez que se agrega una tabla o vista nueva.
 
-Requieren Postgres real (docker compose up -d) — son de solo lectura sobre catálogos
-del sistema, no escriben datos, así que corren contra la BD de desarrollo sin riesgo.
+Son de solo lectura sobre catálogos del sistema (no escriben datos), pero corren
+contra la BD DEDICADA de test igual que el resto de tests/ — tests/conftest.py
+sobrescribe DB_NAME a motogestion_test antes de que este archivo importe `config`.
 """
-import psycopg
 import pytest
 
-from config import settings
 from infrastructure.utils.rls_policy import EXCEPCIONES_RLS
+from tests.conftest import _dsn, conectar_o_fallar
 
 pytestmark = pytest.mark.db
 
 
 @pytest.fixture(scope="module")
 def conn():
-    c = settings.db_config
-    try:
-        with psycopg.connect(
-            host=c.host, port=c.port, dbname=c.dbname, user=c.user, password=c.password
-        ) as connection:
-            yield connection
-    except psycopg.OperationalError:
-        pytest.skip("Postgres no disponible; corre `docker compose up -d`")
+    with conectar_o_fallar(_dsn()) as connection:
+        yield connection
 
 
 def test_toda_tabla_con_cod_taller_tiene_rls_forzado(conn):

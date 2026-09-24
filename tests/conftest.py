@@ -50,18 +50,35 @@ class TallerSeed(NamedTuple):
 
 def _dsn() -> str:
     c = settings.db_config
-    return f"host={c.host} port={c.port} dbname={c.dbname} user={c.user} password={c.password}"
+    # connect_timeout corto: sin esto, psycopg.connect() puede colgarse en vez de
+    # fallar cuando el host no responde (en vez de rechazar la conexión al toque),
+    # y el pytest.fail/skip de abajo nunca se alcanza — el job simplemente cuelga
+    # hasta el timeout del runner.
+    return (
+        f"host={c.host} port={c.port} dbname={c.dbname} user={c.user} "
+        f"password={c.password} connect_timeout=5"
+    )
+
+
+def conectar_o_fallar(dsn: str, **kwargs) -> psycopg.Connection:
+    """Conecta o, si Postgres no está disponible: en CI es un pytest.fail (un test de
+    seguridad que se salta silenciosamente es exactamente el tipo de falla silenciosa
+    que F0-02 busca evitar — GitHub Actions define CI=true por su cuenta); en local
+    es un pytest.skip, para no bloquear a quien no tiene `docker compose up -d`
+    corriendo."""
+    try:
+        return psycopg.connect(dsn, **kwargs)
+    except psycopg.OperationalError:
+        c = settings.db_config
+        mensaje = f"Postgres no disponible en {c.host}:{c.port}/{c.dbname}"
+        if os.getenv("CI") == "true":
+            pytest.fail(f"{mensaje} — en CI esto es un error, no un salto silencioso.")
+        pytest.skip(f"{mensaje} (corre `docker compose up -d`)")
 
 
 @pytest.fixture(scope="session")
 def db_conn():
-    try:
-        conn = psycopg.connect(_dsn(), autocommit=True)
-    except psycopg.OperationalError:
-        pytest.skip(
-            f"Postgres no disponible en {settings.db_config.host}:{settings.db_config.port} "
-            "(corre `docker compose up -d`)"
-        )
+    conn = conectar_o_fallar(_dsn(), autocommit=True)
 
     with conn.cursor() as cur:
         cur.execute("SELECT current_database()")
@@ -78,14 +95,19 @@ def db_conn():
     conn.close()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def mock_auth0():
     """Todas las dependencias de auth activas (resolve_tenant, get_current_usuario,
     require_admin, require_active_subscription) llaman Auth0Provider().verify(token)
     de forma independiente e inline (no hay un único Depends() que las cubra a todas
     con app.dependency_overrides) — así que se parchea ese método de clase, que todas
     comparten. El resto de la cadena (IdentidadRepositorio, UserRepository,
-    _apply_tenant, TallerRepositorio) corre de verdad contra la BD de test."""
+    _apply_tenant, TallerRepositorio) corre de verdad contra la BD de test.
+
+    NO es autouse: solo lo piden explícitamente (vía pytestmark/usefixtures) los
+    archivos que hacen requests HTTP simuladas. Si fuera global, parchearía
+    Auth0Provider.verify incluso en tests que sí quieren probar ese método real (hoy
+    no hay ninguno, pero silenciaría un fallo real el día que se escriba uno)."""
 
     async def _verify(self, token: str) -> UserPermissionsModel:
         sub = _SUB_POR_TOKEN.get(token)
@@ -117,10 +139,14 @@ def _seed_taller(cur, cod_taller: int) -> TallerSeed:
 
     cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(cod_taller),))
 
+    # tarifa_hora_pred = cod_taller (valor "marcado", distinto entre A y B) para que
+    # un test de /talleres/config pueda confirmar que cada uno ve la suya, no la
+    # ajena — talleres no tiene RLS (ver rls_policy.py), la única barrera es que
+    # require_admin resuelva bien el taller del token.
     cur.execute(
-        "INSERT INTO talleres (cod_taller, nombre_tal, correo_tal, estado_tal) "
-        "VALUES (%s, %s, %s, 'activo') ON CONFLICT (cod_taller) DO NOTHING",
-        (cod_taller, f"Taller de prueba {cod_taller}", f"taller{cod_taller}@test.local"),
+        "INSERT INTO talleres (cod_taller, nombre_tal, correo_tal, estado_tal, tarifa_hora_pred) "
+        "VALUES (%s, %s, %s, 'activo', %s) ON CONFLICT (cod_taller) DO NOTHING",
+        (cod_taller, f"Taller de prueba {cod_taller}", f"taller{cod_taller}@test.local", cod_taller),
     )
 
     cur.execute(
