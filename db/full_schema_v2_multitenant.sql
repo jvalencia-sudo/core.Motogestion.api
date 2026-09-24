@@ -7,7 +7,8 @@
 --     RLS + FORCE ROW LEVEL SECURITY para aislar cada taller.
 --   * Tablas GLOBALES (catálogos y permisos): se comparten entre todos los talleres.
 --   * El backend hará SET app.tenant_id=<id> por request; el DEFAULT y el RLS hacen el resto.
--- El original full_schema.sql se conserva intacto como respaldo (single-tenant).
+-- El original single-tenant (full_schema.sql) se borró: sin security_invoker en sus
+-- vistas y sin referencias en el repo, era solo confusión al lado de este esquema.
 -- ============================================================
 
 -- ============================================================
