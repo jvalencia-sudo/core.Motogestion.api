@@ -34,3 +34,40 @@ por el test de cobertura):
 
 El aislamiento a nivel de aplicación de estas tres excepciones se prueba en
 `tests/aislamiento_multitenant_test.py`.
+
+## Backups y restauración
+
+`scripts/backup_postgres.sh` corre por cron todos los días a las 03:00 (hora del
+servidor) en la VM de producción y hace, por cada BD (`motogestion` y `n8n`):
+
+1. `pg_dump` comprimido con `gzip`, verificado con `gzip -t` antes de darlo por bueno.
+2. Copia fuera de la VM: `PUT` a un bucket de Oracle Object Storage vía una
+   **Pre-Authenticated Request de solo escritura** (`BACKUP_PAR_URL` en `.env` —
+   ver `.env.prod.example`). Sin esta variable, el backup sigue corriendo pero
+   queda solo local (para no romper si el bucket aún no existe).
+3. Rotación local a 7 días (`KEEP_DAYS`). En el bucket, 30 días por una regla de
+   ciclo de vida configurada directamente en la consola de Oracle (Object Storage →
+   bucket → Lifecycle Policy Rules) — el script no la gestiona.
+4. Si todo lo anterior salió bien, un ping a Healthchecks.io (`BACKUP_HEALTHCHECK_URL`
+   en `.env`). Si un día el backup no corre o falla, Healthchecks.io avisa por correo
+   por no haber recibido el ping a tiempo.
+
+### Restaurar un backup
+
+El PAR de subida es **solo de escritura** a propósito (si alguien comprometiera esa
+URL, no podría leer ni borrar backups existentes) — para restaurar hace falta bajar
+el archivo con otro método: una PAR de lectura generada al momento en la consola
+(Object Storage → bucket → objeto → Pre-Authenticated Request), o el botón
+"Download" de la consola.
+
+```bash
+# 1. Bajar el backup (reemplaza la URL por la que generes para leer ese objeto)
+curl -o motogestion.sql.gz "<PAR_DE_LECTURA_O_URL_FIRMADA>"
+
+# 2. Restaurar en una BD limpia (ejemplo con un Postgres nuevo, ajusta host/usuario):
+gunzip -c motogestion.sql.gz | psql -U mt_app -h <host> -d motogestion_restaurada
+
+# 3. Apuntar una instancia de la API a esa BD (DB_NAME=motogestion_restaurada en su
+#    .env) y confirmar que responde: GET /health y algún endpoint que lea datos
+#    reales (ej. GET /api/clientes con un usuario válido).
+```
