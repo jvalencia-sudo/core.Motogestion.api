@@ -82,7 +82,10 @@ async def generar_pdf_orden_trabajo(consecutivo_ot: int):
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename={nombre_archivo}"
+                # inline (no attachment): igual que la factura, para que se
+                # abra directo en el navegador. Más cómodo para imprimir
+                # desde el celular en el taller que forzar una descarga.
+                "Content-Disposition": f"inline; filename={nombre_archivo}"
             }
         )
     except DomainException:
