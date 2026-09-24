@@ -37,7 +37,11 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["faker>=33.3.1", "ruff==0.8.4"]
+dev = [
+    "faker>=33.3.1",
+    "httpx>=0.28.1",
+    "ruff==0.8.4",
+]
 
 [tool.uv]
 # El proyecto vive en OneDrive, que no soporta hardlinks: forzar copia.

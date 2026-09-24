@@ -26,10 +26,12 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # DB_* ya apuntan al servicio postgres de arriba (valores reales). El resto
-      # sigue siendo falso, solo para que Settings() (Pydantic) pueda instanciarse —
-      # los tests que sí necesitan Auth0 real (auth0_provider_test.py) se saltan en
-      # CI (ver ese archivo).
+      # DB_* ya apuntan al servicio postgres de arriba (valores reales; DB_NAME es
+      # la BD "de desarrollo" — tests/conftest.py la sobrescribe a motogestion_test
+      # para los tests marcados @pytest.mark.db). El resto sigue siendo falso, solo
+      # para que Settings() (Pydantic) pueda instanciarse — los tests que sí
+      # necesitan Auth0 real (auth0_provider_test.py) se saltan en CI (ver ese
+      # archivo).
       ENVIRONMENT: test
       PROJECT_NAME: motogestion-backend-ci
       FRONTEND_URL: https://ci-placeholder.example.com
@@ -63,6 +65,14 @@ jobs:
         env:
           PGPASSWORD: test123
         run: psql -h localhost -U mt_app -d motogestion -f db/full_schema_v2_multitenant.sql
+
+      # 00_roles.sql ya creó motogestion_test (dueño mt_app): tests/conftest.py
+      # (tests de aislamiento y de cobertura de RLS) usan esa BD dedicada, nunca
+      # "motogestion", para no arriesgar sembrar/borrar datos en la de desarrollo.
+      - name: Cargar el esquema en la BD de test
+        env:
+          PGPASSWORD: test123
+        run: psql -h localhost -U mt_app -d motogestion_test -f db/full_schema_v2_multitenant.sql
 
       - uses: astral-sh/setup-uv@v5
         with:

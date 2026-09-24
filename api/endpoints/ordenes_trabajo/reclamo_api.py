@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, status
 from domain.contracts.ordenes_trabajo.reclamo_contract import (
     ReclamoCreateContract,
     ReclamoUpdateContract,
@@ -7,7 +7,6 @@ from domain.contracts.ordenes_trabajo.reclamo_contract import (
     ReclamoResumenContract
 )
 from domain.services.ordenes_trabajo.reclamo_servicio import ReclamoServicio
-from infrastructure.exceptions.domain_exception import DomainException
 
 router = APIRouter(
     prefix="/reclamos",
@@ -27,10 +26,7 @@ async def obtener_reclamos():
 async def obtener_reclamos_por_orden(consecutivo_ot: int):
     """Obtiene todos los reclamos asociados a una orden de trabajo"""
     servicio = ReclamoServicio()
-    try:
-        return await servicio.obtener_reclamos_por_orden(consecutivo_ot)
-    except DomainException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return await servicio.obtener_reclamos_por_orden(consecutivo_ot)
 
 
 @router.get("/cliente/{documento_cli}", response_model=List[ReclamoResumenContract])
@@ -51,10 +47,7 @@ async def obtener_reclamos_por_moto(placa_mot: str):
 async def obtener_reclamos_por_garantia(estado_garantia: str):
     """Obtiene reclamos filtrados por estado de garantía (VIGENTE, VENCIDA, SIN INFORMACIÓN)"""
     servicio = ReclamoServicio()
-    try:
-        return await servicio.obtener_reclamos_por_estado_garantia(estado_garantia)
-    except DomainException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return await servicio.obtener_reclamos_por_estado_garantia(estado_garantia)
 
 
 # Ruta parametrizada genérica AL FINAL
@@ -62,37 +55,25 @@ async def obtener_reclamos_por_garantia(estado_garantia: str):
 async def obtener_reclamo(cod_rec: int):
     """Obtiene un reclamo completo con todos sus detalles"""
     servicio = ReclamoServicio()
-    try:
-        return await servicio.obtener_reclamo_por_id(cod_rec)
-    except DomainException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return await servicio.obtener_reclamo_por_id(cod_rec)
 
 
 @router.post("", response_model=ReclamoResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_reclamo(reclamo: ReclamoCreateContract):
     """Crea un nuevo reclamo"""
     servicio = ReclamoServicio()
-    try:
-        return await servicio.crear_reclamo(reclamo)
-    except DomainException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return await servicio.crear_reclamo(reclamo)
 
 
 @router.put("/{cod_rec}", response_model=ReclamoResponseContract)
 async def actualizar_reclamo(cod_rec: int, reclamo: ReclamoUpdateContract):
     """Actualiza un reclamo existente"""
     servicio = ReclamoServicio()
-    try:
-        return await servicio.actualizar_reclamo(cod_rec, reclamo)
-    except DomainException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    return await servicio.actualizar_reclamo(cod_rec, reclamo)
 
 
 @router.delete("/{cod_rec}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_reclamo(cod_rec: int):
     """Elimina un reclamo"""
     servicio = ReclamoServicio()
-    try:
-        await servicio.eliminar_reclamo(cod_rec)
-    except DomainException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    await servicio.eliminar_reclamo(cod_rec)
