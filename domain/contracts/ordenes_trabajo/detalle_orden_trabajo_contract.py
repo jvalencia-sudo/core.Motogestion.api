@@ -1,5 +1,5 @@
 from typing import Optional
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from pydantic import Field
 from domain.contracts.base_contract import BaseContractSchema

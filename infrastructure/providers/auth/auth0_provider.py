@@ -1,4 +1,5 @@
-import requests
+import asyncio
+
 from auth0.v3.authentication import GetToken
 from auth0.v3.management import Users, UsersByEmail
 from fastapi import HTTPException
@@ -11,7 +12,10 @@ from domain.contracts.auth.user_contract import UserCreationContract
 from domain.models.auth.user_model import UserPermissionsModel
 from domain.models.providers.auth0_user import Auth0UserModel
 
-session = CachedSession("jwt_cache", backend=SQLiteCache(), expire_after=60)
+# El JWKS de Auth0 casi nunca rota (solo si rotas las llaves de firma del
+# tenant), así que 1h de caché es seguro y evita pegarle a Auth0 en cada
+# request autenticado.
+session = CachedSession("jwt_cache", backend=SQLiteCache(), expire_after=3600)
 
 
 class Auth0Provider:
@@ -25,8 +29,11 @@ class Auth0Provider:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-        # TODO: Ad cache again
-        json_url = requests.get(f"https://{self.config.domain}/.well-known/jwks.json")
+        # session cachea la respuesta (ver expire_after arriba) y to_thread
+        # evita bloquear el event loop mientras espera la respuesta HTTP.
+        json_url = await asyncio.to_thread(
+            session.get, f"https://{self.config.domain}/.well-known/jwks.json"
+        )
         jwks = json_url.json()
 
         unverified_header = jwt.get_unverified_header(token)

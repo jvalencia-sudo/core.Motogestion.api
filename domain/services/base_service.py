@@ -47,7 +47,6 @@ class BaseService(ABC, Generic[T, TR]):
         - 'codRol' → 'cod_rol'
         - 'nombreRol' → 'nombre_rol'
         """
-        import re
 
         def to_snake_case(s: str) -> str:
             # Si ya tiene guiones bajos, solo convertir a minúsculas

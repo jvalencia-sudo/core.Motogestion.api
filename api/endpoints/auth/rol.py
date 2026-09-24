@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Response
 from starlette.status import HTTP_204_NO_CONTENT

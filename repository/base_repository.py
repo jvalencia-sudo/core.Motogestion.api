@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional, Tuple, Any
 
 from pydantic import BaseModel
@@ -6,6 +7,8 @@ from typing_extensions import NoReturn
 
 from infrastructure.utils.query import build_insert, build_update
 from repository.data.database import Database
+
+logger = logging.getLogger(__name__)
 
 Params = Tuple[Any, ...]
 
@@ -96,49 +99,38 @@ class BaseRepository:
         return query, params_list
 
     async def create(self, model: BaseModel) -> Optional[int]:
-        print(f"=== DEBUG CREATE BaseRepository ===")
-        # ... tu debug actual ...
-
         query, params = build_insert(
             model, self.primary_key, f"{self.table_name}", self.omit_key, self.sequence_name
         )
-
-        print(f"Generated query: {query}")
-        print(f"Generated params: {params}")
-        print(f"Sequence name: {self.sequence_name}")
+        logger.debug("CREATE %s: query=%s params=%s", self.table_name, query, params)
 
         # Si usamos secuencia explícita, necesitamos RETURNING para obtener el ID generado
         # Si no hay secuencia pero omit_key=True, también usamos RETURNING (para IDENTITY)
         pk_for_returning = self.primary_key if self.omit_key else None
 
         new_record = await self.db.insert(query, params, primary_key=pk_for_returning)
-        print(f"Insert result: {new_record}")
-        print(f"Insert result type: {type(new_record)}")
+        logger.debug("CREATE %s: resultado=%s", self.table_name, new_record)
 
         # Manejo mejorado del resultado
         if new_record:
             if isinstance(new_record, dict) and self.primary_key in new_record:
                 return new_record[self.primary_key]
             else:
-                print(
-                    f"Available keys in new_record: {new_record.keys() if isinstance(new_record, dict) else 'Not a dict'}")
+                logger.warning(
+                    "CREATE %s: la llave primaria '%s' no vino en el resultado (claves: %s)",
+                    self.table_name, self.primary_key,
+                    new_record.keys() if isinstance(new_record, dict) else "no es un dict",
+                )
 
         # Si no hay resultado, obtener el valor del modelo
         model_data = model.model_dump() if hasattr(model, 'model_dump') else model.dict()
         return model_data.get(self.primary_key)
 
     async def update(self, model: BaseModel) -> None:
-        print(f"=== DEBUG UPDATE BaseRepository ===")
-        print(f"Model: {model}")
-        print(f"Table: {self.table_name}")
-        print(f"Primary key: {self.primary_key}")
-
         query, params = build_update(
             model, self.primary_key, f"{self.table_name}"
         )
-
-        print(f"Generated update query: {query}")
-        print(f"Generated update params: {params}")
+        logger.debug("UPDATE %s: query=%s params=%s", self.table_name, query, params)
 
         await self.db.execute_non_query(query, params)
 

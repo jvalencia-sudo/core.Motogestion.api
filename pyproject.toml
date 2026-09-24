@@ -1,5 +1,5 @@
 [project]
-name = "iluma-orders-api"
+name = "motogestion-backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["faker>=33.3.1"]
+dev = ["faker>=33.3.1", "ruff==0.8.4"]
 
 [tool.uv]
 # El proyecto vive en OneDrive, que no soporta hardlinks: forzar copia.
@@ -46,7 +46,10 @@ link-mode = "copy"
 [tool.ruff]
 fix = true
 line-length = 88
-include = ['\.pyi?$']
+# El include anterior ('\.pyi?$') era una regex, no un glob: ruff nunca
+# matcheaba ningún archivo con eso y el check pasaba en falso (0 archivos
+# revisados). Sin include, ruff usa su default (*.py, *.pyi), que es lo
+# que esto intentaba decir.
 target-version = 'py311'
 
 [tool.pyright]

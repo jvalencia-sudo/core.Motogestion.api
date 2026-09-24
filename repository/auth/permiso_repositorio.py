@@ -1,4 +1,4 @@
-from typing import Dict, Optional, List
+from typing import Dict, List
 from repository.base_repository import BaseRepository
 
 

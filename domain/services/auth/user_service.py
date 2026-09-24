@@ -1,8 +1,7 @@
 import random
 import time
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
-import jwt
 
 from domain.contracts.auth.login_contract import LoginContract
 from domain.contracts.auth.user_contract import (
@@ -243,7 +242,6 @@ class UserService(BaseService[UserModel, UserRepository]):
         return new_user
 
     async def update_user(self, user_id: int, user: UserUpdateContract):
-        provider = Auth0Provider()
         existing_user = await self.get_user(user_id)
         if not existing_user:
             raise DomainException("User not found")

@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Optional, Tuple, Any, List, Dict, NoReturn
 
@@ -6,6 +7,8 @@ import pandas as pd
 from config import settings
 from infrastructure.utils.tenant_context import get_tenant
 from repository.data.db_pool import get_pool
+
+logger = logging.getLogger(__name__)
 
 Params = Tuple[Any, ...]
 
@@ -100,8 +103,7 @@ class Database:
                     await conn.commit()
                     return {"affected_rows": cursor.rowcount}
         except Exception as e:
-            print(f"=== ERROR en INSERT: {e} ===")
-            print(f"=== Tipo de error: {type(e).__name__} ===")
+            logger.exception("Error en INSERT (%s)", type(e).__name__)
             raise e
 
     async def execute_non_query(self, query: str, params: Optional[Params] = None) -> NoReturn:
@@ -115,8 +117,7 @@ class Database:
                     await conn.commit()
         except Exception as e:
             error_msg = str(e).lower()
-            print(f"=== ERROR en execute_non_query: {e} ===")
-            print(f"=== Tipo de error: {type(e).__name__} ===")
+            logger.exception("Error en execute_non_query (%s)", type(e).__name__)
 
             # Detectar errores de integridad referencial (FK) en PostgreSQL
             # (SQLSTATE 23503 = foreign_key_violation)

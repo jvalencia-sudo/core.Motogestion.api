@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 from domain.contracts.motos.moto_contract import (
@@ -371,7 +371,7 @@ class MotoServicio(BaseService[MotoModelo, MotoRepositorio]):
             # Manejar errores de integridad referencial
             if "ERROR_INTEGRIDAD_REFERENCIAL" in error_msg or "foreign key" in error_msg.lower() or "constraint" in error_msg.lower():
                 raise DomainException(
-                    f"No se puede eliminar la moto. Tiene registros asociados (órdenes o servicios)",
+                    "No se puede eliminar la moto. Tiene registros asociados (órdenes o servicios)",
                     HTTP_400_BAD_REQUEST
                 )
             raise DomainException(

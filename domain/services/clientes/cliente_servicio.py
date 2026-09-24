@@ -7,7 +7,7 @@ from domain.contracts.clientes.cliente_contract import (
     ClienteResponseContract
 )
 from domain.models.clientes.cliente_modelo import ClienteModelo
-from domain.models.clientes.vw_cliente_completo_modelo import VwClienteModelo, VwClienteResumenModelo
+from domain.models.clientes.vw_cliente_completo_modelo import VwClienteResumenModelo
 from domain.services.base_service import BaseService
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.clientes.cliente_repositorio import ClienteRepositorio
@@ -183,7 +183,7 @@ class ClienteServicio(BaseService[ClienteModelo, ClienteRepositorio]):
             # Manejar errores de integridad referencial
             if "ERROR_INTEGRIDAD_REFERENCIAL" in error_msg or "foreign key" in error_msg.lower() or "constraint" in error_msg.lower():
                 raise DomainException(
-                    f"No se puede eliminar el cliente. Tiene registros asociados (motos u órdenes)",
+                    "No se puede eliminar el cliente. Tiene registros asociados (motos u órdenes)",
                     HTTP_400_BAD_REQUEST
                 )
             raise DomainException(

@@ -23,7 +23,7 @@ class AuthRequest:
         if len(self.permissions) > 0:
             allowed_permissions = []
             for p in self.permissions:
-                if user.permissions != None and p in [up for up in user.permissions]:
+                if user.permissions is not None and p in [up for up in user.permissions]:
                     allowed_permissions.append(p)
 
             if len(allowed_permissions) == 0:

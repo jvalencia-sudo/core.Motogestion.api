@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    env:
+      # Valores falsos con formato válido: solo para que Settings() (Pydantic)
+      # pueda instanciarse al importar el código. No se usan para nada real —
+      # los tests que sí necesitan Auth0 real (auth0_provider_test.py) se
+      # saltan en CI (ver ese archivo).
+      ENVIRONMENT: test
+      PROJECT_NAME: motogestion-backend-ci
+      FRONTEND_URL: https://ci-placeholder.example.com
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: ci
+      DB_PASSWORD: ci
+      DB_NAME: ci
+      AUTH0_DOMAIN: ci-placeholder.auth0.com
+      AUTH0_ALGORITHMS: RS256
+      AUTH0_API_AUDIENCE: https://ci-placeholder.example.com/api
+      AUTH0_MANAGEMENT_CLIENT_ID: ci-placeholder
+      AUTH0_MANAGEMENT_CLIENT_SECRET: ci-placeholder
+      AUTH0_MANAGEMENT_AUDIENCE: https://ci-placeholder.auth0.com/api/v2/
+      AUTH0_CONNECTION_ID: Username-Password-Authentication
+      AUTH0_CUSTOMER_ROLE: rol_ci_placeholder
+      AUTH0_ADMIN_ROLE: rol_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen
+
+      - run: uv run ruff check .
+
+      - run: uv run pytest
+
+  docker-build:
+    name: Build de la imagen Docker
+    runs-on: ubuntu-24.04-arm
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Solo construye para verificar que el Dockerfile sigue sirviendo (mismo
+      # runner arm64 nativo que usa el deploy real). No publica nada: eso lo
+      # hace deploy.yml al pushear a main.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
