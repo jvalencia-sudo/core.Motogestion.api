@@ -1,7 +1,9 @@
 # Docker Compose para desarrollo local (multi-tenant).
 # Levanta PostgreSQL y, en el PRIMER arranque, ejecuta db/init/:
-#   00_roles.sql  -> crea el rol mt_app (NO superusuario) y lo hace dueño del schema
-#   01_load.sql   -> carga el esquema multi-tenant COMO mt_app (para que el RLS aplique)
+#   00_roles.sql    -> crea el rol mt_app (NO superusuario), lo hace dueño del schema,
+#                      y crea la BD motogestion_test (para tests/conftest.py)
+#   01_load.sql     -> carga el esquema multi-tenant COMO mt_app en motogestion
+#   02_load_test.sql -> carga el mismo esquema en motogestion_test
 # La app FastAPI se corre aparte con `uv run python main.py` conectando como mt_app.
 #
 # Uso:
