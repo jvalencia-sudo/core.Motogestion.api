@@ -32,12 +32,25 @@ docker compose ps              # debe verse motogestion-db (healthy)
 ```
 
 En el primer arranque, `db/init/` corre en orden:
-`00_roles.sql` (crea el rol `mt_app` no-superusuario, dueño del schema) →
-`01_load.sql` (carga `db/full_schema_v2_multitenant.sql` **como mt_app**, con RLS por taller
-y el taller demo `MotoGestión Demo` sembrado).
+`00_roles.sql` (crea el rol `mt_app` no-superusuario, dueño del schema, y la BD
+`motogestion_test`) → `01_load.sql` (carga `db/full_schema_v2_multitenant.sql` **como
+mt_app** en `motogestion`, con RLS por taller y el taller demo `MotoGestión Demo`
+sembrado) → `02_load_test.sql` (carga el mismo esquema en `motogestion_test`, la BD
+que usan los tests de integración de `tests/`).
 
 > Para recargar la BD desde cero: `docker compose down -v` y vuelve a `docker compose up -d`
 > (el `-v` borra el volumen `pgdata`).
+
+⚠️ Postgres solo corre `db/init/` cuando el volumen está **vacío**. Si ya tenías
+`motogestion-db` levantado antes de que `motogestion_test` existiera, `docker compose up -d`
+no la va a crear sola — los tests marcados `@pytest.mark.db` (`tests/conftest.py`) se van a
+saltar sin avisar. Para ponerte al día sin perder tus datos de desarrollo, corre a mano
+(reemplaza `test123` si cambiaste la contraseña de `mt_app`):
+```powershell
+docker exec -e PGPASSWORD=postgres motogestion-db psql -U postgres -d motogestion -c "CREATE DATABASE motogestion_test OWNER mt_app;"
+Get-Content db/full_schema_v2_multitenant.sql | docker exec -e PGPASSWORD=test123 -i motogestion-db psql -U mt_app -d motogestion_test
+```
+(o, más simple, `docker compose down -v` para recrear todo desde cero).
 
 ## 3. Instalar dependencias (uv)
 
