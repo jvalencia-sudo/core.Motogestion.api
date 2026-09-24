@@ -1,7 +1,5 @@
-from typing import Dict, List
+from typing import Dict
 
-from domain.models.auth.perfil_modelo import PerfilModelo
-from domain.models.auth.permiso_modelo import PermisoModelo
 from domain.models.auth.rol_modelo import RolModelo
 from domain.services.base_service import BaseService
 from repository.base_repository import BaseRepository

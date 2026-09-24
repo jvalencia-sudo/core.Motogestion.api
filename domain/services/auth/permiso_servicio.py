@@ -1,6 +1,5 @@
 from typing import Dict, List
 
-from domain.models.auth.perfil_modelo import VwPerfilModelo
 from domain.models.auth.permiso_modelo import PermisoModelo, VwPermisoModelo
 from domain.services.base_service import BaseService
 from repository.auth.permiso_repositorio import PermisoRepositorio

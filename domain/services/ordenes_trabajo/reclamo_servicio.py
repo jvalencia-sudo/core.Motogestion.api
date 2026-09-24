@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 from domain.models.ordenes_trabajo.reclamo_modelo import ReclamoModelo, VwReclamosCompleto

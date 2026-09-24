@@ -6,7 +6,7 @@ from domain.contracts.auth.perfil_contract import (
     CambiarEstadoPerfilContract,
     PerfilDetalleContract
 )
-from domain.models.auth.perfil_modelo import PerfilModelo, VwPerfilModelo
+from domain.models.auth.perfil_modelo import PerfilModelo
 from domain.services.base_service import BaseService
 from repository.auth.perfil_repositorio import PerfilRepositorio
 

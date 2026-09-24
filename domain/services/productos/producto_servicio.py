@@ -6,7 +6,6 @@ from domain.contracts.productos.producto_contract import (
     ProductoUpdateContract,
     ProductoResponseContract,
     ImpuestoResponseContract,
-    ComponenteContract,
     ComponenteResponseContract,
 )
 from domain.models.productos.producto_modelo import ProductoModelo

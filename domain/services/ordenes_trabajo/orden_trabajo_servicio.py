@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 from datetime import date, timedelta
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
@@ -221,7 +221,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
             if not orden_anterior_dict:
                 raise DomainException(
-                    f"No se puede crear una orden con estado Garantía. Esta moto no tiene órdenes anteriores entregadas",
+                    "No se puede crear una orden con estado Garantía. Esta moto no tiene órdenes anteriores entregadas",
                     HTTP_400_BAD_REQUEST
                 )
 
@@ -317,7 +317,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
             if not orden_anterior_dict:
                 raise DomainException(
-                    f"No se puede cambiar a estado Garantía. Esta moto no tiene órdenes anteriores entregadas",
+                    "No se puede cambiar a estado Garantía. Esta moto no tiene órdenes anteriores entregadas",
                     HTTP_400_BAD_REQUEST
                 )
 
@@ -376,7 +376,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
             if not orden_anterior_dict:
                 raise DomainException(
-                    f"No se puede cambiar a estado Garantía. Esta moto no tiene órdenes anteriores entregadas",
+                    "No se puede cambiar a estado Garantía. Esta moto no tiene órdenes anteriores entregadas",
                     HTTP_400_BAD_REQUEST
                 )
 
@@ -557,7 +557,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         detalle_dict = await self.detalle_repository.obtener_detalle(consecutivo_ot, cod_pro)
         if not detalle_dict:
             raise DomainException(
-                f"El producto no existe en esta orden",
+                "El producto no existe en esta orden",
                 HTTP_404_NOT_FOUND
             )
 
@@ -618,19 +618,6 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
         return resultado
 
-    async def obtener_estados(self) -> List[OtEstadoResponseContract]:
-        """Obtiene todos los estados de ordenes de trabajo"""
-        estados_dict = await self.estado_repository.obtener_todos_estados()
-        estados_modelos = self.__parse_all_custom__(estados_dict, OtEstadoModelo)
-
-        return [
-            OtEstadoResponseContract(
-                cod_ot_est=estado.cod_ot_est,
-                nombre_ot_est=estado.nombre_ot_est
-            )
-            for estado in estados_modelos
-        ]
-
     async def obtener_ordenes_por_moto(self, placa_mot: str) -> List[OrdenTrabajoResumenContract]:
         """Obtiene todas las ordenes de una moto"""
         ordenes_dict = await self.repository.obtener_ordenes_por_moto(placa_mot)
@@ -657,19 +644,6 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             ))
 
         return resultado
-
-    async def obtener_estados(self) -> List[OtEstadoResponseContract]:
-        """Obtiene todos los estados de ordenes de trabajo"""
-        estados_dict = await self.estado_repository.obtener_todos_estados()
-        estados_modelos = self.__parse_all_custom__(estados_dict, OtEstadoModelo)
-
-        return [
-            OtEstadoResponseContract(
-                cod_ot_est=estado.cod_ot_est,
-                nombre_ot_est=estado.nombre_ot_est
-            )
-            for estado in estados_modelos
-        ]
 
     async def generar_factura_pos(self, consecutivo_ot: int) -> bytes:
         """

@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 from domain.contracts.admin.admin_user_contract import (
     AdminUserCreationContract,
     AdminUserUpdateContract,

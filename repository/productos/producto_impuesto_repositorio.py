@@ -1,7 +1,5 @@
-from typing import Dict, List, Optional
-from pydantic import BaseModel
+from typing import Dict, List
 from repository.base_repository import BaseRepository
-from repository.data.db_pool import get_pool
 
 
 class ProductoImpuestoRepositorio(BaseRepository):

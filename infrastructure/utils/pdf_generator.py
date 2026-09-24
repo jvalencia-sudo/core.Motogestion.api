@@ -1,13 +1,12 @@
 from datetime import datetime
 from typing import List
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch, cm, mm
+from reportlab.lib.units import inch, cm
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image as RLImage
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
+from reportlab.lib.enums import TA_RIGHT
 from reportlab.graphics.shapes import Drawing, Circle, Line, Rect
-from reportlab.graphics import renderPDF
 import io
 import os
 
@@ -86,7 +85,7 @@ class OrdenTrabajoPDFGenerator:
         if isinstance(fecha, str):
             try:
                 fecha = datetime.fromisoformat(fecha.replace('Z', '+00:00'))
-            except:
+            except ValueError:
                 return fecha
         if isinstance(fecha, datetime):
             meses = {

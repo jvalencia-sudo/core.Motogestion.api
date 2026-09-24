@@ -5,7 +5,6 @@ from datetime import datetime
 import io
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
 
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import OrdenTrabajoResponseContract
 

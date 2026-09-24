@@ -1,6 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, status
-from starlette.responses import Response
+from fastapi import APIRouter, status
 
 from domain.contracts.productos.producto_contract import (
     ProductoCreateContract,
@@ -8,7 +7,6 @@ from domain.contracts.productos.producto_contract import (
     ProductoResponseContract
 )
 from domain.services.productos.producto_servicio import ProductoServicio
-from infrastructure.dependencies.auth_request import AuthRequest
 
 router = APIRouter()
 

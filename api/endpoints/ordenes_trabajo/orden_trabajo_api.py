@@ -1,6 +1,6 @@
 import logging
-from typing import List, Optional
-from fastapi import APIRouter, status, Depends, HTTPException
+from typing import List
+from fastapi import APIRouter, status, HTTPException
 from fastapi.responses import Response
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import (
     OrdenTrabajoCreateContract,
@@ -16,7 +16,6 @@ from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
     DetalleOrdenUpdateContract
 )
 from domain.services.ordenes_trabajo.orden_trabajo_servicio import OrdenTrabajoServicio
-from infrastructure.dependencies.auth_request import AuthRequest
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
 

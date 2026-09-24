@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, status, HTTPException, Depends
+from fastapi import APIRouter, status, HTTPException
 from domain.contracts.ordenes_trabajo.reclamo_contract import (
     ReclamoCreateContract,
     ReclamoUpdateContract,

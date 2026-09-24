@@ -1,5 +1,4 @@
 from domain.models.base_model import BaseSchema
-from typing import Optional
 
 
 class VwMotoModelo(BaseSchema):
