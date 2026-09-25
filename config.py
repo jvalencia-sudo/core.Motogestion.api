@@ -56,6 +56,8 @@ class Settings(BaseSettingModel):
     auth0_config: Auth0Config = Auth0Config()
     wompi_config: WompiConfig = WompiConfig()
     #aws_config: AwsConfig = AwsConfig()
+    # Opcional: sin DSN, sentry_sdk.init no se llama y la app arranca igual.
+    sentry_dsn: str = Field("", alias="SENTRY_DSN")
     # Orígenes permitidos por CORS. `cors_origins` es una lista separada por comas
     # (env CORS_ORIGINS); `allowed_origin` se mantiene por compatibilidad.
     cors_origins: str = ""

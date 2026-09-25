@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
@@ -14,6 +15,8 @@ from domain.services.marcas.marca_servicio import MarcaServicio
 from domain.services.clientes.cliente_servicio import ClienteServicio
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.motos.moto_repositorio import MotoRepositorio
+
+logger = logging.getLogger(__name__)
 
 
 class MotoServicio(BaseService[MotoModelo, MotoRepositorio]):
@@ -148,7 +151,7 @@ class MotoServicio(BaseService[MotoModelo, MotoRepositorio]):
                     # Cliente no encontrado, dejar valores por defecto
                     pass
                 except Exception as e:
-                    print(f"Error obteniendo cliente {moto_vista.documento_cli_mot}: {e}")
+                    logger.warning("Error obteniendo cliente de la moto %s: %s", moto_vista.placa_mot, e)
 
                 resultado.append(MotoResponseContract(
                     placa_mot=moto_vista.placa_mot,
@@ -196,7 +199,7 @@ class MotoServicio(BaseService[MotoModelo, MotoRepositorio]):
             propietario = cliente.nombre_completo
             telefono = cliente.telefono_cli
         except Exception as e:
-            print(f"Error obteniendo cliente {moto_modelo.documento_cli_mot}: {e}")
+            logger.warning("Error obteniendo cliente de la moto %s: %s", moto_modelo.placa_mot, e)
 
         try:
             marca = await self.marca_servicio.obtener_marca_por_id(moto_modelo.cod_marca_mot)

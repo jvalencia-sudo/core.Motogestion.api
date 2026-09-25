@@ -80,8 +80,6 @@ class ClienteServicio(BaseService[ClienteModelo, ClienteRepositorio]):
                 )
 
             modelo = ClienteModelo(**contract.model_dump(exclude_unset=True))
-            print(f"DEBUG: Modelo cliente creado: {modelo}")
-            print(f"DEBUG: Modelo dump: {modelo.model_dump()}")
 
             await self.repository.create(modelo)
 
