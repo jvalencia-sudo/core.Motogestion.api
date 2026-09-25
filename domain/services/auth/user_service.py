@@ -1,3 +1,4 @@
+import logging
 import random
 import time
 from typing import Dict, Optional
@@ -26,6 +27,8 @@ from repository.auth.identidad_repositorio import IdentidadRepositorio
 from repository.auth.perfil_repositorio import PerfilRepositorio
 from repository.talleres.taller_repositorio import TallerRepositorio
 from infrastructure.commons.enums.user import UserTypeEnum
+
+logger = logging.getLogger(__name__)
 
 
 class UserService(BaseService[UserModel, UserRepository]):
@@ -158,7 +161,11 @@ class UserService(BaseService[UserModel, UserRepository]):
                 else:
                     raise DomainException("Error: User could not be created or found after constraint violation")
             else:
-                raise DomainException(f"Error creating user: {str(e)}")
+                # No se devuelve str(e) al cliente: puede traer un DETAIL de Postgres
+                # con datos reales de la fila (documento, etc). El log sí lleva el
+                # error completo para diagnosticar -- exc_info da el traceback real.
+                logger.error("Error creating user (sub_id=%s): %s", sub_id, e, exc_info=e)
+                raise DomainException("Error creating user")
 
     def _split_full_name(self, full_name: str) -> tuple[str, str, str]:
         """Función auxiliar para dividir nombres"""

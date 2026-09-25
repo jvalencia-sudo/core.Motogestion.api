@@ -185,7 +185,11 @@ async def health_ready():
                 async with conn.cursor() as cur:
                     await cur.execute("SELECT 1")
     except Exception:
-        logger.error("health/ready: la BD no respondió")
+        # warning, no error: el monitor externo pega acá cada 1-3 min, y ya es
+        # quien avisa de la caída -- una caída larga no debe generar decenas de
+        # eventos idénticos en Sentry (logger.error sí dispara un evento por la
+        # integración de logging).
+        logger.warning("health/ready: la BD no respondió")
         raise HTTPException(status_code=503, detail="not ready")
     return {"status": "ok"}
 

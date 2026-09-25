@@ -124,3 +124,61 @@ def test_redacta_locals_en_los_frames_del_stack():
 
 def test_no_falla_con_evento_vacio():
     assert scrub_before_send({}, {}) == {}
+
+
+def test_limpia_nit_con_digito_de_verificacion_en_la_url():
+    # NIT de empresa (flotas de mensajería/domicilios que se registran como
+    # clientes) -- formato "900123456-7", que el heurístico de placa no cubría.
+    event = {"request": {"url": "https://api.example.com/api/clientes/900123456-7"}}
+
+    resultado = scrub_before_send(event, {})
+
+    url = resultado["request"]["url"]
+    assert "900123456-7" not in url
+    assert url == "https://api.example.com/api/clientes/{id}"
+
+
+def test_limpia_documento_tipo_pasaporte_o_cedula_extranjeria():
+    # Documentos de 9 caracteres alfanuméricos (pasaporte, cédula de extranjería)
+    # quedaban fuera del rango fijo de 6 caracteres del heurístico anterior.
+    event = {"request": {"url": "https://api.example.com/api/clientes/AB1234567"}}
+
+    resultado = scrub_before_send(event, {})
+
+    assert resultado["request"]["url"] == "https://api.example.com/api/clientes/{id}"
+
+
+def test_limpia_logentry_formatted_y_params():
+    # logger.error("...: %s", algo) hace que la integración de logging de Sentry
+    # arme event["logentry"] con el mensaje formateado y los argumentos por
+    # separado -- ninguno pasa por request/extra, así que scrub_before_send debe
+    # limpiarlos aparte.
+    event = {
+        "logentry": {
+            "message": "Otro fallo %s",
+            "formatted": "Otro fallo /api/clientes/900123456-7",
+            "params": ["/api/clientes/900123456-7"],
+        }
+    }
+
+    resultado = scrub_before_send(event, {})
+
+    logentry = resultado["logentry"]
+    assert "900123456-7" not in logentry["formatted"]
+    assert logentry["formatted"] == "Otro fallo /api/clientes/{id}"
+    assert logentry["params"] == ["/api/clientes/{id}"]
+
+
+def test_limpia_detail_dentro_de_logentry_message():
+    event = {
+        "logentry": {
+            "message": (
+                'duplicate key value violates unique constraint "t_pkey"\n'
+                "DETAIL:  Key (documento_cli)=(1122334455) already exists."
+            ),
+        }
+    }
+
+    resultado = scrub_before_send(event, {})
+
+    assert "1122334455" not in resultado["logentry"]["message"]
