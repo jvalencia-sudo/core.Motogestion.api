@@ -3,6 +3,7 @@ cuando existan (esos últimos tres solo los agrega el middleware de requests, v�
 `extra=`) — esto prueba el formatter en sí, sin levantar la app."""
 import json
 import logging
+import sys
 
 from infrastructure.utils.logging_config import JsonFormatter
 
@@ -44,3 +45,37 @@ def test_omite_campos_opcionales_ausentes():
 
     for campo in ("ruta", "metodo", "status", "duracion_ms", "taller", "usuario"):
         assert campo not in evento
+
+
+def test_limpia_detail_de_postgres_del_traceback():
+    # El scrub antes solo se aplicaba a lo que se manda a Sentry -- este mensaje
+    # salía limpio por logger.error(...) pero el traceback completo (exc_info) se
+    # imprimía crudo por stdout/docker logs, con la cédula real en el DETAIL.
+    logger = logging.getLogger("test.logging_config")
+    try:
+        raise ValueError(
+            'duplicate key value violates unique constraint "t_pkey"\n'
+            "DETAIL:  Key (documento_cli)=(1122334455) already exists."
+        )
+    except ValueError:
+        record = logger.makeRecord(
+            logger.name, logging.ERROR, __file__, 1, "Error de base de datos",
+            (), sys.exc_info(),
+        )
+    linea = JsonFormatter().format(record)
+    evento = json.loads(linea)
+
+    assert "1122334455" not in linea
+    assert "1122334455" not in evento["excepcion"]
+
+
+def test_limpia_ruta_con_documento_dentro_del_mensaje():
+    logger = logging.getLogger("test.logging_config")
+    record = logger.makeRecord(
+        logger.name, logging.ERROR, __file__, 1,
+        "Fallo consultando %s", ("/api/clientes/1122334455",), None,
+    )
+    evento = json.loads(JsonFormatter().format(record))
+
+    assert "1122334455" not in evento["mensaje"]
+    assert evento["mensaje"] == "Fallo consultando /api/clientes/{id}"

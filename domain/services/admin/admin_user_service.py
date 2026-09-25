@@ -12,6 +12,11 @@ from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
 from repository.admin.admin_user_repository import AdminUserRepository
 
+# Sin el documento en el texto: este mensaje llega tal cual a logs/Sentry desde
+# el handler de DomainException, y quien hizo la petición ya sabe qué documento
+# escribió (viene de la propia URL/formulario).
+_USUARIO_NO_ENCONTRADO = "Usuario no encontrado"
+
 
 class AdminUserService(BaseService[UserModel, AdminUserRepository]):
     def __init__(self):
@@ -34,13 +39,9 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         """
         # Validar que no exista en este taller (RLS acota a su taller)
         if await self.repository.get_user_by_email(contract.correo_usu):
-            raise DomainException(
-                f"Ya existe un usuario con el correo {contract.correo_usu}"
-            )
+            raise DomainException("Ya existe un usuario con ese correo")
         if await self.repository.get_user_by_documento(contract.documento_usu):
-            raise DomainException(
-                f"Ya existe un usuario con el documento {contract.documento_usu}"
-            )
+            raise DomainException("Ya existe un usuario con ese documento")
 
         await self.repository.crear_pre_registrado(
             documento=contract.documento_usu,
@@ -75,7 +76,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         # Buscar usuario existente y parsearlo
         record = await self.repository.get_user_by_documento(documento_usu)
         if not record:
-            raise DomainException(f"Usuario con documento {documento_usu} no encontrado")
+            raise DomainException(_USUARIO_NO_ENCONTRADO)
 
         existing_user = self.__parse__(record)
 
@@ -101,7 +102,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
             if email_record:
                 user_by_email = self.__parse__(email_record)
                 if str(user_by_email.documento_usu) != documento_usu:
-                    raise DomainException(f"Ya existe otro usuario con el correo {contract.correo_usu}")
+                    raise DomainException("Ya existe otro usuario con ese correo")
 
             # Actualizar email en Auth0 (solo usuarios con auth0/database)
             if existing_user.sub_id_usu:
@@ -142,7 +143,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         """
         record = await self.repository.get_user_by_documento(documento_usu)
         if not record:
-            raise DomainException(f"Usuario con documento {documento_usu} no encontrado")
+            raise DomainException(_USUARIO_NO_ENCONTRADO)
 
         existing_user = self.__parse__(record)
 
@@ -165,7 +166,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         """
         record = await self.repository.get_user_by_documento(documento_usu)
         if not record:
-            raise DomainException(f"Usuario con documento {documento_usu} no encontrado")
+            raise DomainException(_USUARIO_NO_ENCONTRADO)
 
         existing_user = self.__parse__(record)
 
@@ -224,7 +225,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         """
         record = await self.repository.get_user_by_documento(documento_usu)
         if not record:
-            raise DomainException(f"Usuario con documento {documento_usu} no encontrado")
+            raise DomainException(_USUARIO_NO_ENCONTRADO)
 
         existing_user = self.__parse__(record)
 
@@ -253,7 +254,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         """
         record = await self.repository.get_user_by_documento(documento_usu)
         if not record:
-            raise DomainException(f"Usuario con documento {documento_usu} no encontrado")
+            raise DomainException(_USUARIO_NO_ENCONTRADO)
 
         await self.repository.update_user_profile(
             documento_usu, contract.cod_prf_usu, contract.cod_rol_prf_usu
@@ -274,7 +275,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         """
         record = await self.repository.get_user_by_documento(documento_usu)
         if not record:
-            raise DomainException(f"Usuario con documento {documento_usu} no encontrado")
+            raise DomainException(_USUARIO_NO_ENCONTRADO)
 
         return self.__parse__(record)
 
@@ -303,7 +304,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         """
         usuario = await self.repository.get_usuario_perfil_by_documento(documento)
         if not usuario:
-            raise DomainException(f"Usuario con documento {documento} no encontrado")
+            raise DomainException(_USUARIO_NO_ENCONTRADO)
 
         return self.__parse_usuario_perfil__(usuario)
 

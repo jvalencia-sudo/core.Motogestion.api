@@ -86,7 +86,12 @@ def _limpiar_url(url: str) -> str:
     )
 
 
-def _limpiar_texto(valor: str) -> str:
+def limpiar_texto(valor: str) -> str:
+    """Corta líneas DETAIL de Postgres y reemplaza rutas con valores reales por
+    "{id}" en cualquier texto libre. Pública porque también la usa
+    infrastructure.utils.logging_config.JsonFormatter -- es la misma regla para
+    lo que sale a Sentry y lo que sale por stdout/docker logs, no dos scrubs
+    separados que puedan divergir."""
     valor = _DETAIL_LINEA.sub("[DETAIL REDACTADO]", valor)
     return _RUTA_EN_TEXTO.sub(lambda m: _limpiar_segmentos(m.group(0)), valor)
 
@@ -100,7 +105,7 @@ def _redactar(valor: Any) -> Any:
     if isinstance(valor, list):
         return [_redactar(v) for v in valor]
     if isinstance(valor, str):
-        return _limpiar_texto(valor)
+        return limpiar_texto(valor)
     return valor
 
 
@@ -110,7 +115,7 @@ def _limpiar_breadcrumbs(event: dict) -> None:
         if isinstance(data, dict) and isinstance(data.get("url"), str):
             data["url"] = _limpiar_url(data["url"])
         if isinstance(crumb.get("message"), str):
-            crumb["message"] = _limpiar_texto(crumb["message"])
+            crumb["message"] = limpiar_texto(crumb["message"])
 
 
 def _limpiar_logentry(event: dict) -> None:
@@ -122,10 +127,10 @@ def _limpiar_logentry(event: dict) -> None:
         return
     for campo in ("message", "formatted"):
         if isinstance(logentry.get(campo), str):
-            logentry[campo] = _limpiar_texto(logentry[campo])
+            logentry[campo] = limpiar_texto(logentry[campo])
     if isinstance(logentry.get("params"), list):
         logentry["params"] = [
-            _limpiar_texto(p) if isinstance(p, str) else p for p in logentry["params"]
+            limpiar_texto(p) if isinstance(p, str) else p for p in logentry["params"]
         ]
 
 
@@ -143,7 +148,7 @@ def scrub_before_send(event: dict, hint: dict) -> dict:
 
     for exc in event.get("exception", {}).get("values", []):
         if isinstance(exc.get("value"), str):
-            exc["value"] = _limpiar_texto(exc["value"])
+            exc["value"] = limpiar_texto(exc["value"])
         for frame in exc.get("stacktrace", {}).get("frames", []):
             if "vars" in frame:
                 frame["vars"] = _redactar(frame["vars"])
