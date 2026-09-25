@@ -58,6 +58,9 @@ class Settings(BaseSettingModel):
     #aws_config: AwsConfig = AwsConfig()
     # Opcional: sin DSN, sentry_sdk.init no se llama y la app arranca igual.
     sentry_dsn: str = Field("", alias="SENTRY_DSN")
+    # SHA del commit desplegado (ver docker-compose.prod.yml, reusa BACKEND_TAG que
+    # ya pone deploy.yml) -- para saber qué versión introdujo cada error en Sentry.
+    sentry_release: str = Field("", alias="SENTRY_RELEASE")
     # Orígenes permitidos por CORS. `cors_origins` es una lista separada por comas
     # (env CORS_ORIGINS); `allowed_origin` se mantiene por compatibilidad.
     cors_origins: str = ""

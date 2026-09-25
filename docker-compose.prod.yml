@@ -98,6 +98,10 @@ services:
             AUTH0_ADMIN_ROLE: ${AUTH0_ADMIN_ROLE:?Falta AUTH0_ADMIN_ROLE en .env}
             # Sentry es opcional: sin DSN la app arranca igual y no manda nada.
             SENTRY_DSN: ${SENTRY_DSN:-}
+            # Mismo valor que ya usa la imagen de arriba (lo exporta deploy.yml
+            # antes del `docker compose up`) -- así cada evento en Sentry queda
+            # etiquetado con el commit que lo introdujo.
+            SENTRY_RELEASE: ${BACKEND_TAG:-}
             # Wompi es opcional: sin llaves el checkout responde "pagos no configurados".
             WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-}
             WOMPI_PRIVATE_KEY: ${WOMPI_PRIVATE_KEY:-}

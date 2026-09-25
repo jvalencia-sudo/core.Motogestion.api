@@ -11,6 +11,7 @@ misma coroutine, sin task nueva de por medio.
 import logging
 import time
 
+from infrastructure.utils.ruta_plantilla import ruta_plantilla
 from infrastructure.utils.tenant_context import get_tenant
 from infrastructure.utils.user_context import get_current_user_id
 
@@ -42,7 +43,10 @@ class RequestLoggingMiddleware:
             logger.info(
                 "request",
                 extra={
-                    "ruta": scope.get("path", ""),
+                    # Plantilla, no la ruta resuelta: /clientes/{documento_cli},
+                    # no /clientes/1122334455 -- si no, el documento de cada
+                    # cliente terminaría en cada línea de log.
+                    "ruta": ruta_plantilla(scope),
                     "metodo": scope.get("method", ""),
                     "status": status_code,
                     "duracion_ms": duracion_ms,
