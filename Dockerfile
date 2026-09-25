@@ -28,4 +28,8 @@ EXPOSE 8000
 # Detrás de un proxy inverso (Caddy): confiar en X-Forwarded-* para que los
 # redirects y request.url salgan con https. Es seguro porque el contenedor no
 # publica puertos: solo el proxy puede alcanzarlo.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# --no-access-log: uvicorn logueaba cada request en texto plano con la ruta
+# RESUELTA (incluye documentos/placas reales) -- infrastructure/middleware/
+# request_logging.py ya cubre esa misma información, pero con la plantilla de
+# ruta en vez del valor real.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*", "--no-access-log"]

@@ -8,7 +8,7 @@ def test_redacta_claves_sensibles_en_request():
     event = {
         "request": {
             "headers": {"Authorization": "Bearer secreto", "User-Agent": "x"},
-            "data": {"password": "1234", "email": "a@b.com"},
+            "data": {"password": "1234", "email": "a@b.com", "otro": "valor"},
         }
     }
 
@@ -17,7 +17,75 @@ def test_redacta_claves_sensibles_en_request():
     assert resultado["request"]["headers"]["Authorization"] == "[REDACTADO]"
     assert resultado["request"]["headers"]["User-Agent"] == "x"
     assert resultado["request"]["data"]["password"] == "[REDACTADO]"
-    assert resultado["request"]["data"]["email"] == "a@b.com"
+    assert resultado["request"]["data"]["email"] == "[REDACTADO]"
+    assert resultado["request"]["data"]["otro"] == "valor"
+
+
+def test_limpia_documento_de_la_url_del_request():
+    event = {"request": {"url": "https://api.example.com/api/clientes/1122334455?x=1"}}
+
+    resultado = scrub_before_send(event, {})
+
+    url = resultado["request"]["url"]
+    assert "1122334455" not in url
+    assert url == "https://api.example.com/api/clientes/{id}"
+
+
+def test_limpia_placa_de_la_url_del_request():
+    event = {"request": {"url": "https://api.example.com/api/motos/ABC123"}}
+
+    resultado = scrub_before_send(event, {})
+
+    assert resultado["request"]["url"] == "https://api.example.com/api/motos/{id}"
+
+
+def test_no_confunde_un_segmento_fijo_de_6_letras_con_una_placa():
+    # /talleres/config y /suscripciones/planes son rutas reales -- sin exigir un
+    # dígito en el heurístico de "parece una placa", quedaban redactadas por error.
+    event = {"request": {"url": "https://api.example.com/api/talleres/config"}}
+
+    resultado = scrub_before_send(event, {})
+
+    assert resultado["request"]["url"] == "https://api.example.com/api/talleres/config"
+
+
+def test_limpia_url_de_un_breadcrumb():
+    event = {
+        "breadcrumbs": {
+            "values": [
+                {
+                    "category": "http",
+                    "data": {"url": "https://api.example.com/api/clientes/1122334455"},
+                }
+            ]
+        }
+    }
+
+    resultado = scrub_before_send(event, {})
+
+    url = resultado["breadcrumbs"]["values"][0]["data"]["url"]
+    assert "1122334455" not in url
+
+
+def test_limpia_detail_del_mensaje_de_excepcion_de_postgres():
+    event = {
+        "exception": {
+            "values": [
+                {
+                    "value": (
+                        'duplicate key value violates unique constraint "t_pkey"\n'
+                        "DETAIL:  Key (documento_cli)=(1122334455) already exists."
+                    )
+                }
+            ]
+        }
+    }
+
+    resultado = scrub_before_send(event, {})
+
+    valor = resultado["exception"]["values"][0]["value"]
+    assert "1122334455" not in valor
+    assert "duplicate key value violates unique constraint" in valor
 
 
 def test_redacta_claves_sensibles_en_extra():
