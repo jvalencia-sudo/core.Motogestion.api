@@ -9,11 +9,13 @@ from fastapi import Request
 
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
 from infrastructure.utils.tenant_context import set_tenant
+from infrastructure.utils.user_context import set_current_user_id
 from repository.auth.identidad_repositorio import IdentidadRepositorio
 
 
 async def resolve_tenant(request: Request) -> None:
     set_tenant(None)
+    set_current_user_id(None)
     authorization = request.headers.get("authorization", "")
     if not authorization.lower().startswith("bearer "):
         return
@@ -21,6 +23,7 @@ async def resolve_tenant(request: Request) -> None:
     token = authorization[7:].strip()
     try:
         auth_user = await Auth0Provider().verify(token)
+        set_current_user_id(auth_user.user_id)
         cod_taller = await IdentidadRepositorio().get_taller_by_sub(auth_user.user_id)
         set_tenant(cod_taller)
     except Exception:

@@ -96,6 +96,8 @@ services:
             AUTH0_CONNECTION_ID: ${AUTH0_CONNECTION_ID:-Username-Password-Authentication}
             AUTH0_CUSTOMER_ROLE: ${AUTH0_CUSTOMER_ROLE:?Falta AUTH0_CUSTOMER_ROLE en .env}
             AUTH0_ADMIN_ROLE: ${AUTH0_ADMIN_ROLE:?Falta AUTH0_ADMIN_ROLE en .env}
+            # Sentry es opcional: sin DSN la app arranca igual y no manda nada.
+            SENTRY_DSN: ${SENTRY_DSN:-}
             # Wompi es opcional: sin llaves el checkout responde "pagos no configurados".
             WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-}
             WOMPI_PRIVATE_KEY: ${WOMPI_PRIVATE_KEY:-}
