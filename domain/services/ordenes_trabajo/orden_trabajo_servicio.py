@@ -692,7 +692,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         productos_facturables = [d for d in orden.detalles if d.cantidad_deto > 0]
         if not productos_facturables:
             raise DomainException(
-                "No hay productos facturables en esta orden (todos tienen cantidad negativa)",
+                "La orden no tiene productos cobrados",
                 HTTP_400_BAD_REQUEST
             )
 

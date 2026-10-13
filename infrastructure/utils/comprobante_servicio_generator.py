@@ -90,7 +90,8 @@ class ComprobanteServicioPDFGenerator:
 
         y -= 2 * mm
         y = self._texto_centrado(c, "Este documento no es una", y, 7, "Courier")
-        y = self._texto_centrado(c, "factura electronica", y, 7, "Courier")
+        y = self._texto_centrado(c, "factura de venta ni un", y, 7, "Courier")
+        y = self._texto_centrado(c, "documento equivalente", y, 7, "Courier")
 
         y -= 3 * mm
         return y
@@ -164,7 +165,7 @@ class ComprobanteServicioPDFGenerator:
 
         if not productos_facturables:
             c.setFont("Courier", 8)
-            y = self._texto_centrado(c, "Sin productos facturables", y, 8, "Courier")
+            y = self._texto_centrado(c, "Sin productos cobrados", y, 8, "Courier")
             y -= 10
             return y
 
