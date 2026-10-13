@@ -81,7 +81,7 @@ async def generar_pdf_orden_trabajo(consecutivo_ot: int):
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                # inline (no attachment): igual que la factura, para que se
+                # inline (no attachment): igual que el comprobante, para que se
                 # abra directo en el navegador. Más cómodo para imprimir
                 # desde el celular en el taller que forzar una descarga.
                 "Content-Disposition": f"inline; filename={nombre_archivo}"
@@ -97,16 +97,16 @@ async def generar_pdf_orden_trabajo(consecutivo_ot: int):
         )
 
 
-@router.get("/{consecutivo_ot}/generar-factura")
-async def generar_factura_orden_trabajo(consecutivo_ot: int):
-    """Genera un PDF de factura en formato POS (ticket de 80mm)"""
+@router.get("/{consecutivo_ot}/generar-comprobante")
+async def generar_comprobante_orden_trabajo(consecutivo_ot: int):
+    """Genera un PDF de comprobante de servicio en formato POS (ticket de 80mm)"""
     servicio = OrdenTrabajoServicio()
 
-    # Generar la factura (toda la lógica de negocio está en el servicio,
+    # Generar el comprobante (toda la lógica de negocio está en el servicio,
     # en memoria: ver nota de seguridad en OrdenTrabajoPDFGenerator.generar_pdf)
     try:
-        pdf_bytes = await servicio.generar_factura_pos(consecutivo_ot)
-        nombre_archivo = f"factura_{consecutivo_ot}.pdf"
+        pdf_bytes = await servicio.generar_comprobante_servicio_pos(consecutivo_ot)
+        nombre_archivo = f"comprobante_{consecutivo_ot}.pdf"
 
         return Response(
             content=pdf_bytes,
@@ -118,10 +118,10 @@ async def generar_factura_orden_trabajo(consecutivo_ot: int):
     except DomainException:
         raise
     except Exception:
-        logger.exception("Error generando factura de la orden %s", consecutivo_ot)
+        logger.exception("Error generando comprobante de la orden %s", consecutivo_ot)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al generar la factura"
+            detail="Error al generar el comprobante"
         )
 
 
