@@ -2,6 +2,13 @@
 
 > Documento de contexto para retomar el trabajo (humano u otra IA). Resume **qué se
 > hizo, por qué, y los detalles no obvios**. Fecha del trabajo: 2026-06.
+>
+> **Registro histórico, no estado actual.** De los pendientes del §10: el código
+> muerto de `repository/orders|supplier|operation|sync` y el renombre de
+> `package.json` del front ya se hicieron (F0-09, 2026-10). `repository/auth/
+> user_business_repository.py` sigue sin revisar -- usa un modelo de "business"
+> que no corresponde al esquema real (talleres), pero limpiarlo con seguridad
+> implica antes confirmar si algo del login legado todavía lo usa.
 
 ## 1. Punto de partida y objetivo
 

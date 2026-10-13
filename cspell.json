@@ -87,11 +87,7 @@
         "Hmac",
         "HMACSHA",
         "ilike",
-        "iluma",
         "incomp",
-        "incoterm",
-        "Incoterm",
-        "incoterms",
         "inspeccion",
         "Instrumentor",
         "jsonable",
@@ -153,9 +149,7 @@
         "XSSF",
         "Xunit",
         "zeep",
-        "Zfpp",
-        "incoterm",
-        "incoterms"
+        "Zfpp"
     ],
     "ignoreWords": [],
     "import": []
