@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List
 from datetime import date, timedelta
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
@@ -32,6 +33,8 @@ from repository.motos.moto_repositorio import MotoRepositorio
 from repository.productos.producto_repositorio import ProductoRepositorio
 from repository.productos.paquete_componente_repositorio import PaqueteComponenteRepositorio
 from infrastructure.exceptions.domain_exception import DomainException
+
+logger = logging.getLogger(__name__)
 
 
 class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositorio]):
@@ -691,8 +694,20 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         # Validar que haya productos facturables (cantidad > 0)
         productos_facturables = [d for d in orden.detalles if d.cantidad_deto > 0]
         if not productos_facturables:
+            if not orden.detalles:
+                raise DomainException(
+                    "No se puede generar el comprobante porque la orden no tiene "
+                    "productos ni servicios. Agrégalos editando la orden.",
+                    HTTP_400_BAD_REQUEST
+                )
+            logger.info(
+                "Comprobante rechazado: orden %s sin productos cobrables (%s ítems sin costo)",
+                consecutivo_ot, len(orden.detalles)
+            )
             raise DomainException(
-                "La orden no tiene productos cobrados",
+                "No se puede generar el comprobante porque todos los productos de "
+                "esta orden están marcados como sin costo. Si alguno se debe cobrar, "
+                "edita la orden y actívalo en \"¿Se cobra?\".",
                 HTTP_400_BAD_REQUEST
             )
 

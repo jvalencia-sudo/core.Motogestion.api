@@ -193,7 +193,7 @@ class OrdenTrabajoPDFGenerator:
             'Referencia',
             'Cantidad',
             'Vlr. Unit.',
-            'Cobrado',
+            'Cobra (Sí / No)',
             'Total'
         ]]
 
@@ -248,7 +248,7 @@ class OrdenTrabajoPDFGenerator:
 
         # Agregar filas de totales
         data.append(['', '', '', '', '', 'SUBTOTAL:', self._formatear_moneda(subtotal_total)])
-        data.append(['', '', '', '', '', 'COBRADO:', self._formatear_moneda(total_facturable)])
+        data.append(['', '', '', '', '', 'A COBRAR:', self._formatear_moneda(total_facturable)])
 
         # Crear tabla
         tabla = Table(data, colWidths=[0.4*inch, 0.7*inch, 2.8*inch, 0.7*inch, 0.9*inch, 0.8*inch, 0.9*inch])
