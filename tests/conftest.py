@@ -230,7 +230,7 @@ def _seed_taller(cur, cod_taller: int) -> TallerSeed:
     # columnas en MAYÚSCULAS — no incluye "referencia", así que el test usa cod_pago.
     cur.execute(
         "INSERT INTO pagos (cod_taller, nombre_plan, monto, referencia, estado) "
-        "VALUES (%s, 'Profesional', 49000, %s, 'APPROVED') RETURNING cod_pago",
+        "VALUES (%s, 'Taller', 49000, %s, 'APPROVED') RETURNING cod_pago",
         (cod_taller, f"TEST-{cod_taller}"),
     )
     cod_pago = cur.fetchone()[0]

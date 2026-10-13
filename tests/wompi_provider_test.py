@@ -61,10 +61,10 @@ def test_verificar_evento_con_payload_incompleto_no_lanza_excepcion():
     assert wompi_provider.verificar_evento({"signature": {}}, EVENTS_SECRET) is False
 
 
-def test_leer_transaccion_extrae_referencia_estado_y_id():
-    payload = _payload_con_checksum_valido(referencia="MG-7-xyz", estado="DECLINED")
+def test_leer_transaccion_extrae_referencia_estado_id_y_monto():
+    payload = _payload_con_checksum_valido(referencia="MG-7-xyz", estado="DECLINED", monto=50000)
     resultado = wompi_provider.leer_transaccion(payload)
-    assert resultado == ("MG-7-xyz", "DECLINED", "tx-1")
+    assert resultado == ("MG-7-xyz", "DECLINED", "tx-1", 50000)
 
 
 def test_leer_transaccion_con_payload_invalido_devuelve_none():
