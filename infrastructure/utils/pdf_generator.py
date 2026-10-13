@@ -325,8 +325,8 @@ class OrdenTrabajoPDFGenerator:
         """Nota de que este documento no reemplaza una factura de venta (el
         sistema no emite facturación electrónica DIAN)."""
         estilo_nota = ParagraphStyle(
-            'NotaLegal', parent=self.styles['Normal'], fontSize=6,
-            textColor=colors.grey, spaceBefore=6
+            'NotaLegal', parent=self.styles['Normal'], fontSize=8,
+            textColor=colors.HexColor('#333333'), spaceBefore=6
         )
         return [
             Paragraph(
