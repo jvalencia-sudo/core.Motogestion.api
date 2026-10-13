@@ -1,5 +1,73 @@
 # core.Motogestion.api
 
+Backend de MotoGestión: API REST (FastAPI) para un SaaS multi-taller de
+gestión de talleres de motos (clientes, motos, órdenes de trabajo,
+inventario, usuarios/roles/permisos, suscripciones). Postgres con
+Row-Level Security para aislar los datos de cada taller (ver más abajo).
+Lo consume el frontend de
+[`core.Motogestion.middle`](https://github.com/jvalencia-sudo/core.Motogestion.middle).
+
+## Requisitos
+
+- Python 3.11+
+- [`uv`](https://docs.astral.sh/uv/) (gestiona el entorno virtual y las
+  dependencias; no hace falta crear un venv a mano)
+- Docker (para Postgres en local)
+
+## Levantar en local
+
+```bash
+docker compose up -d          # Postgres; crea el rol mt_app y carga el esquema
+                               # en el primer arranque (db/init/, ver docker-compose.yaml)
+cp .env.example .env          # completar Auth0 y lo que vayas a necesitar, ver abajo
+uv sync                       # instala dependencias (incluye el grupo dev)
+uv run python main.py         # http://localhost:8000 (hot reload activo)
+```
+
+- Docs interactivas: `http://localhost:8000/docs`
+- Salud: `http://localhost:8000/health`
+
+`docker compose down -v` borra el volumen de Postgres y recarga el esquema
+desde cero en el siguiente `up`.
+
+## Variables de entorno
+
+Documentadas con comentarios en `.env.example`. Las imprescindibles para
+levantar en local:
+
+| Variable | Para qué |
+|---|---|
+| `AUTH0_DOMAIN`, `AUTH0_API_AUDIENCE`, `AUTH0_ALGORITHMS`, `AUTH0_MANAGEMENT_CLIENT_ID`, `AUTH0_MANAGEMENT_CLIENT_SECRET`, `AUTH0_MANAGEMENT_AUDIENCE`, `AUTH0_CONNECTION_ID`, `AUTH0_CUSTOMER_ROLE`, `AUTH0_ADMIN_ROLE` | Credenciales del tenant de Auth0 (mismo tenant que usa el frontend). |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Conexión a Postgres. En local apuntan al contenedor de `docker-compose.yaml`; la app se conecta como `mt_app` (rol NO superusuario, necesario para que el RLS funcione). |
+| `environment`, `project_name`, `allowed_origin`, `frontend_url` | Config general de la app (CORS, título en `/docs`, etc). |
+| `WOMPI_*` | Pasarela de pagos. Opcional: sin estas variables, los endpoints de pagos simplemente no se pueden usar, el resto de la app arranca igual. |
+| `SENTRY_DSN` | Monitoreo de errores. Vacío = deshabilitado (no bloquea el arranque). |
+
+## Tests y lint
+
+```bash
+uv run pytest -m "not db"   # unitarios, no necesitan Postgres
+uv run pytest               # suite completa; los marcados @pytest.mark.db
+                             # necesitan el Postgres de docker compose arriba
+uv run ruff check .         # lint
+```
+
+CI (`.github/workflows/ci.yml`) corre `ruff check .` y la suite completa de
+`pytest` (con su propio Postgres de servicio) en cada PR.
+
+## Despliegue
+
+Manual, por SSH a una VM de Oracle Cloud — procedimiento completo paso a
+paso en [`DEPLOY_ORACLE.md`](./DEPLOY_ORACLE.md). En resumen:
+
+- El **código** se despliega solo: cada push a `main` dispara
+  `.github/workflows/deploy.yml`, que construye la imagen y la despliega por
+  SSH en la VM.
+- Las **migraciones SQL** (`db/*.sql` numeradas) **no** son automáticas:
+  después de mergear algo que las necesite hay que aplicarlas a mano contra
+  la base de producción (con backup antes) — el detalle exacto está en
+  `DEPLOY_ORACLE.md`.
+
 ## Seguridad multi-tenant (RLS)
 
 Cada taller solo ve sus propios datos gracias a Row-Level Security (RLS) de Postgres:
