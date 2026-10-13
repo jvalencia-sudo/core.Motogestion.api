@@ -1,5 +1,5 @@
 """
-Generador de PDF para Facturas POS (Ticket de 80mm)
+Generador de PDF para Comprobantes de Servicio (Ticket de 80mm)
 """
 from datetime import datetime
 import io
@@ -9,8 +9,8 @@ from reportlab.pdfgen import canvas
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import OrdenTrabajoResponseContract
 
 
-class FacturaPOSPDFGenerator:
-    """Genera facturas en formato POS (ticket de 80mm)"""
+class ComprobanteServicioPDFGenerator:
+    """Genera comprobantes de servicio en formato POS (ticket de 80mm)"""
 
     def __init__(self):
         # Configuración de ticket POS (80mm de ancho)
@@ -19,11 +19,11 @@ class FacturaPOSPDFGenerator:
         self.margen = 5 * mm
         self.ancho_util = self.ancho_ticket - (2 * self.margen)
 
-    def generar_factura(self, orden: OrdenTrabajoResponseContract) -> bytes:
+    def generar_comprobante(self, orden: OrdenTrabajoResponseContract) -> bytes:
         """
-        Genera una factura en formato POS, en memoria (ver nota de seguridad
-        en OrdenTrabajoPDFGenerator.generar_pdf: consecutivo_ot no es único
-        globalmente, solo por taller).
+        Genera un comprobante de servicio en formato POS, en memoria (ver nota
+        de seguridad en OrdenTrabajoPDFGenerator.generar_pdf: consecutivo_ot
+        no es único globalmente, solo por taller).
 
         Args:
             orden: Contrato con los datos de la orden de trabajo
@@ -37,7 +37,7 @@ class FacturaPOSPDFGenerator:
         c = canvas.Canvas(buffer, pagesize=(self.ancho_ticket, self.alto_ticket))
         # Sin esto, reportlab deja el default "(anonymous)" como título/autor
         # del PDF, visible en la pestaña del navegador al abrirlo.
-        c.setTitle(f"Factura #{orden.consecutivo_ot}")
+        c.setTitle(f"Comprobante de servicio #{orden.consecutivo_ot}")
         c.setAuthor("Motogestion")
 
         # Posición inicial
@@ -84,9 +84,13 @@ class FacturaPOSPDFGenerator:
         y = self._linea_separadora(c, y)
         y -= 2 * mm
 
-        y = self._texto_centrado(c, "FACTURA DE VENTA", y, 12, "Courier-Bold")
+        y = self._texto_centrado(c, "COMPROBANTE DE SERVICIO", y, 11, "Courier-Bold")
         consecutivo = orden.consecutivo_ot or 'N/A'
         y = self._texto_centrado(c, f"No. {consecutivo}", y, 10, "Courier-Bold")
+
+        y -= 2 * mm
+        y = self._texto_centrado(c, "Este documento no es una", y, 7, "Courier")
+        y = self._texto_centrado(c, "factura electronica", y, 7, "Courier")
 
         y -= 3 * mm
         return y

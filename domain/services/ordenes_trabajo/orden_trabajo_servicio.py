@@ -645,9 +645,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
         return resultado
 
-    async def generar_factura_pos(self, consecutivo_ot: int) -> bytes:
+    async def generar_comprobante_servicio_pos(self, consecutivo_ot: int) -> bytes:
         """
-        Genera una factura en formato POS (ticket 80mm) para una orden entregada.
+        Genera un comprobante de servicio en formato POS (ticket 80mm) para una orden entregada.
 
         Args:
             consecutivo_ot: Consecutivo de la orden de trabajo
@@ -658,7 +658,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         Raises:
             DomainException: Si la orden no existe, no está entregada o no tiene productos facturables
         """
-        from infrastructure.utils.factura_pos_generator import FacturaPOSPDFGenerator
+        from infrastructure.utils.comprobante_servicio_generator import ComprobanteServicioPDFGenerator
 
         # Obtener la orden de trabajo
         orden = await self.obtener_orden_por_id(consecutivo_ot)
@@ -666,7 +666,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         # Validar que el estado sea "Entregada"
         if orden.estado_ot != "Entregada":
             raise DomainException(
-                f"Solo se pueden generar facturas para órdenes con estado 'Entregada'. Estado actual: {orden.estado_ot}",
+                f"Solo se pueden generar comprobantes para órdenes con estado 'Entregada'. Estado actual: {orden.estado_ot}",
                 HTTP_400_BAD_REQUEST
             )
 
@@ -697,5 +697,5 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             )
 
         # Generar el PDF en formato POS
-        pdf_generator = FacturaPOSPDFGenerator()
-        return pdf_generator.generar_factura(orden)
+        pdf_generator = ComprobanteServicioPDFGenerator()
+        return pdf_generator.generar_comprobante(orden)
