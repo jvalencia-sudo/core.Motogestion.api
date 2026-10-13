@@ -61,10 +61,17 @@ def verificar_evento(payload: Dict, events_secret: str) -> bool:
         return False
 
 
-def leer_transaccion(payload: Dict) -> Optional[Tuple[str, str, str]]:
-    """Extrae (referencia, estado, transaction_id) del evento de transacción."""
+def leer_transaccion(payload: Dict) -> Optional[Tuple[str, str, str, int]]:
+    """Extrae (referencia, estado, transaction_id, monto_en_centavos) del evento
+    de transacción. El monto se usa para verificar que coincide con lo que se
+    esperaba cobrar antes de activar nada."""
     try:
         tx = payload["data"]["transaction"]
-        return tx["reference"], tx["status"], str(tx.get("id", ""))
+        return (
+            tx["reference"],
+            tx["status"],
+            str(tx.get("id", "")),
+            int(tx.get("amount_in_cents", 0) or 0),
+        )
     except (KeyError, TypeError):
         return None

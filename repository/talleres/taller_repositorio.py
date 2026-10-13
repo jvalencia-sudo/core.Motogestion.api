@@ -42,11 +42,22 @@ class TallerRepositorio(BaseRepository):
         return row.get("NOMBRE_TAL") if row else None
 
     async def get_suscripcion(self, cod_taller: int) -> Optional[Dict]:
-        """Estado de suscripción del taller (para el gating). talleres no tiene RLS."""
+        """Estado de suscripción del taller (para el gating y el cálculo de
+        precio). talleres no tiene RLS."""
         return await self.db.get_first(
-            "SELECT estado_tal, plan_tal, fecha_fin_susc_tal FROM talleres WHERE cod_taller = :1",
+            "SELECT estado_tal, plan_tal, fecha_fin_susc_tal, precio_susc_tal "
+            "FROM talleres WHERE cod_taller = :1",
             (cod_taller,),
         )
+
+    async def contar_por_precio_susc(self, monto: int) -> int:
+        """Cuenta talleres que ya tienen ese precio pactado (congelado desde su
+        primer pago aprobado). Se usa para contar cupos de precio fundador."""
+        row = await self.db.get_first(
+            "SELECT count(*) AS total FROM talleres WHERE precio_susc_tal = :1",
+            (monto,),
+        )
+        return (row.get("TOTAL") or 0) if row else 0
 
     async def activar_suscripcion(self, cod_taller: int, nombre_plan: str, dias: int = 30) -> None:
         """Activa/renueva la suscripción tras un pago aprobado: estado='activo',

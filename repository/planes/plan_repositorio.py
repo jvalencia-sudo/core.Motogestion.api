@@ -16,15 +16,19 @@ class PlanRepositorio(BaseRepository):
         )
 
     async def listar(self) -> List[Dict]:
+        """Solo planes activos: Premium (u otro plan retirado) no se borra, pero
+        no debe aparecer en el catálogo que ve el taller."""
         return await self.execute(
             "SELECT cod_plan, nombre_plan, precio_plan, max_usuarios, max_motos, features, orden "
-            "FROM planes ORDER BY orden",
+            "FROM planes WHERE activo = true ORDER BY orden",
             None,
         )
 
     async def get_por_nombre(self, nombre_plan: str) -> Dict:
+        """Incluye `activo` aunque el plan esté retirado: el checkout necesita
+        poder rechazarlo incluso si alguien lo llama directo, sin pasar por listar()."""
         return await self.get_one(
-            "SELECT cod_plan, nombre_plan, precio_plan, features FROM planes WHERE nombre_plan = :1",
+            "SELECT cod_plan, nombre_plan, precio_plan, activo, features FROM planes WHERE nombre_plan = :1",
             (nombre_plan,),
         )
 

@@ -28,6 +28,7 @@ CREATE TABLE talleres (
     fecha_fin_susc_tal    DATE,
     modo_mano_obra        VARCHAR(10)   NOT NULL DEFAULT 'HORAS',    -- HORAS | LIBRE
     tarifa_hora_pred      INTEGER       NOT NULL DEFAULT 0,          -- tarifa/hora por defecto (modo HORAS)
+    precio_susc_tal       INTEGER,                                   -- precio pactado (congelado) con este taller
     CONSTRAINT pk_talleres PRIMARY KEY (cod_taller),
     CONSTRAINT chk_taller_modo_mo CHECK (modo_mano_obra IN ('HORAS', 'LIBRE'))
 );
@@ -45,13 +46,14 @@ CREATE TABLE planes (
     max_motos    INTEGER,
     features     JSONB        NOT NULL DEFAULT '{}',
     orden        INTEGER      NOT NULL DEFAULT 0,
+    activo       BOOLEAN      NOT NULL DEFAULT true,   -- false = fuera de catálogo (no se borra: pagos lo referencian)
     CONSTRAINT pk_planes PRIMARY KEY (cod_plan),
     CONSTRAINT ux_planes_nombre UNIQUE (nombre_plan)
 );
-INSERT INTO planes (nombre_plan, precio_plan, max_usuarios, max_motos, features, orden) VALUES
-    ('Prueba',       0,     3,    NULL, '{"reportes": true}', 1),
-    ('Profesional',  49000, NULL, NULL, '{"reportes": true}', 2),
-    ('Premium',      99000, NULL, NULL, '{"reportes": true, "multi_sucursal": true}', 3);
+INSERT INTO planes (nombre_plan, precio_plan, max_usuarios, max_motos, features, orden, activo) VALUES
+    ('Prueba',   0,     NULL, NULL, '{"reportes": true}', 1, true),
+    ('Taller',   69000, NULL, NULL, '{"reportes": true}', 2, true),
+    ('Premium',  99000, NULL, NULL, '{"reportes": true, "multi_sucursal": true}', 3, false);
 
 -- Pagos / suscripciones (billing de plataforma, SIN RLS: el webhook llega sin sesión).
 CREATE SEQUENCE seq_pagos START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
@@ -1132,7 +1134,7 @@ INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
 
 -- ---- TALLER #1 (migración de los datos actuales) ----
 INSERT INTO talleres (cod_taller, nombre_tal, nit_tal, correo_tal, estado_tal, plan_tal)
-VALUES (nextval('seq_talleres'), 'MotoGestión Demo', '900000000-1', 'demo@motogestion.com', 'activo', 'Premium');
+VALUES (nextval('seq_talleres'), 'MotoGestión Demo', '900000000-1', 'demo@motogestion.com', 'activo', 'Taller');
 
 -- A partir de aquí, todo lo POR TALLER se asigna al taller actual:
 SET app.tenant_id = '1';
