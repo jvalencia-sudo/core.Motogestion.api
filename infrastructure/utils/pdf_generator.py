@@ -193,7 +193,7 @@ class OrdenTrabajoPDFGenerator:
             'Referencia',
             'Cantidad',
             'Vlr. Unit.',
-            'Factur.',
+            'Cobra (Sí / No)',
             'Total'
         ]]
 
@@ -248,7 +248,7 @@ class OrdenTrabajoPDFGenerator:
 
         # Agregar filas de totales
         data.append(['', '', '', '', '', 'SUBTOTAL:', self._formatear_moneda(subtotal_total)])
-        data.append(['', '', '', '', '', 'FACTURABLE:', self._formatear_moneda(total_facturable)])
+        data.append(['', '', '', '', '', 'A COBRAR:', self._formatear_moneda(total_facturable)])
 
         # Crear tabla
         tabla = Table(data, colWidths=[0.4*inch, 0.7*inch, 2.8*inch, 0.7*inch, 0.9*inch, 0.8*inch, 0.9*inch])
@@ -321,6 +321,20 @@ class OrdenTrabajoPDFGenerator:
 
         return elementos
 
+    def _crear_nota_legal(self) -> List:
+        """Nota de que este documento no reemplaza una factura de venta (el
+        sistema no emite facturación electrónica DIAN)."""
+        estilo_nota = ParagraphStyle(
+            'NotaLegal', parent=self.styles['Normal'], fontSize=6,
+            textColor=colors.grey, spaceBefore=6
+        )
+        return [
+            Paragraph(
+                "Este documento no es una factura de venta ni un documento equivalente.",
+                estilo_nota
+            )
+        ]
+
     def generar_pdf(self, orden: OrdenTrabajoResponseContract) -> bytes:
         """
         Genera un PDF con la información de la orden de trabajo, en memoria.
@@ -361,6 +375,7 @@ class OrdenTrabajoPDFGenerator:
         elementos.extend(self._crear_info_cliente_moto(orden))
         elementos.extend(self._crear_tabla_productos(orden))
         elementos.extend(self._crear_observaciones(orden))
+        elementos.extend(self._crear_nota_legal())
 
         # Generar el PDF
         doc.build(elementos)

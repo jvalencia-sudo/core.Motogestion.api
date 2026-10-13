@@ -1,13 +1,16 @@
 """F0-07: el sistema no emite facturación electrónica DIAN, así que el ticket
 POS no puede llamarse "factura" en ningún texto visible (título del PDF,
-encabezado) y debe incluir la nota de que no es una factura electrónica."""
-import base64
-import re
-import zlib
+encabezado, mensajes de estado vacío) y debe incluir la nota de que no es
+una factura de venta ni un documento equivalente."""
 from datetime import date
 
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import OrdenTrabajoResponseContract
 from infrastructure.utils.comprobante_servicio_generator import ComprobanteServicioPDFGenerator
+from tests.pdf_test_utils import texto_visible_del_pdf
+
+# Frase de la nota legal del pie: la contiene a propósito la palabra "factura",
+# así que se descuenta del texto antes de buscar cualquier otra mención.
+_NOTA_LEGAL = "factura de venta ni un documento equivalente"
 
 
 def _orden_de_prueba() -> OrdenTrabajoResponseContract:
@@ -34,36 +37,35 @@ def _orden_de_prueba() -> OrdenTrabajoResponseContract:
     )
 
 
-def _texto_visible_del_pdf(pdf_bytes: bytes) -> str:
-    """Decodifica los content streams del PDF (reportlab los deja en
-    ASCII85+FlateDecode por defecto) y concatena su texto, para poder buscar
-    literales sin depender de que el PDF esté sin comprimir."""
-    partes = []
-    for bloque in re.findall(rb"stream\r?\n(.*?)endstream", pdf_bytes, re.DOTALL):
-        bloque = bloque.rstrip(b"\r\n")
-        try:
-            bloque = base64.a85decode(bloque, adobe=True)
-        except ValueError:
-            pass
-        try:
-            bloque = zlib.decompress(bloque)
-        except zlib.error:
-            pass
-        partes.append(bloque)
-    return b"\n".join(partes).decode("latin-1")
-
-
 def test_titulo_del_pdf_no_dice_factura():
     pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(_orden_de_prueba())
 
     assert b"/Title (Comprobante de servicio #123)" in pdf_bytes
-    assert b"Factura" not in pdf_bytes
 
 
-def test_pdf_incluye_nota_de_que_no_es_factura_electronica():
+def test_texto_visible_del_pdf_no_dice_factura():
+    """A diferencia del test anterior, este sí mira el contenido real de las
+    páginas (decodificado de ASCII85+Flate), no solo los metadatos del PDF:
+    detecta por ejemplo "Sin productos facturables" o un futuro "FACTURA DE
+    VENTA" que se cuele en el encabezado."""
     pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(_orden_de_prueba())
 
-    texto = _texto_visible_del_pdf(pdf_bytes)
+    texto = texto_visible_del_pdf(pdf_bytes).lower()
+    texto_sin_nota = texto.replace(_NOTA_LEGAL, "")
+    assert "factura" not in texto_sin_nota
+
+
+def test_pdf_incluye_nota_legal_y_encabezado_correcto():
+    pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(_orden_de_prueba())
+
+    texto = texto_visible_del_pdf(pdf_bytes)
     assert "Este documento no es una" in texto
-    assert "factura electronica" in texto
+    assert _NOTA_LEGAL in texto.lower()
     assert "COMPROBANTE DE SERVICIO" in texto
+
+
+def test_orden_sin_productos_cobrados_no_dice_facturables():
+    pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(_orden_de_prueba())
+
+    texto = texto_visible_del_pdf(pdf_bytes)
+    assert "Sin productos cobrados" in texto
