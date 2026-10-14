@@ -62,3 +62,65 @@ def test_pdf_incluye_nota_legal():
 
     texto = texto_visible_del_pdf(pdf_bytes).lower()
     assert _NOTA_LEGAL in texto
+
+
+# --- F0-10: texto de usuario sin escapar en los Paragraph de reportlab ---
+#
+# Paragraph interpreta un mini-lenguaje tipo XML. Antes del fix, un "<"/"&"
+# suelto rompía el documento (SAXParseException) y una etiqueta <img
+# src="..."/> hacía que reportlab intentara abrir ese archivo/URL como
+# imagen -- lectura de archivos locales o SSRF, según el valor. Las
+# comparaciones quitan los espacios: reportlab divide el texto en varios
+# runs con kerning alrededor de "<"/">" y texto_visible_del_pdf los une con
+# un espacio por cada uno, así que el texto EXTRAÍDO no queda pegado letra a
+# letra aunque el PDF sí lo muestre así.
+
+def _sin_espacios(texto: str) -> str:
+    return texto.replace(" ", "")
+
+
+def test_nombre_producto_con_caracteres_especiales_aparece_literal():
+    orden = _orden_de_prueba()
+    orden.detalles[0].nombre_pro = "Aceite <b>10W40</b> & filtro"
+
+    pdf_bytes = OrdenTrabajoPDFGenerator().generar_pdf(orden)
+
+    texto = _sin_espacios(texto_visible_del_pdf(pdf_bytes))
+    # Literal, tal cual lo escribió el usuario -- no en negrita (lo que
+    # pasaría si <b> se interpretara como marcado real).
+    assert "Aceite<b>10W40</b>&filtro" in texto
+
+
+def test_descripcion_producto_con_img_malicioso_no_genera_lectura_de_archivo():
+    orden = _orden_de_prueba()
+    orden.detalles[0].descripcion_pro = '<img src="/etc/hosts"/>'
+
+    # Antes del fix esto lanzaba OSError: reportlab intentaba abrir
+    # /etc/hosts como si fuera una imagen referenciada en el PDF.
+    pdf_bytes = OrdenTrabajoPDFGenerator().generar_pdf(orden)
+
+    texto = _sin_espacios(texto_visible_del_pdf(pdf_bytes))
+    assert '<imgsrc="/etc/hosts"/>' in texto
+
+
+def test_mecanico_con_marcado_malicioso_no_rompe_ni_se_interpreta():
+    orden = _orden_de_prueba()
+    orden.mecanico = 'Carlos <img src="/etc/hosts"/>'
+
+    pdf_bytes = OrdenTrabajoPDFGenerator().generar_pdf(orden)
+
+    texto = _sin_espacios(texto_visible_del_pdf(pdf_bytes))
+    assert 'Carlos<imgsrc="/etc/hosts"/>' in texto
+
+
+def test_observacion_con_caracteres_especiales_aparece_literal():
+    """Las observaciones van en celdas de Table, no en Paragraph (Table no
+    interpreta el marcado), así que ya eran seguras antes de este ticket --
+    se deja el test para que quede probado, no solo asumido."""
+    orden = _orden_de_prueba()
+    orden.observacion_ot = 'falla a < 3000 rpm, aceite & filtro, <img src="/etc/hosts"/>'
+
+    pdf_bytes = OrdenTrabajoPDFGenerator().generar_pdf(orden)
+
+    texto = texto_visible_del_pdf(pdf_bytes)
+    assert 'falla a < 3000 rpm, aceite & filtro, <img src="/etc/hosts"/>' in texto
