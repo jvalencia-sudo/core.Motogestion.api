@@ -3,12 +3,15 @@
 - get_current_usuario: devuelve el registro de BD del usuario (o None si no se puede
   resolver). Reusa el contexto de tenant que ya fijó resolve_tenant (RLS).
 - require_super_admin: exige que el usuario sea Admin del taller plataforma.
+- require_permiso: exige un permiso puntual (tabla perfiles_permisos) del perfil del
+  usuario, o que sea Administrador (pasa siempre). Es el guardia real por acción
+  (F0-11): antes del backend no validaba nada de esto, solo lo ocultaba el front.
 
 El sistema de permisos por endpoint del backend estaba dormido; estas dependencias son
 el guardia mínimo para los endpoints sensibles (gestión de talleres, auto-edición de rol).
 """
 from datetime import date
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional, Set
 
 from fastapi import Request
 from starlette.status import (
@@ -19,6 +22,8 @@ from starlette.status import (
 
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
+from infrastructure.utils.permission_context import get_cached_permisos, set_cached_permisos
+from repository.auth.perfil_permiso_repositorio import PerfilPermisoRepositorio
 from repository.auth.user_repository import UserRepository
 from repository.talleres.taller_repositorio import TallerRepositorio
 from repository.planes.plan_repositorio import PlanRepositorio
@@ -106,6 +111,43 @@ def require_feature(feature: str):
                 f"Tu plan no incluye esta función ({feature}). Actualiza tu plan.",
                 HTTP_403_FORBIDDEN,
             )
+        return user
+
+    return _dep
+
+
+async def _permisos_del_usuario(user: Dict) -> Set[str]:
+    """Permisos activos del perfil del usuario, cacheados por petición.
+
+    Usa vw_perfiles_permisos_detalle (vía PerfilPermisoRepositorio), que no expone
+    cod_est_pp crudo sino el nombre del estado ya resuelto ("Activo"/"Inactivo").
+    """
+    cache = get_cached_permisos()
+    if cache is not None:
+        return cache
+    filas = await PerfilPermisoRepositorio().obtener_permisos_por_perfil(
+        user.get("COD_PRF_USU"), user.get("COD_ROL_PRF_USU")
+    )
+    permisos = {f.get("NOMBRE_PRM") for f in filas if f.get("ESTADO_PERMISO") == "Activo"}
+    set_cached_permisos(permisos)
+    return permisos
+
+
+def require_permiso(nombre_prm: str) -> Callable:
+    """Depends factory: exige el permiso `nombre_prm` (formato "accion:recurso",
+    ej. "eliminar:productos") asignado y activo en el perfil del usuario. El
+    Administrador (rol 1) siempre pasa, sin consultar perfiles_permisos. Fail-closed:
+    401 sin token válido, 403 sin el permiso."""
+
+    async def _dep(request: Request) -> Dict:
+        user = await get_current_usuario(request)
+        if user is None:
+            raise DomainException("No autenticado", HTTP_401_UNAUTHORIZED)
+        if user.get("COD_ROL_PRF_USU") == ADMIN_ROL:
+            return user
+        permisos = await _permisos_del_usuario(user)
+        if nombre_prm not in permisos:
+            raise DomainException(f"No tienes el permiso '{nombre_prm}'", HTTP_403_FORBIDDEN)
         return user
 
     return _dep

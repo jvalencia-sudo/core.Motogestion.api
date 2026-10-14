@@ -10,7 +10,7 @@ from domain.models.inventario.inventario_model import (
     TomaFisicaContract,
 )
 from domain.services.inventario.inventario_servicio import InventarioServicio
-from infrastructure.dependencies.current_user import get_current_usuario
+from infrastructure.dependencies.current_user import require_permiso
 
 router = APIRouter()
 
@@ -27,10 +27,13 @@ async def listar_productos():
     return await InventarioServicio().listar_productos()
 
 
+# El catálogo de permisos no tiene un recurso "inventario" propio; ambas
+# operaciones mutan productos.stock_pro, así que reusan "actualizar:productos"
+# (F0-11) en vez de agregar permisos nuevos que requerirían una migración.
 @router.post("/entrada", status_code=HTTP_201_CREATED)
 async def registrar_entrada(
     contract: EntradaContract,
-    current: Optional[Dict] = Depends(get_current_usuario),
+    current: Dict = Depends(require_permiso("actualizar:productos")),
 ):
     """Registra una entrada de stock (reabastecimiento). Solo Admin/Recepcionista."""
     return await InventarioServicio().entrada(current, contract)
@@ -39,7 +42,7 @@ async def registrar_entrada(
 @router.post("/toma-fisica")
 async def toma_fisica(
     contract: TomaFisicaContract,
-    current: Optional[Dict] = Depends(get_current_usuario),
+    current: Dict = Depends(require_permiso("actualizar:productos")),
 ):
     """Aplica una toma física: ajusta el stock a las cantidades contadas y registra
     los movimientos AJUSTE. Solo Admin/Recepcionista."""

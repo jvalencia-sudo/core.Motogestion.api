@@ -1,6 +1,6 @@
 import logging
 from typing import List
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException
 from fastapi.responses import Response
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import (
     OrdenTrabajoCreateContract,
@@ -16,6 +16,7 @@ from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
     DetalleOrdenUpdateContract
 )
 from domain.services.ordenes_trabajo.orden_trabajo_servicio import OrdenTrabajoServicio
+from infrastructure.dependencies.current_user import require_permiso
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
 
@@ -135,7 +136,7 @@ async def obtener_orden_trabajo(consecutivo_ot: int):
 @router.post("", response_model=OrdenTrabajoResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_orden_trabajo(
     orden: OrdenTrabajoCreateContract,
-    # user=Depends(AuthRequest(permissions=["ordenes:crear"]))
+    _=Depends(require_permiso("crear:ordenes-trabajo")),
 ):
     """Crea una nueva orden de trabajo con sus productos/servicios"""
     servicio = OrdenTrabajoServicio()
@@ -147,7 +148,8 @@ async def crear_orden_trabajo(
 @router.put("/{consecutivo_ot}", response_model=OrdenTrabajoResponseContract)
 async def actualizar_orden_trabajo(
     consecutivo_ot: int,
-    orden: OrdenTrabajoUpdateContract
+    orden: OrdenTrabajoUpdateContract,
+    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
 ):
     """Actualiza una orden de trabajo existente"""
     servicio = OrdenTrabajoServicio()
@@ -157,7 +159,8 @@ async def actualizar_orden_trabajo(
 @router.patch("/{consecutivo_ot}/estado", response_model=OrdenTrabajoResponseContract)
 async def cambiar_estado_orden(
     consecutivo_ot: int,
-    estado: CambiarEstadoContract
+    estado: CambiarEstadoContract,
+    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
 ):
     """Cambia el estado de una orden de trabajo"""
     servicio = OrdenTrabajoServicio()
@@ -167,7 +170,8 @@ async def cambiar_estado_orden(
 @router.patch("/{consecutivo_ot}/entregar", response_model=OrdenTrabajoResponseContract)
 async def entregar_orden_trabajo(
     consecutivo_ot: int,
-    entrega: EntregarOrdenContract
+    entrega: EntregarOrdenContract,
+    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
 ):
     """Marca una orden de trabajo como entregada"""
     servicio = OrdenTrabajoServicio()
@@ -178,7 +182,7 @@ async def entregar_orden_trabajo(
 async def agregar_producto_a_orden(
     consecutivo_ot: int,
     detalle: DetalleOrdenTrabajoContract,
-    # user=Depends(AuthRequest(permissions=["ordenes:modificar"]))
+    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
 ):
     """Agrega un producto/servicio a una orden de trabajo existente"""
     servicio = OrdenTrabajoServicio()
@@ -194,7 +198,8 @@ async def agregar_producto_a_orden(
 async def actualizar_cantidad_producto(
     consecutivo_ot: int,
     cod_pro: int,
-    detalle: DetalleOrdenUpdateContract
+    detalle: DetalleOrdenUpdateContract,
+    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
 ):
     """
     Actualiza la cantidad de un producto en una orden de trabajo.
@@ -207,7 +212,8 @@ async def actualizar_cantidad_producto(
 @router.delete("/{consecutivo_ot}/productos/{cod_pro}", response_model=OrdenTrabajoResponseContract)
 async def eliminar_producto_de_orden(
     consecutivo_ot: int,
-    cod_pro: int
+    cod_pro: int,
+    _=Depends(require_permiso("eliminar:ordenes-trabajo")),
 ):
     """Elimina un producto/servicio de una orden de trabajo"""
     servicio = OrdenTrabajoServicio()

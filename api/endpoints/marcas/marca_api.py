@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from domain.contracts.motos.marca_contract import (
     MarcaCreateContract,
@@ -7,6 +7,7 @@ from domain.contracts.motos.marca_contract import (
     MarcaResponseContract
 )
 from domain.services.marcas.marca_servicio import MarcaServicio
+from infrastructure.dependencies.current_user import require_permiso
 
 router = APIRouter()
 
@@ -42,7 +43,10 @@ async def obtener_marca(cod_mar: int):
 
 
 @router.post("", response_model=MarcaResponseContract, status_code=status.HTTP_201_CREATED)
-async def crear_marca(marca: MarcaCreateContract):
+async def crear_marca(
+    marca: MarcaCreateContract,
+    _=Depends(require_permiso("crear:marcas")),
+):
     """
     Crea una nueva marca.
 
@@ -53,7 +57,11 @@ async def crear_marca(marca: MarcaCreateContract):
 
 
 @router.put("/{cod_mar}", response_model=MarcaResponseContract)
-async def actualizar_marca(cod_mar: int, marca: MarcaUpdateContract):
+async def actualizar_marca(
+    cod_mar: int,
+    marca: MarcaUpdateContract,
+    _=Depends(require_permiso("actualizar:marcas")),
+):
     """
     Actualiza una marca existente.
 
@@ -65,7 +73,10 @@ async def actualizar_marca(cod_mar: int, marca: MarcaUpdateContract):
 
 
 @router.delete("/{cod_mar}")
-async def eliminar_marca(cod_mar: int):
+async def eliminar_marca(
+    cod_mar: int,
+    _=Depends(require_permiso("eliminar:marcas")),
+):
     """
     Elimina una marca. Falla si hay motos registradas con esa marca.
 

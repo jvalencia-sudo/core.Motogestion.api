@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from domain.contracts.ordenes_trabajo.reclamo_contract import (
     ReclamoCreateContract,
     ReclamoUpdateContract,
@@ -7,6 +7,7 @@ from domain.contracts.ordenes_trabajo.reclamo_contract import (
     ReclamoResumenContract
 )
 from domain.services.ordenes_trabajo.reclamo_servicio import ReclamoServicio
+from infrastructure.dependencies.current_user import require_permiso
 
 router = APIRouter(
     prefix="/reclamos",
@@ -59,21 +60,31 @@ async def obtener_reclamo(cod_rec: int):
 
 
 @router.post("", response_model=ReclamoResponseContract, status_code=status.HTTP_201_CREATED)
-async def crear_reclamo(reclamo: ReclamoCreateContract):
+async def crear_reclamo(
+    reclamo: ReclamoCreateContract,
+    _=Depends(require_permiso("crear:reclamos")),
+):
     """Crea un nuevo reclamo"""
     servicio = ReclamoServicio()
     return await servicio.crear_reclamo(reclamo)
 
 
 @router.put("/{cod_rec}", response_model=ReclamoResponseContract)
-async def actualizar_reclamo(cod_rec: int, reclamo: ReclamoUpdateContract):
+async def actualizar_reclamo(
+    cod_rec: int,
+    reclamo: ReclamoUpdateContract,
+    _=Depends(require_permiso("actualizar:reclamos")),
+):
     """Actualiza un reclamo existente"""
     servicio = ReclamoServicio()
     return await servicio.actualizar_reclamo(cod_rec, reclamo)
 
 
 @router.delete("/{cod_rec}", status_code=status.HTTP_204_NO_CONTENT)
-async def eliminar_reclamo(cod_rec: int):
+async def eliminar_reclamo(
+    cod_rec: int,
+    _=Depends(require_permiso("eliminar:reclamos")),
+):
     """Elimina un reclamo"""
     servicio = ReclamoServicio()
     await servicio.eliminar_reclamo(cod_rec)

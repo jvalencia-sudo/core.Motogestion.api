@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from domain.contracts.motos.moto_contract import (
     MotoCreateContract,
@@ -8,6 +8,7 @@ from domain.contracts.motos.moto_contract import (
     MotoClienteResponseContract
 )
 from domain.services.motos.moto_servicio import MotoServicio
+from infrastructure.dependencies.current_user import require_permiso
 
 router = APIRouter()
 
@@ -59,7 +60,10 @@ async def obtener_moto(placa_mot: str):
 
 
 @router.post("", response_model=MotoResponseContract, status_code=status.HTTP_201_CREATED)
-async def crear_moto(moto: MotoCreateContract):
+async def crear_moto(
+    moto: MotoCreateContract,
+    _=Depends(require_permiso("crear:motos")),
+):
     """
     Crea una nueva moto.
 
@@ -75,7 +79,11 @@ async def crear_moto(moto: MotoCreateContract):
 
 
 @router.put("/{placa_mot}", response_model=MotoResponseContract)
-async def actualizar_moto(placa_mot: str, moto: MotoUpdateContract):
+async def actualizar_moto(
+    placa_mot: str,
+    moto: MotoUpdateContract,
+    _=Depends(require_permiso("actualizar:motos")),
+):
     """
     Actualiza una moto existente.
 
@@ -94,7 +102,10 @@ async def actualizar_moto(placa_mot: str, moto: MotoUpdateContract):
 
 
 @router.delete("/{placa_mot}")
-async def eliminar_moto(placa_mot: str):
+async def eliminar_moto(
+    placa_mot: str,
+    _=Depends(require_permiso("eliminar:motos")),
+):
     """
     Elimina una moto.
 
