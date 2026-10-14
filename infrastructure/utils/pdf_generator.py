@@ -11,6 +11,7 @@ import io
 import os
 
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import OrdenTrabajoResponseContract
+from infrastructure.utils.texto_seguro import texto_seguro
 
 
 class OrdenTrabajoPDFGenerator:
@@ -109,11 +110,11 @@ class OrdenTrabajoPDFGenerator:
             logo = self._crear_logo_moto()
 
         titulo_data = [
-            [Paragraph(f"<b>ORDEN DE TRABAJO No. {orden.consecutivo_ot or 'N/A'}</b>", self.styles['TituloOrden'])],
-            [Paragraph(f"<b>{orden.estado_ot or 'N/A'}</b>", self.styles['TituloOrden'])],
-            [Paragraph(f"Fecha de Elaboración: {self._formatear_fecha(orden.fecha_elaboracion_ot)}",
+            [Paragraph(f"<b>ORDEN DE TRABAJO No. {texto_seguro(orden.consecutivo_ot or 'N/A')}</b>", self.styles['TituloOrden'])],
+            [Paragraph(f"<b>{texto_seguro(orden.estado_ot or 'N/A')}</b>", self.styles['TituloOrden'])],
+            [Paragraph(f"Fecha de Elaboración: {texto_seguro(self._formatear_fecha(orden.fecha_elaboracion_ot))}",
                       ParagraphStyle('FechaElaboracion', parent=self.styles['Normal'], fontSize=8, alignment=TA_RIGHT))],
-            [Paragraph(f"Mecánico: {orden.mecanico or 'N/A'}",
+            [Paragraph(f"Mecánico: {texto_seguro(orden.mecanico or 'N/A')}",
                       ParagraphStyle('Mecanico', parent=self.styles['Normal'], fontSize=8, alignment=TA_RIGHT))]
         ]
 
@@ -210,11 +211,11 @@ class OrdenTrabajoPDFGenerator:
 
             if descripcion:
                 referencia = Paragraph(
-                    f"<b>{nombre}</b><br/><font size='6'>{descripcion}</font>",
+                    f"<b>{texto_seguro(nombre)}</b><br/><font size='6'>{texto_seguro(descripcion)}</font>",
                     estilo_ref
                 )
             else:
-                referencia = Paragraph(f"<b>{nombre}</b>", estilo_ref)
+                referencia = Paragraph(f"<b>{texto_seguro(nombre)}</b>", estilo_ref)
 
             codigo = detalle.cod_pro_deto
             cantidad_deto = detalle.cantidad_deto
