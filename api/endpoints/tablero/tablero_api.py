@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from domain.models.tablero.tablero_model import CambiarEstadoContract, TableroResponse
 from domain.services.tablero.tablero_servicio import TableroServicio
-from infrastructure.dependencies.current_user import get_current_usuario
+from infrastructure.dependencies.current_user import get_current_usuario, require_permiso
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ async def obtener_tablero(
 async def cambiar_estado(
     consecutivo_ot: int,
     contract: CambiarEstadoContract,
-    current: Optional[Dict] = Depends(get_current_usuario),
+    current: Dict = Depends(require_permiso("actualizar:ordenes-trabajo")),
 ):
     """Cambia el estado de una OT (arrastrar en el tablero). Reglas por rol:
     mecánico solo sus OT y a Pendiente/En Proceso/Completada; admin/recep cualquiera."""

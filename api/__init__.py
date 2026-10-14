@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from infrastructure.dependencies.current_user import require_active_subscription
+from infrastructure.dependencies.current_user import require_active_subscription, require_admin
 from api.endpoints.auth.user_api import router as users_router
 from api.endpoints.auth.rol import router as rol_router
 from api.endpoints.auth.perfil import router as perfil_router
@@ -28,14 +28,24 @@ api_router.include_router(rol_router, prefix="/rol", tags=["Auth"])
 api_router.include_router(
     users_router, prefix="/auth", tags=["Auth"]
 )
-api_router.include_router(perfil_router, prefix="/perfil", tags=["Auth"])
-api_router.include_router(perfil_permiso_router, prefix="/perfil-permiso", tags=["Auth"])
+
+# F0-11: /perfil, /perfil-permiso y /admin/users exigen Admin del taller a nivel de
+# router (antes no tenían ningún control; un mecánico podía asignarse permisos
+# propios con POST /perfil-permiso/asignar, o crear/desactivar usuarios).
+_admin = [Depends(require_admin)]
+
+api_router.include_router(perfil_router, prefix="/perfil", tags=["Auth"], dependencies=_admin)
+api_router.include_router(
+    perfil_permiso_router, prefix="/perfil-permiso", tags=["Auth"], dependencies=_admin
+)
 
 api_router.include_router(vista_router, prefix="/vista", tags=["Auth"])
 api_router.include_router(permiso_router, prefix="/permiso", tags=["Auth"])
 
 # Admin endpoints
-api_router.include_router(admin_users_router, prefix="/admin/users", tags=["Admin"])
+api_router.include_router(
+    admin_users_router, prefix="/admin/users", tags=["Admin"], dependencies=_admin
+)
 
 # Los routers OPERATIVOS exigen suscripción vigente (trial no vencido / activo).
 _susc = [Depends(require_active_subscription)]

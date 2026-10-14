@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from domain.contracts.productos.producto_contract import (
     ProductoCreateContract,
@@ -7,6 +7,7 @@ from domain.contracts.productos.producto_contract import (
     ProductoResponseContract
 )
 from domain.services.productos.producto_servicio import ProductoServicio
+from infrastructure.dependencies.current_user import require_permiso
 
 router = APIRouter()
 
@@ -15,7 +16,6 @@ router = APIRouter()
 async def obtener_todos_productos(
     activos_solo: bool = False,
     tipo: Optional[str] = None,
-    # user=Depends(AuthRequest(permissions=["productos:leer"]))
 ):
     """
     Obtiene todos los productos con sus impuestos.
@@ -36,10 +36,7 @@ async def obtener_todos_productos(
 
 
 @router.get("/{cod_pro}", response_model=ProductoResponseContract)
-async def obtener_producto_por_id(
-    cod_pro: int,
-    # user=Depends(AuthRequest(permissions=["productos:leer"]))
-):
+async def obtener_producto_por_id(cod_pro: int):
     """
     Obtiene un producto específico por su código.
 
@@ -52,7 +49,7 @@ async def obtener_producto_por_id(
 @router.post("", response_model=ProductoResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_producto(
     producto: ProductoCreateContract,
-    # user=Depends(AuthRequest(permissions=["productos:crear"]))
+    _=Depends(require_permiso("crear:productos")),
 ):
     """
     Crea un nuevo producto con sus impuestos.
@@ -74,7 +71,7 @@ async def crear_producto(
 async def actualizar_producto(
     cod_pro: int,
     producto: ProductoUpdateContract,
-    # user=Depends(AuthRequest(permissions=["productos:actualizar"]))
+    _=Depends(require_permiso("actualizar:productos")),
 ):
     """
     Actualiza un producto existente.
@@ -96,7 +93,7 @@ async def actualizar_producto(
 @router.delete("/{cod_pro}", status_code=status.HTTP_200_OK)
 async def desactivar_producto(
     cod_pro: int,
-    # user=Depends(AuthRequest(permissions=["productos:eliminar"]))
+    _=Depends(require_permiso("eliminar:productos")),
 ):
     """
     Desactiva un producto (soft delete).
@@ -112,7 +109,7 @@ async def desactivar_producto(
 @router.patch("/{cod_pro}/activars", status_code=status.HTTP_200_OK)
 async def activar_producto(
     cod_pro: int,
-    # user=Depends(AuthRequest(permissions=["productos:actualizar"]))
+    _=Depends(require_permiso("actualizar:productos")),
 ):
     """
     Activa un producto previamente desactivado.
