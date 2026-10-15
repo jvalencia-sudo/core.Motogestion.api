@@ -6,8 +6,11 @@ Stack: Caddy (HTTPS) + Postgres 16 + backend FastAPI + n8n, todo con
 - API: https://api.motogestion.app
 - n8n: https://n8n.motogestion.app
 
-En la VM la carpeta de trabajo es `~/app` (ahí ya está el `Caddyfile`; el deploy
-no lo pisa). Ejemplos con usuario `ubuntu`; cambia `<IP_VM>` y `<LLAVE.key>`.
+En la VM la carpeta de trabajo es `~/app`. El `Caddyfile` vive ahí (el deploy
+automático no lo pisa, solo actualiza el backend) pero su contenido real está
+versionado en [`deploy/Caddyfile`](deploy/Caddyfile) -- si cambias algo en la
+VM, replica el cambio ahí también (no tiene secretos, son solo los bloques de
+dominio). Ejemplos con usuario `ubuntu`; cambia `<IP_VM>` y `<LLAVE.key>`.
 
 ## 0. Antes de empezar (una sola vez)
 
