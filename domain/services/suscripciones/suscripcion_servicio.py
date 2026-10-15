@@ -11,6 +11,7 @@ from starlette.status import (
 from config import settings
 from domain.contracts.suscripciones.suscripcion_contract import (
     CheckoutResponseContract,
+    PagoContract,
     PlanContract,
 )
 from infrastructure.exceptions.domain_exception import DomainException
@@ -152,5 +153,15 @@ class SuscripcionServicio:
             return {"ok": True, "estado": "DECLINED"}
         return {"ok": True, "estado": estado_tx}
 
-    async def listar_pagos(self, cod_taller: int) -> List[Dict]:
-        return await self.pago_repo.listar_por_taller(cod_taller)
+    async def listar_pagos(self, cod_taller: int) -> List[PagoContract]:
+        pagos = await self.pago_repo.listar_por_taller(cod_taller)
+        return [
+            PagoContract(
+                cod_pago=p.get("COD_PAGO"),
+                nombre_plan=p.get("NOMBRE_PLAN"),
+                monto=p.get("MONTO"),
+                estado=p.get("ESTADO"),
+                fecha=p.get("FECHA"),
+            )
+            for p in pagos
+        ]

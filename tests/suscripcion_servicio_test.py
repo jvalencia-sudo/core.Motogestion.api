@@ -228,3 +228,43 @@ async def test_checkout_con_plan_inexistente_o_inactivo_responde_400():
             await servicio.crear_checkout(cod_taller=1, nombre_plan="Premium")
 
     assert exc.value.code == 400
+
+
+# ---- listar_pagos: historial de pagos del taller (vista de Administración) ----
+
+async def test_listar_pagos_mapea_las_filas_crudas_de_la_bd_a_pagocontract():
+    """pago_repo.listar_por_taller devuelve dicts con las columnas crudas en
+    MAYÚSCULAS (BaseRepository): listar_pagos debe mapearlas a PagoContract, no
+    devolver el dict crudo (eso rompía el camelCase que espera el front)."""
+    servicio = SuscripcionServicio()
+    servicio.pago_repo = AsyncMock()
+    servicio.pago_repo.listar_por_taller.return_value = [
+        {
+            "COD_PAGO": 3, "NOMBRE_PLAN": "Taller", "MONTO": 49000,
+            "ESTADO": "APPROVED", "FECHA": "2026-10-15 01:17",
+        },
+        {
+            "COD_PAGO": 2, "NOMBRE_PLAN": "Taller", "MONTO": 49000,
+            "ESTADO": "PENDING", "FECHA": "2026-10-15 01:11",
+        },
+    ]
+
+    pagos = await servicio.listar_pagos(cod_taller=2)
+
+    assert len(pagos) == 2
+    assert pagos[0].cod_pago == 3
+    assert pagos[0].nombre_plan == "Taller"
+    assert pagos[0].monto == 49000
+    assert pagos[0].estado == "APPROVED"
+    assert pagos[0].fecha == "2026-10-15 01:17"
+    assert pagos[1].estado == "PENDING"
+
+
+async def test_listar_pagos_de_un_taller_sin_pagos_devuelve_lista_vacia():
+    servicio = SuscripcionServicio()
+    servicio.pago_repo = AsyncMock()
+    servicio.pago_repo.listar_por_taller.return_value = []
+
+    pagos = await servicio.listar_pagos(cod_taller=5)
+
+    assert pagos == []

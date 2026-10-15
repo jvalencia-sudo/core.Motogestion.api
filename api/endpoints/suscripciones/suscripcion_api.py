@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from domain.contracts.suscripciones.suscripcion_contract import (
     CheckoutContract,
     CheckoutResponseContract,
+    PagoContract,
     PlanContract,
 )
 from domain.services.suscripciones.suscripcion_servicio import SuscripcionServicio
@@ -29,7 +30,7 @@ async def crear_checkout(contract: CheckoutContract, current: Dict = Depends(req
     return await SuscripcionServicio().crear_checkout(current.get("COD_TALLER"), contract.plan)
 
 
-@router.get("/pagos")
+@router.get("/pagos", response_model=List[PagoContract])
 async def listar_pagos(current: Dict = Depends(require_admin)):
     """Historial de pagos del taller."""
     return await SuscripcionServicio().listar_pagos(current.get("COD_TALLER"))
