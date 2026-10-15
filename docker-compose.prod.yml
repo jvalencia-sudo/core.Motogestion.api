@@ -34,6 +34,11 @@ services:
     db:
         image: postgres:16
         restart: unless-stopped
+        # Fijada acá (no con ALTER DATABASE) para que sobreviva a un restore de
+        # backup y aplique también a una BD nueva (ej. la de CI): pg_dump sin
+        # --create no incluye la configuración de la base, así que un ALTER
+        # DATABASE se pierde en silencio al restaurar.
+        command: ["postgres", "-c", "timezone=America/Bogota"]
         environment:
             # Superusuario del contenedor: SOLO para administrar y hacer backups.
             POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}

@@ -1,0 +1,7 @@
+api.motogestion.app {
+    reverse_proxy backend:8000
+}
+
+n8n.motogestion.app {
+    reverse_proxy n8n:5678
+}

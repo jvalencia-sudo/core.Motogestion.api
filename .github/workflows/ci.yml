@@ -18,6 +18,11 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: motogestion
+          # initdb detecta la zona del sistema (TZ) en el primer arranque -- como
+          # cada run de CI parte de un volumen vacío, esto basta (sin esto, igual
+          # que en prod, quedaría en UTC). Ver docker-compose*.y*ml para el mismo
+          # fix con `-c timezone=` (más robusto cuando el volumen persiste).
+          TZ: America/Bogota
         ports:
           - 5432:5432
         options: >-

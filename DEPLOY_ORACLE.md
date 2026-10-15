@@ -6,8 +6,11 @@ Stack: Caddy (HTTPS) + Postgres 16 + backend FastAPI + n8n, todo con
 - API: https://api.motogestion.app
 - n8n: https://n8n.motogestion.app
 
-En la VM la carpeta de trabajo es `~/app` (ahí ya está el `Caddyfile`; el deploy
-no lo pisa). Ejemplos con usuario `ubuntu`; cambia `<IP_VM>` y `<LLAVE.key>`.
+En la VM la carpeta de trabajo es `~/app`. El `Caddyfile` vive ahí (el deploy
+automático no lo pisa, solo actualiza el backend) pero su contenido real está
+versionado en [`deploy/Caddyfile`](deploy/Caddyfile) -- si cambias algo en la
+VM, replica el cambio ahí también (no tiene secretos, son solo los bloques de
+dominio). Ejemplos con usuario `ubuntu`; cambia `<IP_VM>` y `<LLAVE.key>`.
 
 ## 0. Antes de empezar (una sola vez)
 
@@ -148,11 +151,11 @@ En Vercel → Project → Settings → Environment Variables (Production):
 | Variable | Valor nuevo |
 |---|---|
 | `BASE_API_URL` | `https://api.motogestion.app/api` |
-| `NEXT_PUBLIC_API_URL` | `https://api.motogestion.app` |
 | `APP_BASE_URL` | `https://motogestion.app` |
 
-Luego **Redeploy** desactivando "Use existing Build Cache": `NEXT_PUBLIC_*` se incrusta
-en el build, así que sin rebuild seguiría apuntando al backend viejo.
+Luego **Redeploy**: son variables server-only (se leen en cada request, no se
+incrustan en el build), pero Vercel solo las aplica a partir del siguiente
+deployment -- el que ya está corriendo sigue con el valor viejo hasta que redespliegues.
 
 - `BASE_API_URL` la usa el middleware de Next para reescribir `/api/*` hacia el backend
   (servidor → servidor, sin CORS). `NEXT_PUBLIC_API_URL` arma las URLs de los PDF.
