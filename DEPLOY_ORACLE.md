@@ -4,15 +4,15 @@ Stack: Caddy (HTTPS) + Postgres 16 + backend FastAPI + n8n, todo con
 `docker-compose.prod.yml`. Solo Caddy publica puertos (80/443).
 
 - API: https://api.motogestion.app
-- n8n: https://n8n-jfv.duckdns.org (pendiente de migrar a dominio propio)
+- n8n: https://n8n.motogestion.app
 
 En la VM la carpeta de trabajo es `~/app` (ahí ya está el `Caddyfile`; el deploy
 no lo pisa). Ejemplos con usuario `ubuntu`; cambia `<IP_VM>` y `<LLAVE.key>`.
 
 ## 0. Antes de empezar (una sola vez)
 
-- Cloudflare: `api.motogestion.app` (A) apunta a la IP pública de la VM. `n8n-jfv`
-  (DuckDNS) sigue apuntando ahí también, pendiente de migrar a `n8n.motogestion.app`.
+- Cloudflare: `api.motogestion.app` y `n8n.motogestion.app` (ambos A, "Solo DNS")
+  apuntan a la IP pública de la VM.
 - Puertos 80 y 443 abiertos en **dos** sitios: la Security List de la VCN (consola de
   Oracle) y el firewall de la propia VM (las imágenes de Ubuntu de Oracle bloquean todo
   con `iptables`):
@@ -89,9 +89,9 @@ El primer arranque crea el rol de la app, la BD de n8n y carga
 Verifica:
 ```bash
 curl -s https://api.motogestion.app/health         # {"status":"ok"}
-curl -sI https://n8n-jfv.duckdns.org | head -1     # HTTP/2 200
+curl -sI https://n8n.motogestion.app | head -1     # HTTP/2 200
 ```
-Abre https://n8n-jfv.duckdns.org **de inmediato** y crea la cuenta owner: la primera
+Abre https://n8n.motogestion.app **de inmediato** y crea la cuenta owner: la primera
 persona que entre se queda con la instancia.
 
 ## 4. Logs y operación diaria
