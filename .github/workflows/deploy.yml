@@ -107,7 +107,7 @@ jobs:
       - name: Verificar salud
         run: |
           for i in $(seq 1 24); do
-            if curl -fsS -m 10 https://api-jfv.duckdns.org/health | grep -q '"ok"'; then
+            if curl -fsS -m 10 https://api.motogestion.app/health | grep -q '"ok"'; then
               echo "Backend saludable (intento $i)"; exit 0
             fi
             sleep 5
