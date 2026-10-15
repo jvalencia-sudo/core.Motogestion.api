@@ -3,15 +3,16 @@
 Stack: Caddy (HTTPS) + Postgres 16 + backend FastAPI + n8n, todo con
 `docker-compose.prod.yml`. Solo Caddy publica puertos (80/443).
 
-- API: https://api-jfv.duckdns.org
-- n8n: https://n8n-jfv.duckdns.org
+- API: https://api.motogestion.app
+- n8n: https://n8n.motogestion.app
 
 En la VM la carpeta de trabajo es `~/app` (ahí ya está el `Caddyfile`; el deploy
 no lo pisa). Ejemplos con usuario `ubuntu`; cambia `<IP_VM>` y `<LLAVE.key>`.
 
 ## 0. Antes de empezar (una sola vez)
 
-- DuckDNS: `api-jfv` y `n8n-jfv` apuntan a la IP pública de la VM.
+- Cloudflare: `api.motogestion.app` y `n8n.motogestion.app` (ambos A, "Solo DNS")
+  apuntan a la IP pública de la VM.
 - Puertos 80 y 443 abiertos en **dos** sitios: la Security List de la VCN (consola de
   Oracle) y el firewall de la propia VM (las imágenes de Ubuntu de Oracle bloquean todo
   con `iptables`):
@@ -87,10 +88,10 @@ El primer arranque crea el rol de la app, la BD de n8n y carga
 
 Verifica:
 ```bash
-curl -s https://api-jfv.duckdns.org/health        # {"status":"ok"}
-curl -sI https://n8n-jfv.duckdns.org | head -1     # HTTP/2 200
+curl -s https://api.motogestion.app/health         # {"status":"ok"}
+curl -sI https://n8n.motogestion.app | head -1     # HTTP/2 200
 ```
-Abre https://n8n-jfv.duckdns.org **de inmediato** y crea la cuenta owner: la primera
+Abre https://n8n.motogestion.app **de inmediato** y crea la cuenta owner: la primera
 persona que entre se queda con la instancia.
 
 ## 4. Logs y operación diaria
@@ -140,14 +141,15 @@ docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
 gunzip -c backups/motogestion_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
-## 7. Configurar Vercel (el front hoy apunta al backend de David)
+## 7. Configurar Vercel
 
 En Vercel → Project → Settings → Environment Variables (Production):
 
 | Variable | Valor nuevo |
 |---|---|
-| `BASE_API_URL` | `https://api-jfv.duckdns.org/api` |
-| `NEXT_PUBLIC_API_URL` | `https://api-jfv.duckdns.org` |
+| `BASE_API_URL` | `https://api.motogestion.app/api` |
+| `NEXT_PUBLIC_API_URL` | `https://api.motogestion.app` |
+| `APP_BASE_URL` | `https://motogestion.app` |
 
 Luego **Redeploy** desactivando "Use existing Build Cache": `NEXT_PUBLIC_*` se incrusta
 en el build, así que sin rebuild seguiría apuntando al backend viejo.

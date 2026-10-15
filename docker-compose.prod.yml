@@ -134,12 +134,12 @@ services:
             DB_POSTGRESDB_USER: ${N8N_DB_USER}
             DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
             # Detrás de Caddy con HTTPS.
-            N8N_HOST: n8n-jfv.duckdns.org
+            N8N_HOST: n8n.motogestion.app
             N8N_PORT: "5678"
             N8N_PROTOCOL: https
-            WEBHOOK_URL: https://n8n-jfv.duckdns.org/
+            WEBHOOK_URL: https://n8n.motogestion.app/
             # n8n 2.x depreca WEBHOOK_URL a favor de esta; se mantienen ambas con el mismo valor.
-            N8N_WEBHOOK_URL: https://n8n-jfv.duckdns.org/
+            N8N_WEBHOOK_URL: https://n8n.motogestion.app/
             N8N_PROXY_HOPS: "1"
             N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Falta N8N_ENCRYPTION_KEY en .env}
             GENERIC_TIMEZONE: America/Bogota
