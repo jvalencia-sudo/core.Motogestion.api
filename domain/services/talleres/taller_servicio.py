@@ -86,14 +86,17 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
             raise DomainException("Taller no encontrado", 404)
         estado = susc.get("ESTADO_TAL")
         fecha_fin = susc.get("FECHA_FIN_SUSC_TAL")
+        fecha_creacion = susc.get("FECHA_CREACION_TAL")
         dias = (fecha_fin - date.today()).days if fecha_fin else None
         vencido = estado == "prueba" and fecha_fin is not None and fecha_fin < date.today()
         return TallerSuscripcionContract(
             estado=estado,
             plan=susc.get("PLAN_TAL"),
+            precio=susc.get("PRECIO_SUSC_TAL"),
             fecha_fin=str(fecha_fin) if fecha_fin else None,
             dias_restantes=dias,
             vencido=vencido,
+            miembro_desde=str(fecha_creacion)[:10] if fecha_creacion else None,
         )
 
     # ---- Registro / onboarding ----

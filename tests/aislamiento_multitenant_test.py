@@ -219,12 +219,10 @@ class TestExcepcionesRLS:
     aplicación, no Postgres — el hueco más importante a probar."""
 
     def test_pagos_no_devuelve_los_de_otro_taller(self, client, seed_talleres):
-        # /suscripciones/pagos devuelve un dict crudo (columnas en MAYÚSCULAS, sin el
-        # contrato camelCase habitual) — ver PagoRepositorio.listar_por_taller.
         cod_pago_ajeno = seed_talleres[TALLER_B].cod_pago
         r = client.get("/api/suscripciones/pagos", headers=auth_headers(TALLER_A))
         assert r.status_code == 200
-        assert cod_pago_ajeno not in {p["COD_PAGO"] for p in r.json()}
+        assert cod_pago_ajeno not in {p["codPago"] for p in r.json()}
 
     def test_config_devuelve_la_del_propio_taller_no_la_ajena(self, client, seed_talleres):
         """/talleres/config toma el taller del token, no de un path param (talleres

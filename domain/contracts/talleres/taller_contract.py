@@ -30,12 +30,15 @@ class TallerUpdateContract(BaseSchema):
 
 
 class TallerSuscripcionContract(BaseSchema):
-    """Estado de suscripción del taller (para el front: banner/gating)."""
+    """Estado de suscripción del taller (para el front: banner/gating y la
+    vista de 'Suscripción' en Administración)."""
     estado: str                       # prueba | activo | suspendido
     plan: Optional[str] = None
+    precio: Optional[int] = None      # precio mensual pactado (None si aún no paga)
     fecha_fin: Optional[str] = None   # ISO date
     dias_restantes: Optional[int] = None
     vencido: bool = False
+    miembro_desde: Optional[str] = None  # ISO date (fecha_creacion_tal)
 
 
 class TallerConfigManoObraContract(BaseSchema):

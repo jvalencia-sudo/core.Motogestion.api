@@ -30,3 +30,12 @@ class CheckoutResponseContract(BaseContractSchema):
     """Respuesta del checkout: link de pago de Wompi + referencia."""
     checkout_url: str
     referencia: str
+
+
+class PagoContract(BaseContractSchema):
+    """Un pago del historial del taller (vista de 'Suscripción' en Administración)."""
+    cod_pago: int
+    nombre_plan: str
+    monto: int
+    estado: str  # PENDING | APPROVED | DECLINED
+    fecha: str   # 'YYYY-MM-DD HH:MM'

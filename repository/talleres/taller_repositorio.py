@@ -45,7 +45,8 @@ class TallerRepositorio(BaseRepository):
         """Estado de suscripción del taller (para el gating y el cálculo de
         precio). talleres no tiene RLS."""
         return await self.db.get_first(
-            "SELECT estado_tal, plan_tal, fecha_fin_susc_tal, precio_susc_tal "
+            "SELECT estado_tal, plan_tal, fecha_fin_susc_tal, precio_susc_tal, "
+            "fecha_creacion_tal "
             "FROM talleres WHERE cod_taller = :1",
             (cod_taller,),
         )
