@@ -69,3 +69,22 @@ def test_orden_sin_productos_cobrados_no_dice_facturables():
 
     texto = texto_visible_del_pdf(pdf_bytes)
     assert "Sin productos cobrados" in texto
+
+
+def test_texto_pie_comprobante_configurado_se_imprime():
+    """F0-13 (cierre): el texto de pie configurado en 'Mi taller' aparece en el
+    ticket cuando el taller lo definió."""
+    pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(
+        _orden_de_prueba(), texto_pie_comprobante="Garantia valida solo con este ticket"
+    )
+
+    texto = texto_visible_del_pdf(pdf_bytes)
+    assert "Garantia valida solo con este ticket" in texto
+
+
+def test_sin_texto_pie_comprobante_no_rompe_el_pdf():
+    """None es el valor por defecto (taller sin texto de pie configurado) --
+    no debe lanzar ni dejar un hueco raro en el ticket."""
+    pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(_orden_de_prueba())
+
+    assert b"%PDF" in pdf_bytes[:10]

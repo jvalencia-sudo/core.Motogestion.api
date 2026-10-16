@@ -29,6 +29,9 @@ CREATE TABLE talleres (
     modo_mano_obra        VARCHAR(10)   NOT NULL DEFAULT 'HORAS',    -- HORAS | LIBRE
     tarifa_hora_pred      INTEGER       NOT NULL DEFAULT 0,          -- tarifa/hora por defecto (modo HORAS)
     precio_susc_tal       INTEGER,                                   -- precio pactado (congelado) con este taller
+    direccion_tal         VARCHAR(200),
+    texto_pie_comprobante VARCHAR(300),
+    dias_garantia_pred    INTEGER       NOT NULL DEFAULT 30,
     CONSTRAINT pk_talleres PRIMARY KEY (cod_taller),
     CONSTRAINT chk_taller_modo_mo CHECK (modo_mano_obra IN ('HORAS', 'LIBRE'))
 );

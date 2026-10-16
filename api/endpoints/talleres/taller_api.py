@@ -3,7 +3,8 @@ from typing import Dict, List
 from fastapi import APIRouter, Depends, status
 
 from domain.contracts.talleres.taller_contract import (
-    TallerConfigManoObraContract,
+    TallerConfigContract,
+    TallerConfigResponse,
     TallerRegistroContract,
     TallerRegistroResponse,
     TallerSuscripcionContract,
@@ -35,19 +36,20 @@ async def registrar_taller(contract: TallerRegistroContract):
 # token (no de un path param): 'talleres' no tiene RLS, así que el tenant debe
 # venir del usuario autenticado. Se declara antes de las rutas /{cod_taller}.
 
-@router.get("/config", response_model=TallerConfigManoObraContract)
-async def obtener_config_mano_obra(current: Dict = Depends(require_admin)):
-    """Obtiene la configuración de mano de obra del taller del usuario."""
-    return await TallerServicio().obtener_config_mano_obra(current.get("COD_TALLER"))
+@router.get("/config", response_model=TallerConfigResponse)
+async def obtener_config(current: Dict = Depends(require_admin)):
+    """Obtiene la configuración del taller del usuario (mano de obra + comprobante)."""
+    return await TallerServicio().obtener_config(current.get("COD_TALLER"))
 
 
-@router.put("/config", response_model=TallerConfigManoObraContract)
-async def actualizar_config_mano_obra(
-    contract: TallerConfigManoObraContract,
+@router.put("/config", response_model=TallerConfigResponse)
+async def actualizar_config(
+    contract: TallerConfigContract,
     current: Dict = Depends(require_admin),
 ):
-    """Actualiza el modo de cobro de mano de obra (HORAS/LIBRE) y la tarifa por defecto."""
-    return await TallerServicio().actualizar_config_mano_obra(current.get("COD_TALLER"), contract)
+    """Actualiza la config del taller: mano de obra, teléfono/dirección, pie del
+    comprobante y días de garantía por defecto. nombre/NIT/correo no se tocan acá."""
+    return await TallerServicio().actualizar_config(current.get("COD_TALLER"), contract)
 
 
 @router.get("/suscripcion", response_model=TallerSuscripcionContract)
