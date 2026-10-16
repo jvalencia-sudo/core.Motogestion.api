@@ -385,3 +385,24 @@ class TestAccionesSobreUnTallerExigenMotivoYQuedanEnAuditoria:
                 (TALLER_A,),
             )
             assert cur.fetchone()[0] is True
+
+
+class TestDetalleTallerNoExponeDatosPersonalesDeEmpleados:
+    """F0-14 corrección (revisión): el panel de super-admin administra cuentas
+    y suscripciones, no gestiona la identidad de cada empleado -- no necesita
+    la cédula (documento_usu) de nadie. Antes UsuarioTallerContract la incluía
+    sin que el ticket la pidiera (Ley 1581: dato personal sin un propósito que
+    lo justifique)."""
+
+    def test_detalle_no_incluye_documento_de_los_empleados(self, client, seed_talleres, superadmin_headers):
+        seed = seed_talleres[TALLER_A]
+        resp = client.get(f"/api/superadmin/talleres/{TALLER_A}", headers=superadmin_headers)
+        assert resp.status_code == 200
+
+        body = resp.json()
+        assert body["usuarios"], "El taller sembrado debería traer al menos un usuario"
+        # Ni el campo (en cualquier variante de nombre) ni el valor de la
+        # cédula sembrada deben aparecer en ningún usuario de la lista.
+        for usuario in body["usuarios"]:
+            assert set(usuario.keys()) == {"nombreCompleto", "rol", "ultimoIngreso"}
+        assert seed.documento_usuario not in resp.text

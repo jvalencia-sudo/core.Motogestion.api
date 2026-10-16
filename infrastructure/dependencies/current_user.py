@@ -11,7 +11,6 @@
 El sistema de permisos por endpoint del backend estaba dormido; estas dependencias son
 el guardia mínimo para los endpoints sensibles (gestión de talleres, auto-edición de rol).
 """
-from datetime import date
 from typing import Callable, Dict, Optional, Set
 
 from fastapi import Request
@@ -23,6 +22,7 @@ from starlette.status import (
 
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
+from infrastructure.utils.fecha_bogota import hoy_bogota
 from infrastructure.utils.permission_context import get_cached_permisos, set_cached_permisos
 from repository.auth.perfil_permiso_repositorio import PerfilPermisoRepositorio
 from repository.auth.user_repository import UserRepository
@@ -93,7 +93,7 @@ async def require_active_subscription(request: Request) -> Dict:
     fecha_fin = susc.get("FECHA_FIN_SUSC_TAL")
     if estado == "suspendido":
         raise DomainException("La suscripción del taller está suspendida.", HTTP_403_FORBIDDEN)
-    if estado == "prueba" and fecha_fin is not None and fecha_fin < date.today():
+    if estado == "prueba" and fecha_fin is not None and fecha_fin < hoy_bogota():
         raise DomainException(
             "Tu período de prueba terminó. Activa un plan para continuar.",
             HTTP_402_PAYMENT_REQUIRED,

@@ -26,7 +26,10 @@ class TallerListadoContract(BaseContractSchema):
 
 
 class UsuarioTallerContract(BaseContractSchema):
-    documento_usu: str
+    """Empleado de un taller, visto desde el panel de super-admin. Sin
+    documento_usu a propósito: es la cédula del empleado, un dato personal
+    (Ley 1581) que este panel no necesita -- administra cuentas/suscripciones,
+    no gestiona la identidad de cada empleado."""
     nombre_completo: str
     rol: str
     ultimo_ingreso: Optional[str] = None

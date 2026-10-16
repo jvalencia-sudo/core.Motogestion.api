@@ -98,7 +98,7 @@ class TalleresSuperAdminServicio:
             ],
             usuarios=[
                 UsuarioTallerContract(
-                    documento_usu=u.get("DOCUMENTO_USU"), nombre_completo=u.get("NOMBRE_COMPLETO"),
+                    nombre_completo=u.get("NOMBRE_COMPLETO"),
                     rol=u.get("ROL"),
                     ultimo_ingreso=str(u.get("ULTIMO_INGRESO_USU")) if u.get("ULTIMO_INGRESO_USU") else None,
                 )

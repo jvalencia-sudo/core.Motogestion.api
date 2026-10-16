@@ -1,4 +1,7 @@
 import asyncio
+import logging
+import time
+from typing import Dict, Tuple
 
 from auth0.v3.authentication import GetToken
 from auth0.v3.management import Users, UsersByEmail
@@ -16,6 +19,19 @@ from domain.models.providers.auth0_user import Auth0UserModel
 # tenant), así que 1h de caché es seguro y evita pegarle a Auth0 en cada
 # request autenticado.
 session = CachedSession("jwt_cache", backend=SQLiteCache(), expire_after=3600)
+
+logger = logging.getLogger(__name__)
+
+# Token M2M de la Management API: a nivel de módulo (no de instancia, que se
+# crea nueva en cada llamada -- Auth0Provider() -- y perdería el caché al
+# toque) porque desde que el login verifica email_verified en la Management
+# API (bloqueante de seguridad), _management_login se llama en CADA login, no
+# solo en acciones puntuales de administración. Sin caché, cada login pide un
+# token M2M nuevo -- si se agota la cuota de tokens M2M del plan de Auth0,
+# nadie puede iniciar sesión. 60s de margen para renovar antes de que venza,
+# no justo al filo.
+_M2M_TOKEN_CACHE: Dict[str, Tuple[str, float]] = {}
+_M2M_TOKEN_MARGEN_SEGUNDOS = 60
 
 
 class Auth0Provider:
@@ -64,22 +80,35 @@ class Auth0Provider:
 
     async def _management_login(self) -> str:
         """
-        Private method to login to the Auth0 Management API.
+        Obtiene (o reusa del caché de módulo) el token M2M de la Management API.
 
-        This method is used to obtain an access token to call the Auth0 Management API.
-        The access token is obtained using the client credentials flow.
+        Se cachea hasta que esté por vencer -- ver _M2M_TOKEN_CACHE arriba: sin
+        esto, cada login pediría un token M2M nuevo a Auth0. client_credentials
+        es una llamada HTTP síncrona (bloquea el event loop sin to_thread).
 
         Returns:
-            str: The access token
+            str: El access token
         """
+        cached = _M2M_TOKEN_CACHE.get(self.config.domain)
+        if cached:
+            token, vence_en = cached
+            if time.monotonic() < vence_en:
+                return token
+
         get_token = GetToken(domain=self.config.domain)
-        print("{}://{}/oauth/token".format("https", self.config.domain))
-        token = get_token.client_credentials(
+        respuesta = await asyncio.to_thread(
+            get_token.client_credentials,
             self.config.client_id,
             self.config.client_secret,
             self.config.management_audience,
         )
-        return token["access_token"]
+        access_token = respuesta["access_token"]
+        expira_en_segundos = respuesta.get("expires_in", 86400)
+        _M2M_TOKEN_CACHE[self.config.domain] = (
+            access_token,
+            time.monotonic() + expira_en_segundos - _M2M_TOKEN_MARGEN_SEGUNDOS,
+        )
+        return access_token
 
     async def get_users(self):
         token = await self._management_login()
@@ -182,21 +211,25 @@ class Auth0Provider:
 
     async def get_user_info(self, user_id: str) -> dict | None:
         """
-        Obtiene la información completa de un usuario desde Auth0
+        Obtiene la información completa de un usuario desde Auth0. Se llama en
+        CADA login (no solo en acciones de administración) -- auth0_users.get
+        es una llamada HTTP síncrona, así que va en to_thread para no bloquear
+        el event loop mientras Auth0 responde.
 
         Args:
             user_id: El sub_id del usuario (Auth0 user_id)
 
         Returns:
-            dict: Información del usuario o None si no existe
+            dict: Información del usuario, o None si no existe o la Management
+            API no respondió (el caller debe distinguir este caso -- no es lo
+            mismo que "el correo no está verificado").
         """
         try:
             token = await self._management_login()
             auth0_users = Users(domain=self.config.domain, token=token)
-            user_info = auth0_users.get(user_id)
-            return user_info
+            return await asyncio.to_thread(auth0_users.get, user_id)
         except Exception as e:
-            print(f"Error getting user info from Auth0: {str(e)}")
+            logger.warning("Error obteniendo info de usuario desde Auth0: %s", e)
             return None
 
     async def update_user_email(self, user_id: str, new_email: str) -> bool:

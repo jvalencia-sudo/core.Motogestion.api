@@ -85,7 +85,17 @@ class UserService(BaseService[UserModel, UserRepository]):
 
         if not existing_user:
             info = await Auth0Provider().get_user_info(sub)
-            if not info or not info.get("email_verified"):
+            # None distingue "la Management API falló/no respondió" de
+            # "sí respondió y el correo no está verificado" -- antes ambos
+            # casos daban el mismo mensaje ("correo no verificado"), que es
+            # falso cuando en realidad Auth0 no respondió.
+            if info is None:
+                raise DomainException(
+                    "No pudimos verificar tu cuenta con Auth0. Intenta iniciar sesión "
+                    "de nuevo en unos minutos.",
+                    HTTP_403_FORBIDDEN,
+                )
+            if info.get("email_verified") is not True:
                 raise DomainException(
                     "Tu correo de Auth0 no está verificado. Verifícalo antes de continuar.",
                     HTTP_403_FORBIDDEN,

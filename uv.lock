@@ -584,6 +584,7 @@ dependencies = [
     { name = "sentry-sdk" },
     { name = "six" },
     { name = "starlette" },
+    { name = "tzdata" },
     { name = "uvicorn" },
 ]
 
@@ -625,6 +626,7 @@ requires-dist = [
     { name = "sentry-sdk", specifier = ">=2.70.0" },
     { name = "six", specifier = ">=1.17.0" },
     { name = "starlette", specifier = ">=0.41.3" },
+    { name = "tzdata", specifier = ">=2025.2" },
     { name = "uvicorn", specifier = ">=0.33.0" },
 ]
 

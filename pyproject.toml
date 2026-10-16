@@ -35,6 +35,11 @@ dependencies = [
     "openpyxl>=3.1.5",
     "reportlab>=4.4.5",
     "sentry-sdk>=2.70.0",
+    # python:3.11-slim (Dockerfile) no trae la base de datos IANA del sistema --
+    # zoneinfo.ZoneInfo cae automáticamente a este paquete (PEP 615). Antes solo
+    # llegaba de rebote como dependencia transitiva de pandas; explícito para no
+    # perderlo si eso cambia (infrastructure/utils/fecha_bogota.py depende de esto).
+    "tzdata>=2025.2",
 ]
 
 [dependency-groups]

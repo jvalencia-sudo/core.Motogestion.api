@@ -71,6 +71,48 @@ def test_correo_sin_verificar_rechaza(client):
     assert "verificado" in resp.json()["message"].lower()
 
 
+def test_management_api_caida_no_dice_correo_sin_verificar(client):
+    """Revisión: cuando get_user_info() no pudo hablar con Auth0 (devuelve
+    None), el mensaje antes decía "correo no verificado" -- falso, Auth0 ni
+    siquiera respondió. Debe decir explícitamente que no se pudo verificar la
+    cuenta, no inventar un motivo."""
+    with patch(
+        "infrastructure.providers.auth.auth0_provider.Auth0Provider.verify",
+        new=_verify_con_atacante,
+    ), patch(
+        "infrastructure.providers.auth.auth0_provider.Auth0Provider.get_user_info",
+        new=AsyncMock(return_value=None),
+    ):
+        resp = client.post(
+            "/api/auth/login",
+            json={"email": "alguien@example.com", "token": ATACANTE_TOKEN, "name": "Alguien"},
+        )
+    assert resp.status_code == 403
+    mensaje = resp.json()["message"].lower()
+    assert "no pudimos verificar" in mensaje
+    assert "no verificado" not in mensaje
+
+
+def test_email_verified_como_texto_no_cuela_como_verificado(client):
+    """Antes el chequeo era `not info.get("email_verified")` -- con el string
+    "false" (verdadero para Python, `not "false"` es False) el login seguiría
+    de largo creyendo que el correo SÍ está verificado. Debe exigir
+    exactamente `True`, no cualquier valor truthy."""
+    with patch(
+        "infrastructure.providers.auth.auth0_provider.Auth0Provider.verify",
+        new=_verify_con_atacante,
+    ), patch(
+        "infrastructure.providers.auth.auth0_provider.Auth0Provider.get_user_info",
+        new=AsyncMock(return_value={"email": "alguien@example.com", "email_verified": "false"}),
+    ):
+        resp = client.post(
+            "/api/auth/login",
+            json={"email": "alguien@example.com", "token": ATACANTE_TOKEN, "name": "Alguien"},
+        )
+    assert resp.status_code == 403
+    assert "verificado" in resp.json()["message"].lower()
+
+
 def test_correo_ya_vinculado_a_otra_cuenta_rechaza(client):
     """El correo del taller A ya tiene sub_id_usu = test|taller-a. Si otro sub
     (distinto) se presenta con ESE mismo correo como verificado, se rechaza --
