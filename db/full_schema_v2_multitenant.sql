@@ -786,7 +786,7 @@ INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.
 INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller
 INNER JOIN marcas mar    ON m.cod_marca_mot = mar.cod_mar AND m.cod_taller = mar.cod_taller
 INNER JOIN usuarios urp  ON ot.documento_usu_rp_ot = urp.documento_usu AND ot.cod_taller = urp.cod_taller
-INNER JOIN usuarios umc  ON ot.documento_usu_mc_ot = umc.documento_usu AND ot.cod_taller = umc.cod_taller
+LEFT JOIN usuarios umc   ON ot.documento_usu_mc_ot = umc.documento_usu AND ot.cod_taller = umc.cod_taller
 INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est;
 
 CREATE OR REPLACE VIEW vw_detalle_ot_productos WITH (security_invoker = on) AS
@@ -865,7 +865,7 @@ FROM ordenes_trabajo ot
 INNER JOIN motos m        ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller
 INNER JOIN marcas mar     ON m.cod_marca_mot = mar.cod_mar AND m.cod_taller = mar.cod_taller
 INNER JOIN clientes c     ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller
-INNER JOIN usuarios umc   ON ot.documento_usu_mc_ot = umc.documento_usu AND ot.cod_taller = umc.cod_taller
+LEFT JOIN usuarios umc    ON ot.documento_usu_mc_ot = umc.documento_usu AND ot.cod_taller = umc.cod_taller
 INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est
 WHERE ot.fecha_entrega_ot IS NULL
 ORDER BY ot.fecha_elaboracion_ot;
@@ -899,7 +899,7 @@ INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.
 INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller
 INNER JOIN marcas mar    ON m.cod_marca_mot = mar.cod_mar AND m.cod_taller = mar.cod_taller
 INNER JOIN usuarios urp  ON ot.documento_usu_rp_ot = urp.documento_usu AND ot.cod_taller = urp.cod_taller
-INNER JOIN usuarios umc  ON ot.documento_usu_mc_ot = umc.documento_usu AND ot.cod_taller = umc.cod_taller
+LEFT JOIN usuarios umc   ON ot.documento_usu_mc_ot = umc.documento_usu AND ot.cod_taller = umc.cod_taller
 INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est;
 
 CREATE OR REPLACE VIEW vw_reclamos_detalle WITH (security_invoker = on) AS

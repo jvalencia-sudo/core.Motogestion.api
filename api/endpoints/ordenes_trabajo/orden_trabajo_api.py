@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, status, HTTPException
 from fastapi.responses import Response
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import (
@@ -16,7 +16,7 @@ from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
     DetalleOrdenUpdateContract
 )
 from domain.services.ordenes_trabajo.orden_trabajo_servicio import OrdenTrabajoServicio
-from infrastructure.dependencies.current_user import require_permiso
+from infrastructure.dependencies.current_user import get_current_usuario, require_permiso
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
 
@@ -137,11 +137,16 @@ async def obtener_orden_trabajo(consecutivo_ot: int):
 async def crear_orden_trabajo(
     orden: OrdenTrabajoCreateContract,
     _=Depends(require_permiso("crear:ordenes-trabajo")),
+    current: Optional[Dict] = Depends(get_current_usuario),
 ):
-    """Crea una nueva orden de trabajo con sus productos/servicios"""
+    """Crea una nueva orden de trabajo con sus productos/servicios.
+
+    F1-01: orden rápida -- si no se manda documento_usu_rp_ot (recepcionista),
+    por defecto es el usuario autenticado."""
     servicio = OrdenTrabajoServicio()
-    # Por ahora usa el recepcionista especificado en el contrato
-    documento_usuario = orden.documento_usu_rp_ot
+    documento_usuario = orden.documento_usu_rp_ot or (current and str(current.get("DOCUMENTO_USU")))
+    if not documento_usuario:
+        raise DomainException("No se pudo identificar al usuario autenticado", status.HTTP_401_UNAUTHORIZED)
     return await servicio.crear_orden_trabajo(orden, documento_usuario)
 
 

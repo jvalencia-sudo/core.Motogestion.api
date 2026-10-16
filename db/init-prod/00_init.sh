@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 INSERT INTO schema_migrations (version) VALUES
     ('000_baseline'),
     ('001_mi_taller_campos'),
-    ('002_garantia_pred_trigger')
+    ('002_garantia_pred_trigger'),
+    ('003_orden_rapida_mecanico_opcional')
 ON CONFLICT (version) DO NOTHING;
 EOSQL

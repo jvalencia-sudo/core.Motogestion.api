@@ -63,6 +63,22 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
     def __parse__(self, record: Dict) -> OrdenTrabajoModelo:
         return OrdenTrabajoModelo.model_validate(record)
 
+    ESTADOS_QUE_REQUIEREN_ITEMS = (3, 4)  # Completada, Entregada
+
+    async def _validar_items_para_estado(self, consecutivo_ot: int, nuevo_estado: int) -> None:
+        """F1-01: una orden no puede pasar a Completada ni Entregada sin al
+        menos un ítem. Se valida en todos los caminos que pueden fijar el
+        estado (crear, actualizar, cambiar-estado), no solo en entregar_orden."""
+        if nuevo_estado not in self.ESTADOS_QUE_REQUIEREN_ITEMS:
+            return
+        detalles = await self.detalle_repository.obtener_detalles_por_orden(consecutivo_ot)
+        if not detalles:
+            raise DomainException(
+                "La orden debe tener al menos un producto o servicio para "
+                "marcarla como Completada o Entregada",
+                HTTP_400_BAD_REQUEST
+            )
+
     async def _validar_stock(self, producto: ProductoModelo, cantidad) -> None:
         """Valida stock disponible antes de insertar un detalle facturable (cantidad>0).
         - BIEN: valida su propio stock.
@@ -252,6 +268,14 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                         HTTP_400_BAD_REQUEST
                     )
 
+        # F1-01: no se puede crear directo en Completada/Entregada sin ítems.
+        if estado_inicial in self.ESTADOS_QUE_REQUIEREN_ITEMS and not contract.detalles:
+            raise DomainException(
+                "La orden debe tener al menos un producto o servicio para "
+                "crearla como Completada o Entregada",
+                HTTP_400_BAD_REQUEST
+            )
+
         # Validar que los productos existen y tienen stock
         for detalle in contract.detalles:
             producto_dict = await self.producto_repository.get_by_id(detalle.cod_pro_deto)
@@ -268,13 +292,15 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             # componentes BIEN, SERVICIO no valida. El descuento lo hace el trigger.
             await self._validar_stock(producto, detalle.cantidad_deto)
 
-        # Crear el modelo de orden de trabajo
+        # Crear el modelo de orden de trabajo. El recepcionista usa el valor ya
+        # resuelto por el endpoint (contrato o, por defecto, el usuario
+        # autenticado) -- contract.documento_usu_rp_ot puede venir en None.
         orden_modelo = OrdenTrabajoModelo(
             fecha_elaboracion_ot=hoy_bogota(),
             fecha_entrega_ot=contract.fecha_entrega_ot,
             placa_mot_ot=contract.placa_mot_ot,
             kilometraje_ingreso_ot=contract.kilometraje_ingreso_ot,
-            documento_usu_rp_ot=contract.documento_usu_rp_ot,
+            documento_usu_rp_ot=documento_usu_creador,
             documento_usu_mc_ot=contract.documento_usu_mc_ot,
             observacion_cli_ot=contract.observacion_cli_ot,
             observacion_ot=contract.observacion_ot,
@@ -348,6 +374,10 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                         HTTP_400_BAD_REQUEST
                     )
 
+        # F1-01: no se puede pasar a Completada/Entregada sin ítems.
+        if contract.cod_ot_est_ot is not None:
+            await self._validar_items_para_estado(consecutivo_ot, contract.cod_ot_est_ot)
+
         # Crear modelo para actualizar solo con los campos proporcionados
         datos_actualizacion = {}
         if contract.fecha_entrega_ot is not None:
@@ -406,6 +436,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                         f"No se puede cambiar a estado Garantía. La garantía de la orden anterior venció el {orden_anterior.fecha_fin_garantia_ot.strftime('%d/%m/%Y')}",
                         HTTP_400_BAD_REQUEST
                     )
+
+        # F1-01: no se puede pasar a Completada/Entregada sin ítems.
+        await self._validar_items_para_estado(consecutivo_ot, contract.cod_ot_est_ot)
 
         # Actualizar estado
         await self.repository.actualizar_estado(consecutivo_ot, contract.cod_ot_est_ot)

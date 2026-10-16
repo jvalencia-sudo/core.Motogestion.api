@@ -56,7 +56,10 @@ class OrdenTrabajoRepositorio(BaseRepository):
             SET cod_ot_est_ot = :1
             WHERE consecutivo_ot = :2
         """
-        await self.execute(query, (cod_estado, consecutivo_ot))
+        # execute() es solo para SELECT (nunca hace commit; espera filas de
+        # vuelta). Un UPDATE sin RETURNING crashea ahí mismo -- execute_non_query
+        # es el que sí confirma la transacción.
+        await self.execute_non_query(query, (cod_estado, consecutivo_ot))
         return True
 
     async def registrar_entrega(
@@ -75,7 +78,9 @@ class OrdenTrabajoRepositorio(BaseRepository):
                 fecha_fin_garantia_ot = :3
             WHERE consecutivo_ot = :4
         """
-        await self.execute(query, (fecha_entrega, km_salida, fecha_fin_garantia, consecutivo_ot))
+        # Mismo motivo que actualizar_estado: UPDATE sin RETURNING necesita
+        # execute_non_query (execute() es solo para SELECT y no confirma).
+        await self.execute_non_query(query, (fecha_entrega, km_salida, fecha_fin_garantia, consecutivo_ot))
         return True
 
     async def existe_orden(self, consecutivo_ot: int) -> bool:
