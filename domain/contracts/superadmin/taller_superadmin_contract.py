@@ -19,8 +19,8 @@ class TallerListadoContract(BaseContractSchema):
     precio_susc_tal: Optional[int] = None
     es_fundador: bool = False
     ultimo_pago_fecha: Optional[str] = None
-    ordenes_7d: int = 0
-    ordenes_30d: int = 0
+    ordenes_ultimos_7_dias: int = 0
+    ordenes_ultimos_30_dias: int = 0
     usuarios_activos: int = 0
     ultima_actividad: Optional[str] = None
 

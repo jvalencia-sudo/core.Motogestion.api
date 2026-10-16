@@ -54,8 +54,8 @@ class TalleresSuperAdminServicio:
             precio_susc_tal=fila.get("PRECIO_SUSC_TAL"),
             es_fundador=fila.get("PRECIO_SUSC_TAL") == PRECIO_FUNDADOR,
             ultimo_pago_fecha=str(fila.get("ULTIMO_PAGO_FECHA")) if fila.get("ULTIMO_PAGO_FECHA") else None,
-            ordenes_7d=metricas.get("ordenes_7d", 0),
-            ordenes_30d=metricas.get("ordenes_30d", 0),
+            ordenes_ultimos_7_dias=metricas.get("ordenes_7d", 0),
+            ordenes_ultimos_30_dias=metricas.get("ordenes_30d", 0),
             usuarios_activos=metricas.get("usuarios_activos", 0),
             ultima_actividad=metricas.get("ultima_actividad"),
         )
