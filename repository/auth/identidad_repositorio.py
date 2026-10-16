@@ -25,10 +25,11 @@ class IdentidadRepositorio(BaseRepository):
 
     async def get_acceso_por_correo(self, correo: str) -> Optional[Dict]:
         """Identifica al usuario por CORREO (clave estable entre login con Google y
-        con usuario/contraseña, que tienen sub distinto). Devuelve taller y documento
-        para vincular/actualizar el sub de la sesión actual."""
+        con usuario/contraseña, que tienen sub distinto). Devuelve taller, documento
+        y el sub_id_usu actual (NULL si nunca se ha vinculado) -- el caller debe
+        rechazar vincular si ya trae uno: ese correo ya pertenece a otra cuenta."""
         return await self.get_one(
-            "SELECT cod_taller, documento_usu FROM usuarios_identidad "
+            "SELECT cod_taller, documento_usu, sub_id_usu FROM usuarios_identidad "
             "WHERE lower(correo_usu) = lower(:1) LIMIT 1",
             (correo,),
         )

@@ -61,23 +61,54 @@ class UserService(BaseService[UserModel, UserRepository]):
         - Si no está registrado -> 403 (no se crean usuarios sueltos).
         - Si es super-admin (F0-14) y no tiene MFA activo en Auth0 -> 403 (la
           verificación en dos pasos es obligatoria para esa marca).
+
+        El correo del BODY (`request.email`) nunca es la fuente de verdad para
+        decidir a quién vincular un sub nuevo -- cualquiera puede mandar cualquier
+        correo ahí. Se resuelve por el correo VERIFICADO del propio perfil de
+        Auth0 (Management API, igual que ya se hace para el chequeo de MFA de
+        abajo): así no hay forma de pedir "vincúlame a este correo ajeno" con un
+        token propio válido.
+
+        OJO: este endpoint recibe el token en el BODY, no en el header
+        Authorization -- resolve_tenant (dependency global) no lo ve, así que
+        `app.tenant_id` arranca en None y el primer get_user_by_sub() de abajo
+        SIEMPRE da vacío (RLS), no solo en el primer login. Por diseño, TODO
+        login pasa por esta rama para resolver su propio taller vía
+        usuarios_identidad (sin RLS) -- por eso el chequeo de correo verificado
+        de acá aplica a cualquier login, no solo al primero.
         """
         auth_user = await Auth0Provider().verify(request.token)
         sub = auth_user.user_id
 
         existing_user = await self.repository.get_user_by_sub(sub)
+        info = None
 
         if not existing_user:
-            # Primer ingreso: el correo debe estar pre-registrado (registro de taller o invitación)
-            acceso = await self.identidad_repo.get_acceso_por_correo(request.email)
+            info = await Auth0Provider().get_user_info(sub)
+            if not info or not info.get("email_verified"):
+                raise DomainException(
+                    "Tu correo de Auth0 no está verificado. Verifícalo antes de continuar.",
+                    HTTP_403_FORBIDDEN,
+                )
+            acceso = await self.identidad_repo.get_acceso_por_correo(info.get("email"))
             if not acceso:
                 raise DomainException("Usuario no registrado en el sistema", HTTP_403_FORBIDDEN)
+            sub_vinculado = acceso.get("SUB_ID_USU")
+            if sub_vinculado and sub_vinculado != sub:
+                raise DomainException(
+                    "Este correo ya está vinculado a otra cuenta; escríbenos a soporte",
+                    HTTP_403_FORBIDDEN,
+                )
             set_tenant(acceso.get("COD_TALLER"))
             await self.repository.vincular_sub(acceso.get("DOCUMENTO_USU"), sub)
             existing_user = await self.repository.get_user_by_sub(sub)
 
         if existing_user.get("ES_SUPER_ADMIN"):
-            info = await Auth0Provider().get_user_info(sub)
+            # Reusa el "info" de arriba si ya se pidió (hoy siempre es el caso,
+            # por el comentario de arriba) -- evita una segunda llamada a la
+            # Management API para el mismo usuario en la misma petición.
+            if info is None:
+                info = await Auth0Provider().get_user_info(sub)
             if not (info and info.get("multifactor")):
                 raise DomainException(
                     "Debes activar la verificación en dos pasos en tu cuenta antes de continuar",

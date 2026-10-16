@@ -34,6 +34,8 @@ services:
             - ./db/init:/docker-entrypoint-initdb.d:ro
             # El esquema multi-tenant, montado para que 01_load.sql lo cargue con \i.
             - ./db/full_schema_v2_multitenant.sql:/schema.sql:ro
+            # Seed de demo (taller/usuarios de ejemplo) -- solo local/test, nunca prod.
+            - ./db/seed_demo.sql:/seed_demo.sql:ro
             - pgdata:/var/lib/postgresql/data
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME:-motogestion}"]

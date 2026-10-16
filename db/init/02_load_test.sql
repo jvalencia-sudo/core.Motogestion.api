@@ -3,3 +3,6 @@
 \c motogestion_test
 SET ROLE mt_app;
 \i /schema.sql
+-- tests/superadmin_test.py reutiliza al admin demo (sub-1000000001) como
+-- fixture de super-admin -- esta BD también necesita el seed de demo.
+\i /seed_demo.sql
