@@ -584,13 +584,33 @@ CREATE TRIGGER tg_gen_consecutivo_ot
 BEFORE INSERT ON ordenes_trabajo
 FOR EACH ROW EXECUTE FUNCTION fn_gen_consecutivo_ot();
 
--- Fecha fin de garantía (1 mes desde entrega si estado = 4)
+-- Fecha fin de garantía (dias_garantia_pred del taller desde la entrega, si
+-- estado = 4). Solo se autocalcula cuando quien hizo el UPDATE/INSERT no trajo
+-- ya un fecha_fin_garantia_ot propio (entregar_orden y
+-- generar_comprobante_servicio_pos, en orden_trabajo_servicio.py, ya la
+-- calculan con el dias_garantia_pred del taller actual) -- antes este trigger
+-- la pisaba SIEMPRE con "entrega + 1 mes" fijo, sin importar qué hubiera
+-- calculado la app, así que dias_garantia_pred configurado en "Mi taller" no
+-- tenía ningún efecto real. talleres no tiene RLS, así que el SELECT de abajo
+-- funciona sin depender de app.tenant_id.
 CREATE OR REPLACE FUNCTION fn_calc_fecha_garantia()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_dias_garantia INTEGER;
+    v_debe_calcular BOOLEAN;
 BEGIN
     IF NEW.cod_ot_est_ot = 4 THEN
-        IF NEW.fecha_entrega_ot IS NOT NULL THEN
-            NEW.fecha_fin_garantia_ot := (NEW.fecha_entrega_ot + INTERVAL '1 month')::date;
+        IF TG_OP = 'INSERT' THEN
+            v_debe_calcular := NEW.fecha_fin_garantia_ot IS NULL;
+        ELSE
+            v_debe_calcular := NEW.fecha_fin_garantia_ot IS NOT DISTINCT FROM OLD.fecha_fin_garantia_ot;
+        END IF;
+
+        IF v_debe_calcular AND NEW.fecha_entrega_ot IS NOT NULL THEN
+            SELECT dias_garantia_pred INTO v_dias_garantia
+            FROM talleres WHERE cod_taller = NEW.cod_taller;
+            NEW.fecha_fin_garantia_ot :=
+                NEW.fecha_entrega_ot + make_interval(days => COALESCE(v_dias_garantia, 30));
         END IF;
     ELSE
         NEW.fecha_fin_garantia_ot := NULL;

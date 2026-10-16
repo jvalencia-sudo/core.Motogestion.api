@@ -88,3 +88,36 @@ def test_sin_texto_pie_comprobante_no_rompe_el_pdf():
     pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(_orden_de_prueba())
 
     assert b"%PDF" in pdf_bytes[:10]
+
+
+def test_encabezado_usa_los_datos_reales_del_taller():
+    """Revisión: el encabezado estaba fijo con "MOTOGESTION" / "Medellin,
+    Colombia" / un teléfono inventado, sin importar de qué taller fuera la
+    orden -- el cliente recibía un número que no existe. Debe mostrar el
+    nombre/dirección/teléfono configurados en "Mi taller"."""
+    pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(
+        _orden_de_prueba(),
+        nombre_tal="Taller El Rayo",
+        direccion_tal="Cra 50 #10-20",
+        telefono_tal="3109998877",
+    )
+
+    texto = texto_visible_del_pdf(pdf_bytes)
+    assert "TALLER EL RAYO" in texto.upper()
+    assert "Cra 50 #10-20" in texto
+    assert "3109998877" in texto
+    assert "123-4567" not in texto
+    assert "MEDELLIN" not in texto.upper()
+
+
+def test_encabezado_sin_direccion_ni_telefono_no_inventa_datos():
+    """Si el taller no configuró dirección/teléfono en "Mi taller", esas
+    líneas se omiten -- no se rellenan con un valor inventado."""
+    pdf_bytes = ComprobanteServicioPDFGenerator().generar_comprobante(
+        _orden_de_prueba(), nombre_tal="Taller El Rayo"
+    )
+
+    texto = texto_visible_del_pdf(pdf_bytes)
+    assert "TALLER EL RAYO" in texto.upper()
+    assert "123-4567" not in texto
+    assert "Tel:" not in texto.split("COMPROBANTE DE SERVICIO")[0]

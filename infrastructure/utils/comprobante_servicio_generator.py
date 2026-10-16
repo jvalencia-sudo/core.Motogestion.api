@@ -21,7 +21,12 @@ class ComprobanteServicioPDFGenerator:
         self.ancho_util = self.ancho_ticket - (2 * self.margen)
 
     def generar_comprobante(
-        self, orden: OrdenTrabajoResponseContract, texto_pie_comprobante: str = None
+        self,
+        orden: OrdenTrabajoResponseContract,
+        texto_pie_comprobante: str = None,
+        nombre_tal: str = None,
+        direccion_tal: str = None,
+        telefono_tal: str = None,
     ) -> bytes:
         """
         Genera un comprobante de servicio en formato POS, en memoria (ver nota
@@ -32,6 +37,11 @@ class ComprobanteServicioPDFGenerator:
             orden: Contrato con los datos de la orden de trabajo
             texto_pie_comprobante: línea libre configurable por el taller
                 ("Mi taller"), se imprime al final del ticket. Puede ser None.
+            nombre_tal, direccion_tal, telefono_tal: datos reales del taller
+                ("Mi taller") para el encabezado. nombre_tal siempre debería
+                venir (NOT NULL en BD); dirección/teléfono pueden ser None si
+                el taller no los configuró -- en ese caso esa línea se omite
+                (no se inventa un valor).
 
         Returns:
             bytes: Contenido del PDF generado
@@ -49,7 +59,7 @@ class ComprobanteServicioPDFGenerator:
         y = self.alto_ticket - 10 * mm
 
         # Generar contenido
-        y = self._crear_encabezado(c, orden, y)
+        y = self._crear_encabezado(c, orden, y, nombre_tal, direccion_tal, telefono_tal)
         y = self._crear_datos_cliente(c, orden, y)
         y = self._crear_datos_vehiculo(c, orden, y)
         y = self._crear_productos(c, orden, y)
@@ -78,12 +88,21 @@ class ComprobanteServicioPDFGenerator:
         c.line(self.margen, y, self.ancho_ticket - self.margen, y)
         return y - 3 * mm
 
-    def _crear_encabezado(self, c: canvas.Canvas, orden: OrdenTrabajoResponseContract, y: float) -> float:
-        """Crea el encabezado del ticket"""
-        y = self._texto_centrado(c, "MOTOGESTION", y, 14, "Courier-Bold")
-        y = self._texto_centrado(c, "Taller de Motos", y - 2*mm, 9, "Courier")
-        y = self._texto_centrado(c, "Medellin, Colombia", y, 8, "Courier")
-        y = self._texto_centrado(c, "Tel: (604) 123-4567", y, 8, "Courier")
+    def _crear_encabezado(
+        self, c: canvas.Canvas, orden: OrdenTrabajoResponseContract, y: float,
+        nombre_tal: str = None, direccion_tal: str = None, telefono_tal: str = None,
+    ) -> float:
+        """Crea el encabezado del ticket con los datos reales del taller
+        ("Mi taller") -- antes decía siempre "MOTOGESTION" / "Medellin,
+        Colombia" / un teléfono inventado, sin importar de qué taller fuera
+        la orden: el cliente de cualquier taller recibía un número que no
+        existe. dirección/teléfono se omiten si el taller no los configuró,
+        en vez de inventar un valor."""
+        y = self._texto_centrado(c, (nombre_tal or "COMPROBANTE DE SERVICIO").upper(), y, 14, "Courier-Bold")
+        if direccion_tal:
+            y = self._texto_centrado(c, direccion_tal, y - 2 * mm, 9, "Courier")
+        if telefono_tal:
+            y = self._texto_centrado(c, f"Tel: {telefono_tal}", y - 2 * mm, 8, "Courier")
 
         y -= 3 * mm
         y = self._linea_separadora(c, y)

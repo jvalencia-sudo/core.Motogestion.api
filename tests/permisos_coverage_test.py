@@ -21,6 +21,20 @@ def _tiene_guardia(route: APIRoute) -> bool:
     return False
 
 
+def _tiene_guardia_super_admin(route: APIRoute) -> bool:
+    """A diferencia de _tiene_guardia (que acepta require_admin o
+    require_super_admin), esta exige específicamente require_super_admin --
+    require_admin es "Admin de SU taller", no "super-admin de la plataforma".
+    Si el router de /superadmin se gateara con require_admin por error, las
+    rutas seguirían "teniendo guardia" para _tiene_guardia (el test de arriba
+    no fallaría) pero CUALQUIER Admin de taller vería datos de todos los
+    talleres -- por eso este check específico."""
+    for dep in route.dependant.dependencies:
+        if getattr(dep.call, "__qualname__", "") == "require_super_admin":
+            return True
+    return False
+
+
 def test_toda_ruta_no_get_exige_permiso_o_esta_documentada():
     sin_gateo = []
 
@@ -62,7 +76,7 @@ def test_toda_ruta_get_de_superadmin_exige_require_super_admin():
         if "GET" not in (route.methods - {"HEAD", "OPTIONS"}):
             continue
         rutas_get_vistas.append(route.path)
-        if not _tiene_guardia(route):
+        if not _tiene_guardia_super_admin(route):
             rutas_get_sin_guardia.append(f"GET {route.path}")
 
     # Si esto da 0, el filtro de arriba está mal (ej. el prefijo cambió) y el
