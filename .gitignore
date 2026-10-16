@@ -19,3 +19,6 @@ env
 *.sqlite
 # Backups de Postgres generados por scripts/backup_postgres.sh
 backups/
+
+# Notas locales para otra IA/herramienta, no versionadas
+CLAUDE.md
