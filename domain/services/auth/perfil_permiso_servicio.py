@@ -1,15 +1,22 @@
 from typing import Dict, List
 
+from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
+
 from domain.contracts.auth.perfil_permiso_contract import (
     AsignarPermisoContract,
     CambiarEstadoPermisoContract,
     PermisoDisponibleContract,
-    PermisoAsignadoContract
+    PermisoAsignadoContract,
+    ReemplazarPermisosContract,
 )
 from domain.models.auth.perfil_permiso_modelo import PerfilPermisoModelo, VwPerfilesPermisosDetalle
 from domain.services.base_service import BaseService
+from infrastructure.exceptions.domain_exception import DomainException
 from repository.auth.perfil_permiso_repositorio import PerfilPermisoRepositorio
 from repository.auth.permiso_repositorio import PermisoRepositorio
+from repository.auth.perfil_repositorio import PerfilRepositorio
+
+ADMIN_ROL = 1
 
 
 class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoRepositorio]):
@@ -17,6 +24,7 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         super().__init__(PerfilPermisoRepositorio())
         # Los permisos (catálogo) los provee su repo dueño.
         self.permiso_repo = PermisoRepositorio()
+        self.perfil_repo = PerfilRepositorio()
 
     def __parse__(self, record: Dict) -> PerfilPermisoModelo:
         return PerfilPermisoModelo.model_validate(record)
@@ -70,6 +78,28 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
             "success": True,
             "message": "Permiso asignado correctamente"
         }
+
+    async def reemplazar_permisos(
+        self, cod_prf: int, contract: ReemplazarPermisosContract, usuario: str
+    ) -> dict:
+        """Reemplaza de una vez todos los permisos de un perfil (matriz de F0-13).
+        Rechaza el perfil Administrador (ya tiene acceso a todo, no se edita) y
+        perfiles de otro taller (RLS: verificar_perfil_existe no los ve)."""
+        perfil = await self.perfil_repo.verificar_perfil_existe(cod_prf)
+        if not perfil:
+            raise DomainException("Perfil no encontrado", HTTP_404_NOT_FOUND)
+
+        cod_rol = perfil.get("COD_ROL_PRF")
+        if cod_rol == ADMIN_ROL:
+            raise DomainException(
+                "El rol Administrador no se puede editar, ya tiene acceso a todo",
+                HTTP_400_BAD_REQUEST,
+            )
+
+        await self.repository.reemplazar_permisos(
+            cod_prf, cod_rol, contract.cod_prm_list, usuario
+        )
+        return {"success": True, "message": "Permisos actualizados correctamente"}
 
     async def cambiar_estado_permiso(self, contract: CambiarEstadoPermisoContract) -> dict:
         """Activa o desactiva un permiso de un perfil"""

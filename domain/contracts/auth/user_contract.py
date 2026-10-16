@@ -40,11 +40,13 @@ class InviteUsuarioContract(BaseSchema):
     """Invitación de un miembro al taller actual (lo crea el dueño/admin).
 
     Se pre-registra por correo (sin cuenta Auth0): la persona entra luego con ese
-    correo y se le vincula el sub en el primer login. rol: 1=Admin, 2=Mecánico, 3=Recepcionista.
+    correo y se le vincula el sub en el primer login. Solo se pide el perfil
+    (cod_prf); el servicio deriva el rol global del perfil elegido -- el caller
+    no elige un rol aparte (F0-13).
     """
     correo: EmailStr
     nombre: str
-    rol: int = 2
+    cod_prf: int
 
 
 class UserUpdateContract(BaseSchema):

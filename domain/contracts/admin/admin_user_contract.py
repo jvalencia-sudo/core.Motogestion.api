@@ -4,7 +4,10 @@ from domain.models.base_model import BaseSchema
 
 
 class AdminUserCreationContract(BaseSchema):
-    """Contrato para crear un usuario desde el panel de administrador"""
+    """Contrato para crear un usuario desde el panel de administrador.
+
+    Solo se pide el perfil (cod_prf_usu); el servicio deriva el rol global del
+    perfil elegido -- no se recibe aparte (F0-13)."""
     documento_usu: str = Field(..., description="Documento de identidad del usuario")
     nombre_usu: str = Field(..., description="Nombre del usuario")
     apellido_1_usu: str = Field(..., description="Primer apellido")
@@ -12,20 +15,20 @@ class AdminUserCreationContract(BaseSchema):
     correo_usu: EmailStr = Field(..., description="Correo electrónico")
     password: str = Field(..., min_length=8, description="Contraseña (mínimo 8 caracteres)")
     cod_prf_usu: int = Field(..., description="Código del perfil")
-    cod_rol_prf_usu: int = Field(..., description="Código del rol del perfil")
     cod_tipo_usu: Optional[int] = Field(1, description="Tipo de usuario (1=cliente, 2=admin, etc)")
     cod_est_usu: Optional[int] = Field(1, description="Estado del usuario (1=activo, 0=inactivo)")
 
 
 class AdminUserUpdateContract(BaseSchema):
-    """Contrato para actualizar un usuario desde el panel de administrador"""
+    """Contrato para actualizar un usuario desde el panel de administrador.
+
+    Solo se pide el perfil (cod_prf_usu); el servicio deriva el rol (F0-13)."""
     documento_usu: Optional[str] = Field(None, description="Documento de identidad del usuario")
     nombre_usu: Optional[str] = Field(None, description="Nombre del usuario")
     apellido_1_usu: Optional[str] = Field(None, description="Primer apellido")
     apellido_2_usu: Optional[str] = Field(None, description="Segundo apellido")
     correo_usu: Optional[EmailStr] = Field(None, description="Correo electrónico")
     cod_prf_usu: Optional[int] = Field(None, description="Código del perfil")
-    cod_rol_prf_usu: Optional[int] = Field(None, description="Código del rol del perfil")
     cod_tipo_usu: Optional[int] = Field(None, description="Tipo de usuario")
     cod_est_usu: Optional[int] = Field(None, description="Estado del usuario")
 
@@ -49,6 +52,7 @@ class UserFilterContract(BaseSchema):
 
 
 class UpdateUserProfileContract(BaseSchema):
-    """Contrato para actualizar el perfil y rol de un usuario"""
+    """Contrato para actualizar el rol (perfil) de un usuario.
+
+    Solo se pide el perfil; el servicio deriva el rol global (F0-13)."""
     cod_prf_usu: int = Field(..., description="Código del perfil")
-    cod_rol_prf_usu: int = Field(..., description="Código del rol del perfil")

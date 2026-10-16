@@ -53,3 +53,20 @@ class PerfilRepositorio(BaseRepository):
             "SELECT nombre_prf FROM perfiles WHERE cod_prf = :1 LIMIT 1", (cod_prf,)
         )
         return row.get("NOMBRE_PRF") if row else None
+
+    async def obtener_rol_por_perfil(self, cod_prf: int) -> Optional[int]:
+        """cod_rol_prf del perfil (RLS ya acota al taller del caller: si cod_prf
+        es de otro taller, no devuelve nada -- mismo patrón que get_nombre)."""
+        row = await self.get_one(
+            "SELECT cod_rol_prf FROM perfiles WHERE cod_prf = :1 LIMIT 1", (cod_prf,)
+        )
+        return row.get("COD_ROL_PRF") if row else None
+
+    async def contar_usuarios_por_perfil(self) -> Dict[int, int]:
+        """Usuarios activos por cod_prf_usu, para mostrar en las tarjetas de rol."""
+        rows = await self.execute(
+            "SELECT cod_prf_usu, COUNT(*) AS total FROM usuarios "
+            "WHERE cod_est_usu = 1 GROUP BY cod_prf_usu",
+            None,
+        )
+        return {row["COD_PRF_USU"]: row["TOTAL"] for row in rows}

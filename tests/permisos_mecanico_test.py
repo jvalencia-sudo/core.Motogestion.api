@@ -154,7 +154,6 @@ class TestMecanicoNoPuedeAsignarsePermisos:
                 "correo_usu": "intento@test.local",
                 "password": "clave12345",
                 "cod_prf_usu": 1,
-                "cod_rol_prf_usu": 1,
                 "cod_tipo_usu": 2,
                 "cod_est_usu": 1,
             },

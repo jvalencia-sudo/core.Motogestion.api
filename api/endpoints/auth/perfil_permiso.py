@@ -1,16 +1,18 @@
-from typing import List
+from typing import Dict, List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.status import HTTP_200_OK, HTTP_201_CREATED
 
 from domain.contracts.auth.perfil_permiso_contract import (
     AsignarPermisoContract,
     CambiarEstadoPermisoContract,
     PermisoDisponibleContract,
-    PermisoAsignadoContract
+    PermisoAsignadoContract,
+    ReemplazarPermisosContract,
 )
 from domain.models.auth.perfil_permiso_modelo import VwPerfilesPermisosDetalle
 from domain.services.auth.perfil_permiso_servicio import PerfilPermisoServicio
+from infrastructure.dependencies.current_user import get_current_usuario
 
 router = APIRouter()
 
@@ -48,6 +50,23 @@ async def asignar_permiso(contract: AsignarPermisoContract):
         raise HTTPException(status_code=400, detail=resultado["message"])
 
     return resultado
+
+
+@router.put("/perfil/{cod_prf}/permisos", status_code=HTTP_200_OK)
+async def reemplazar_permisos(
+    cod_prf: int,
+    contract: ReemplazarPermisosContract,
+    current: Dict = Depends(get_current_usuario),
+):
+    """Reemplaza TODOS los permisos de un perfil de una vez (matriz de
+    Usuarios y Roles, F0-13): la lista recibida es el estado final, no un
+    delta. Transaccional (todo o nada) y queda en `audit_log`. `require_admin`
+    ya se aplica a nivel de router (ver api/__init__.py), por eso solo se pide
+    `get_current_usuario` acá -- es para saber QUIÉN hizo el cambio en la
+    auditoría, no para autorizar."""
+    return await PerfilPermisoServicio().reemplazar_permisos(
+        cod_prf, contract, str(current.get("DOCUMENTO_USU")) if current else "desconocido"
+    )
 
 
 @router.put("/estado", status_code=HTTP_200_OK)

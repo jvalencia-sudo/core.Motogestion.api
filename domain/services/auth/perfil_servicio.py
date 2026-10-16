@@ -20,8 +20,12 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
         return PerfilModelo.model_validate(normalized)
 
     async def obtener_vw_perfiles(self) -> List[PerfilDetalleContract]:
-        """Obtiene todos los perfiles con información completa desde la vista"""
+        """Obtiene todos los perfiles con información completa desde la vista,
+        más cuántos usuarios activos tiene cada uno (tarjetas de rol, F0-13)."""
         registros = await self.repository.obtener_vw_perfiles()
+        conteos = await self.repository.contar_usuarios_por_perfil()
+        for registro in registros:
+            registro["num_usuarios"] = conteos.get(registro.get("COD_PRF"), 0)
         return self.__parse_all_custom__(registros, PerfilDetalleContract)
 
     async def crear_perfil(self, contract: CrearPerfilContract) -> dict:

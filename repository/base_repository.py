@@ -144,6 +144,9 @@ class BaseRepository:
     async def execute_non_query(self, query: str, params: Optional[Params]) -> NoReturn:
         return await self.db.execute_non_query(query, params)
 
+    async def execute_transaction(self, statements: List[Tuple[str, Optional[Params]]]) -> NoReturn:
+        return await self.db.execute_transaction(statements)
+
     async def get_one(self, query: str, params: Optional[Params]) -> Dict:
         return await self.db.get_first(query, params)
 

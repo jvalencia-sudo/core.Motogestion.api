@@ -1,6 +1,15 @@
+from typing import List
+
 from pydantic import Field
 
 from domain.contracts.base_contract import BaseContractSchema
+
+
+class ReemplazarPermisosContract(BaseContractSchema):
+    """Contrato para reemplazar TODOS los permisos de un perfil de una vez
+    (matriz de permisos de F0-13): la lista que llega es el estado final, no un
+    delta -- reemplaza lo que había."""
+    cod_prm_list: List[int] = Field(default_factory=list, description="Permisos que debe tener el perfil")
 
 
 class AsignarPermisoContract(BaseContractSchema):
