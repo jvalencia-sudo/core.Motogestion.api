@@ -89,7 +89,11 @@ class TestMFAObligatorioParaSuperAdmin:
             new=_verify_con_superadmin,
         ), patch(
             "infrastructure.providers.auth.auth0_provider.Auth0Provider.get_user_info",
-            new=AsyncMock(return_value={"multifactor": []}),
+            new=AsyncMock(
+                return_value={
+                    "email": "admin@motogestion.com", "email_verified": True, "multifactor": [],
+                }
+            ),
         ):
             resp = client.post(
                 "/api/auth/login",
@@ -103,7 +107,12 @@ class TestMFAObligatorioParaSuperAdmin:
             new=_verify_con_superadmin,
         ), patch(
             "infrastructure.providers.auth.auth0_provider.Auth0Provider.get_user_info",
-            new=AsyncMock(return_value={"multifactor": ["guardian"]}),
+            new=AsyncMock(
+                return_value={
+                    "email": "admin@motogestion.com", "email_verified": True,
+                    "multifactor": ["guardian"],
+                }
+            ),
         ):
             resp = client.post(
                 "/api/auth/login",
@@ -111,12 +120,15 @@ class TestMFAObligatorioParaSuperAdmin:
             )
         assert resp.status_code == 200
 
-    def test_login_normal_no_pide_mfa(self, client, seed_talleres):
-        """Un usuario sin es_super_admin nunca llama a Auth0 Management API para
-        esto -- el checkeo de MFA solo se dispara para super-admins."""
+    def test_login_normal_no_exige_mfa_pero_si_correo_verificado(self, client, seed_talleres):
+        """Un usuario sin es_super_admin no necesita MFA -- pero el correo
+        verificado sí se exige para CUALQUIER login (toma de cuentas, ver
+        tests/auth_login_security_test.py), así que get_user_info sí se llama."""
         with patch(
             "infrastructure.providers.auth.auth0_provider.Auth0Provider.get_user_info",
-            new=AsyncMock(side_effect=AssertionError("no debería llamarse para un usuario normal")),
+            new=AsyncMock(
+                return_value={"email": f"user{TALLER_A}@test.local", "email_verified": True}
+            ),
         ):
             seed = seed_talleres[TALLER_A]
             resp = client.post(

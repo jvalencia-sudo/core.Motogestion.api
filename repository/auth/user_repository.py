@@ -31,8 +31,12 @@ class UserRepository(BaseRepository):
 
     async def vincular_sub(self, documento_usu: str, sub: str) -> None:
         # Vincula el sub de Auth0 al usuario pre-registrado (RLS acota al taller actual).
+        # "AND sub_id_usu IS NULL": defensa en profundidad -- el service ya valida que
+        # el correo no esté vinculado antes de llamar esto, pero esto cubre una carrera
+        # entre dos logins concurrentes sobre la misma fila (nunca sobreescribe un sub
+        # ya vinculado, pase lo que pase más arriba).
         await self.execute_non_query(
-            'update usuarios set sub_id_usu = :1 where documento_usu = :2',
+            'update usuarios set sub_id_usu = :1 where documento_usu = :2 and sub_id_usu is null',
             (sub, documento_usu)
         )
 

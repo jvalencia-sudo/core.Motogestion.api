@@ -71,6 +71,14 @@ jobs:
           PGPASSWORD: test123
         run: psql -h localhost -U mt_app -d motogestion -f db/full_schema_v2_multitenant.sql
 
+      # Seed de demo (taller/usuarios de ejemplo): tests/superadmin_test.py reutiliza
+      # al admin demo (sub-1000000001) como fixture de super-admin. NUNCA se carga en
+      # producción (ver el comentario de db/seed_demo.sql).
+      - name: Cargar el seed de demo
+        env:
+          PGPASSWORD: test123
+        run: psql -h localhost -U mt_app -d motogestion -f db/seed_demo.sql
+
       # 00_roles.sql ya creó motogestion_test (dueño mt_app): tests/conftest.py
       # (tests de aislamiento y de cobertura de RLS) usan esa BD dedicada, nunca
       # "motogestion", para no arriesgar sembrar/borrar datos en la de desarrollo.
@@ -78,6 +86,11 @@ jobs:
         env:
           PGPASSWORD: test123
         run: psql -h localhost -U mt_app -d motogestion_test -f db/full_schema_v2_multitenant.sql
+
+      - name: Cargar el seed de demo en la BD de test
+        env:
+          PGPASSWORD: test123
+        run: psql -h localhost -U mt_app -d motogestion_test -f db/seed_demo.sql
 
       - uses: astral-sh/setup-uv@v5
         with:

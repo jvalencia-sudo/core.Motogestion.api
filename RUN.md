@@ -34,9 +34,11 @@ docker compose ps              # debe verse motogestion-db (healthy)
 En el primer arranque, `db/init/` corre en orden:
 `00_roles.sql` (crea el rol `mt_app` no-superusuario, dueño del schema, y la BD
 `motogestion_test`) → `01_load.sql` (carga `db/full_schema_v2_multitenant.sql` **como
-mt_app** en `motogestion`, con RLS por taller y el taller demo `MotoGestión Demo`
-sembrado) → `02_load_test.sql` (carga el mismo esquema en `motogestion_test`, la BD
-que usan los tests de integración de `tests/`).
+mt_app** en `motogestion`, con RLS por taller, y luego `db/seed_demo.sql` con el taller
+demo `MotoGestión Demo` y sus usuarios de ejemplo) → `02_load_test.sql` (carga el mismo
+esquema + seed en `motogestion_test`, la BD que usan los tests de integración de
+`tests/`). `db/seed_demo.sql` es solo para local/test/CI -- producción (`db/init-prod/`)
+carga únicamente el esquema, nunca el seed de demo.
 
 > Para recargar la BD desde cero: `docker compose down -v` y vuelve a `docker compose up -d`
 > (el `-v` borra el volumen `pgdata`).
@@ -49,6 +51,7 @@ saltar sin avisar. Para ponerte al día sin perder tus datos de desarrollo, corr
 ```powershell
 docker exec -e PGPASSWORD=postgres motogestion-db psql -U postgres -d motogestion -c "CREATE DATABASE motogestion_test OWNER mt_app;"
 Get-Content db/full_schema_v2_multitenant.sql | docker exec -e PGPASSWORD=test123 -i motogestion-db psql -U mt_app -d motogestion_test
+Get-Content db/seed_demo.sql | docker exec -e PGPASSWORD=test123 -i motogestion-db psql -U mt_app -d motogestion_test
 ```
 (o, más simple, `docker compose down -v` para recrear todo desde cero).
 
