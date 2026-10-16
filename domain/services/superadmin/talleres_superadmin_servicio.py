@@ -1,4 +1,3 @@
-from datetime import date
 from typing import List, Optional
 
 from starlette.status import HTTP_404_NOT_FOUND
@@ -16,6 +15,7 @@ from domain.services.suscripciones.suscripcion_servicio import PRECIO_FUNDADOR
 from domain.services.superadmin.metricas_servicio import MetricasServicio
 from domain.services.talleres.taller_servicio import TallerServicio
 from infrastructure.exceptions.domain_exception import DomainException
+from infrastructure.utils.fecha_bogota import hoy_bogota
 from infrastructure.utils.tenant_context import reset_tenant, set_tenant
 from repository.admin.admin_user_repository import AdminUserRepository
 from repository.pagos.pago_repositorio import PagoRepositorio
@@ -39,7 +39,7 @@ class TalleresSuperAdminServicio:
     def _dias_restantes(fecha_fin) -> Optional[int]:
         if not fecha_fin:
             return None
-        return (fecha_fin - date.today()).days
+        return (fecha_fin - hoy_bogota()).days
 
     def _a_contrato_listado(self, fila: dict, metricas: dict) -> TallerListadoContract:
         return TallerListadoContract(
@@ -71,7 +71,10 @@ class TalleresSuperAdminServicio:
     async def detalle(self, cod_taller: int) -> TallerDetalleContract:
         fila = await self.taller_repo.obtener_con_ultimo_pago(cod_taller)
         if not fila:
-            raise DomainException("Taller no encontrado", HTTP_404_NOT_FOUND)
+            raise DomainException(
+                "Este taller no existe o fue eliminado. Recarga el listado e intenta de nuevo.",
+                HTTP_404_NOT_FOUND,
+            )
 
         metricas = await self.metricas_servicio.metricas_de_un_taller(cod_taller)
         pagos = await self.pago_repo.listar_por_taller(cod_taller)
@@ -115,7 +118,10 @@ class TalleresSuperAdminServicio:
     async def crear_nota(self, cod_taller: int, contract: CrearNotaContract, autor: str) -> NotaTallerContract:
         taller = await self.taller_repo.get_by_id(cod_taller)
         if not taller:
-            raise DomainException("Taller no encontrado", HTTP_404_NOT_FOUND)
+            raise DomainException(
+                "Este taller no existe o fue eliminado. Recarga el listado e intenta de nuevo.",
+                HTTP_404_NOT_FOUND,
+            )
         nota_id = await self.nota_repo.crear(cod_taller, autor, contract.texto)
         notas = await self.nota_repo.listar_por_taller(cod_taller)
         nota = next(n for n in notas if n.get("ID") == nota_id)

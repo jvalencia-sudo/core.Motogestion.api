@@ -28,7 +28,10 @@ class AccionesTallerServicio:
     async def _taller_o_404(self, cod_taller: int) -> dict:
         taller = await self.taller_repo.get_suscripcion(cod_taller)
         if not taller:
-            raise DomainException("Taller no encontrado", HTTP_404_NOT_FOUND)
+            raise DomainException(
+                "Este taller no existe o fue eliminado. Recarga el listado e intenta de nuevo.",
+                HTTP_404_NOT_FOUND,
+            )
         return taller
 
     async def extender_prueba(self, cod_taller: int, contract: ExtenderPruebaContract, usuario: str) -> dict:

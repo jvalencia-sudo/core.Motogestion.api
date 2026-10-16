@@ -10,19 +10,29 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_ingreso_usu TIMESTAMP;
 -- migración se aplica como mt_app sin `app.tenant_id` fijado -- la política no
 -- deja ver ninguna fila y el UPDATE responde "UPDATE 0" sin error (nadie queda
 -- como super-admin, el despliegue te deja sin acceso a /superadmin). Y aunque
--- fijaras el tenant, `cod_taller=1 AND cod_rol_prf_usu=1` volvería a convertir
--- en super-admin a TODOS los administradores del taller 1 -- exactamente el
--- hueco de seguridad que F0-14 cerró (ese taller también se usa para demos).
+-- fijaras el tenant a ciegas, `cod_taller=1 AND cod_rol_prf_usu=1` volvería a
+-- convertir en super-admin a TODOS los administradores del taller 1 --
+-- exactamente el hueco de seguridad que F0-14 cerró (ese taller también se
+-- usa para demos).
 --
--- Aplicar a mano, en una transacción, apuntando solo a tu propio usuario:
+-- Aplicar a mano, en UNA transacción (la verificación va DENTRO, antes del
+-- COMMIT -- afuera, sin `app.tenant_id` fijado, el SELECT también daría 0
+-- filas por RLS y haría creer que falló aunque sí haya funcionado):
 --
 --   BEGIN;
---   SELECT set_config('app.tenant_id', '1', true);
+--   -- 1) Busca el taller REAL del usuario (usuarios_identidad no tiene RLS,
+--   --    así que esto funciona sin fijar ningún tenant todavía):
+--   SELECT cod_taller FROM usuarios_identidad WHERE documento_usu = '<tu documento>';
+--   -- 2) Con el cod_taller de arriba, fija el tenant y marca al usuario:
+--   SELECT set_config('app.tenant_id', '<cod_taller de arriba>', true);
 --   UPDATE usuarios SET es_super_admin = true WHERE documento_usu = '<tu documento>';
---   COMMIT;
---
--- y confirmar después que hay exactamente un super-admin:
+--   -- Debe decir "UPDATE 1". Si dice "UPDATE 0", el documento o el tenant
+--   -- están mal -- ROLLBACK, no COMMIT.
+--   -- 3) Verificación, DENTRO de la misma transacción:
 --   SELECT documento_usu FROM usuarios WHERE es_super_admin = true;
+--   -- Debe traer exactamente 1 fila (la tuya). Si trae 0 o más de 1,
+--   -- ROLLBACK en vez de COMMIT.
+--   COMMIT;
 
 ALTER TABLE pagos ADD COLUMN IF NOT EXISTS medio VARCHAR(10) NOT NULL DEFAULT 'WOMPI';
 ALTER TABLE pagos ADD COLUMN IF NOT EXISTS detalle_medio VARCHAR(50);
