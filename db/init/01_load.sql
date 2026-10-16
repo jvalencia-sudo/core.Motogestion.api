@@ -4,3 +4,18 @@ SET ROLE mt_app;
 \i /schema.sql
 -- Seed de demo (taller/usuarios de ejemplo) -- solo local, nunca producción.
 \i /seed_demo.sql
+
+-- F1-00: full_schema.sql YA incluye todo lo que hay en db/migrations/ a esta
+-- fecha (se foldea a mano, ver README.md) -- esto solo deja constancia en
+-- schema_migrations para que scripts/migrate.py no intente reaplicarlo.
+-- Actualizar esta lista junto con full_schema.sql cada vez que se agregue una
+-- migración nueva (ver el checklist de README.md).
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TIMESTAMP NOT NULL DEFAULT now()
+);
+INSERT INTO schema_migrations (version) VALUES
+    ('000_baseline'),
+    ('001_mi_taller_campos'),
+    ('002_garantia_pred_trigger')
+ON CONFLICT (version) DO NOTHING;

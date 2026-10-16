@@ -63,10 +63,52 @@ paso en [`DEPLOY_ORACLE.md`](./DEPLOY_ORACLE.md). En resumen:
 - El **código** se despliega solo: cada push a `main` dispara
   `.github/workflows/deploy.yml`, que construye la imagen y la despliega por
   SSH en la VM.
-- Las **migraciones SQL** (`db/*.sql` numeradas) **no** son automáticas:
-  después de mergear algo que las necesite hay que aplicarlas a mano contra
-  la base de producción (con backup antes) — el detalle exacto está en
-  `DEPLOY_ORACLE.md`.
+- Las **migraciones** (`db/migrations/`, ver abajo) también son automáticas:
+  el mismo workflow corre `scripts/migrate.py up` (dentro de la imagen recién
+  publicada) antes de reiniciar el backend. Si una migración falla, el
+  despliegue se detiene ahí y el backend anterior sigue sirviendo contra el
+  esquema anterior.
+
+### Migraciones (`db/migrations/`)
+
+Sistema versionado (F1-00): cada archivo numerado en `db/migrations/` se
+aplica una sola vez, registrado en la tabla `schema_migrations`.
+`scripts/migrate.py status` lista qué está aplicado; `scripts/migrate.py up`
+aplica lo pendiente (lo usan CI, el deploy, y se puede correr a mano en
+local: `uv run python scripts/migrate.py up`).
+
+`db/full_schema_v2_multitenant.sql` sigue siendo lo que carga una instalación
+nueva (Postgres vacío, vía `db/init/` o `db/init-prod/00_init.sh`) — correr
+ahí dentro no hay Python disponible, así que no puede invocar `migrate.py`.
+Por eso toda migración se **foldea a mano** en ese archivo además de vivir en
+`db/migrations/` (igual que antes de F1-00): el CI tiene un paso que lo
+verifica solo (aplica de verdad cualquier migración que no esté reflejada ahí
+contra una base recién cargada, y falla si no cuadra).
+
+**Checklist para agregar una migración nueva:**
+
+1. Archivo numerado en `db/migrations/` (`NNN_descripcion.sql`, 3 dígitos).
+   **Nunca** un `BEGIN`/`COMMIT` propio — `migrate.py` ya envuelve cada
+   archivo en su propia transacción; un `COMMIT` adentro la cortaría a la
+   mitad.
+2. Si agregas una columna, siempre **al final** de su tabla (antes de los
+   `CONSTRAINT`) — `ALTER TABLE ... ADD COLUMN` agrega al final físico, y si
+   en el paso 3 queda en otra posición "lógica" el chequeo de CI (diff de
+   `pg_dump --schema-only`) va a fallar en falso.
+3. Foldea el mismo cambio en `db/full_schema_v2_multitenant.sql`.
+4. Agrega la versión del archivo al `INSERT INTO schema_migrations` que ya
+   existe en `db/init/01_load.sql`, `db/init/02_load_test.sql` y
+   `db/init-prod/00_init.sh` (los tres, mismo valor).
+5. Si la migración actualiza/borra filas de una tabla con RLS forzado, fija
+   `app.tenant_id` por taller (una migración corre como `mt_app`, sin
+   superusuario: sin tenant fijado, un `UPDATE`/`DELETE` afecta 0 filas sin
+   dar error — ver la lista de chequeo del `CLAUDE.md` raíz).
+6. Recuerda que, durante el despliegue, el backend de la versión **anterior**
+   sigue corriendo unos segundos contra el esquema ya migrado (la migración
+   corre antes de reemplazar el contenedor) — la migración debe ser
+   compatible con el código previo, no solo con el nuevo.
+7. Antes de mergear, pruébala contra una copia restaurada del backup de
+   producción (ver "Restaurar un backup" abajo), no solo contra CI.
 
 ## Seguridad multi-tenant (RLS)
 

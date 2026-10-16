@@ -88,6 +88,12 @@ jobs:
       # El paquete de GHCR es privado (el repo es privado). La VM se autentica solo
       # durante el deploy con el GITHUB_TOKEN de esta corrida (caduca al terminar el
       # job) y cierra sesión después: no queda ninguna credencial guardada en la VM.
+      # F1-00: scripts/migrate.py up corre DENTRO de la imagen recién publicada
+      # (ya trae db/migrations/ y scripts/ del build de este commit -- no hace
+      # falta sincronizar nada más a la VM). `set -e` hace que, si la migración
+      # falla, el script se detenga ACÁ -- el backend viejo sigue sirviendo
+      # contra el esquema anterior en vez de arrancar código nuevo contra una
+      # base a medio migrar.
       - name: Actualizar backend
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -97,6 +103,7 @@ jobs:
           ssh vm "set -e; cd ~/app
             export BACKEND_TAG=${{ github.sha }}
             docker compose pull backend
+            docker compose run --rm --no-deps backend python scripts/migrate.py up
             docker compose up -d --no-build --no-deps backend
             docker image prune -f"
 

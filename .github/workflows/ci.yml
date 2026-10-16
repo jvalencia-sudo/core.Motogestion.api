@@ -79,6 +79,26 @@ jobs:
           PGPASSWORD: test123
         run: psql -h localhost -U mt_app -d motogestion -f db/seed_demo.sql
 
+      # F1-00: full_schema.sql YA incluye todo lo que hay en db/migrations/ a esta
+      # fecha (se foldea a mano, ver README.md) -- esto deja constancia en
+      # schema_migrations para que el paso "scripts/migrate.py up" de más abajo
+      # no intente reaplicarlo. Mismo bloque que db/init/01_load.sql.
+      - name: Marcar las migraciones ya incluidas en el esquema
+        env:
+          PGPASSWORD: test123
+        run: |
+          psql -h localhost -U mt_app -d motogestion <<'SQL'
+          CREATE TABLE IF NOT EXISTS schema_migrations (
+              version TEXT PRIMARY KEY,
+              applied_at TIMESTAMP NOT NULL DEFAULT now()
+          );
+          INSERT INTO schema_migrations (version) VALUES
+              ('000_baseline'),
+              ('001_mi_taller_campos'),
+              ('002_garantia_pred_trigger')
+          ON CONFLICT (version) DO NOTHING;
+          SQL
+
       # 00_roles.sql ya creó motogestion_test (dueño mt_app): tests/conftest.py
       # (tests de aislamiento y de cobertura de RLS) usan esa BD dedicada, nunca
       # "motogestion", para no arriesgar sembrar/borrar datos en la de desarrollo.
@@ -92,6 +112,22 @@ jobs:
           PGPASSWORD: test123
         run: psql -h localhost -U mt_app -d motogestion_test -f db/seed_demo.sql
 
+      - name: Marcar las migraciones ya incluidas en el esquema (BD de test)
+        env:
+          PGPASSWORD: test123
+        run: |
+          psql -h localhost -U mt_app -d motogestion_test <<'SQL'
+          CREATE TABLE IF NOT EXISTS schema_migrations (
+              version TEXT PRIMARY KEY,
+              applied_at TIMESTAMP NOT NULL DEFAULT now()
+          );
+          INSERT INTO schema_migrations (version) VALUES
+              ('000_baseline'),
+              ('001_mi_taller_campos'),
+              ('002_garantia_pred_trigger')
+          ON CONFLICT (version) DO NOTHING;
+          SQL
+
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -101,6 +137,68 @@ jobs:
       - run: uv run ruff check .
 
       - run: uv run pytest
+
+      # F1-00: red de seguridad contra el olvido realista "agregué una migración a
+      # db/migrations/ pero no la foldeé en full_schema.sql ni en el INSERT de
+      # arriba" -- si eso pasa, este paso la encuentra pendiente e intenta
+      # aplicarla de verdad contra una BD que ya cargó full_schema.sql completo;
+      # si choca con algo que full_schema.sql ya tiene, falla ruidoso acá en vez
+      # de quedar en silencio.
+      - name: Confirmar que no hay migraciones sin foldear (scripts/migrate.py up)
+        run: uv run python scripts/migrate.py up
+
+      # Verificación real del criterio de aceptación "una base de datos nueva
+      # queda idéntica a producción aplicando línea base + migraciones": una
+      # tercera BD que arranca SOLO con la línea base, le aplicamos las
+      # migraciones de verdad, y comparamos su esquema contra el de "motogestion"
+      # (cargada por el camino de siempre, full_schema.sql). Deben ser idénticos.
+      # ALTER SCHEMA public OWNER TO mt_app (no solo CREATE DATABASE ... OWNER):
+      # es lo mismo que hace db/init/00_roles.sql para "motogestion" y
+      # db/init-prod/00_init.sh en producción -- sin esto, pg_dump trata el
+      # public "de fábrica" (dueño del CREATE DATABASE, acá postgres) distinto
+      # al que sí tuvo un ALTER explícito, y el diff de abajo falla en falso por
+      # una diferencia de dueño, no de esquema real.
+      - name: Crear BD solo-línea-base
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d motogestion -c "CREATE DATABASE motogestion_baseline_check OWNER mt_app;"
+          psql -h localhost -U postgres -d motogestion_baseline_check -c "ALTER SCHEMA public OWNER TO mt_app;"
+
+      - name: Cargar solo la línea base
+        env:
+          PGPASSWORD: test123
+        run: psql -h localhost -U mt_app -d motogestion_baseline_check -v ON_ERROR_STOP=1 -f db/migrations/000_baseline.sql
+
+      - name: Marcar la línea base como aplicada (bootstrap manual, igual que en prod)
+        env:
+          PGPASSWORD: test123
+        run: |
+          psql -h localhost -U mt_app -d motogestion_baseline_check <<'SQL'
+          CREATE TABLE IF NOT EXISTS schema_migrations (
+              version TEXT PRIMARY KEY,
+              applied_at TIMESTAMP NOT NULL DEFAULT now()
+          );
+          INSERT INTO schema_migrations (version) VALUES ('000_baseline') ON CONFLICT DO NOTHING;
+          SQL
+
+      - name: Aplicar las migraciones pendientes sobre la línea base
+        env:
+          DB_NAME: motogestion_baseline_check
+        run: uv run python scripts/migrate.py up
+
+      - name: Comparar línea base + migraciones contra el esquema completo
+        env:
+          PGPASSWORD: test123
+        run: |
+          pg_dump --schema-only --no-owner --no-privileges -h localhost -U mt_app -d motogestion > /tmp/full.sql
+          pg_dump --schema-only --no-owner --no-privileges -h localhost -U mt_app -d motogestion_baseline_check > /tmp/baseline.sql
+          # \restrict/\unrestrict llevan un token aleatorio por dump (candado de
+          # pg_dump, no es esquema real) -- se excluyen antes de comparar. -F
+          # (cadena fija, sin regex): un backslash inicial en patrón BRE sin -F
+          # es ambiguo entre implementaciones de grep.
+          diff <(grep -vF -e '\restrict' -e '\unrestrict' /tmp/full.sql) \
+               <(grep -vF -e '\restrict' -e '\unrestrict' /tmp/baseline.sql)
 
   docker-build:
     name: Build de la imagen Docker
