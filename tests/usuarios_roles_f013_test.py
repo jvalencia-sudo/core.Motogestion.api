@@ -9,33 +9,6 @@ from tests.conftest import TALLER_A, TALLER_B, auth_headers
 pytestmark = [pytest.mark.db, pytest.mark.usefixtures("mock_auth0")]
 
 
-@pytest.fixture
-def perfil_mecanico(db_conn, seed_talleres):
-    """Un segundo perfil (Mecánico) en TALLER_A, sin usuario -- lo necesitan los
-    tests de invitar/editar con un perfil real no-admin."""
-    cod_taller = TALLER_A
-    with db_conn.cursor() as cur:
-        cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(cod_taller),))
-        cur.execute(
-            "INSERT INTO perfiles (cod_taller, cod_rol_prf, cod_est_prf, nombre_prf) "
-            "VALUES (%s, 2, 1, 'Mecanico F0-13 test') RETURNING cod_prf",
-            (cod_taller,),
-        )
-        cod_prf = cur.fetchone()[0]
-    yield cod_prf
-    with db_conn.cursor() as cur:
-        cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(cod_taller),))
-        cur.execute(
-            "DELETE FROM perfiles_permisos WHERE cod_taller=%s AND cod_prf_pp=%s",
-            (cod_taller, cod_prf),
-        )
-        cur.execute(
-            "DELETE FROM usuarios WHERE cod_taller=%s AND cod_prf_usu=%s", (cod_taller, cod_prf)
-        )
-        cur.execute("DELETE FROM perfiles WHERE cod_taller=%s AND cod_prf=%s", (cod_taller, cod_prf))
-        cur.execute("DELETE FROM audit_log WHERE cod_taller=%s", (cod_taller,))
-
-
 class TestDerivarRolDesdeElPerfil:
     def test_invitar_con_perfil_mecanico_deriva_rol_2(self, client, db_conn, seed_talleres, perfil_mecanico):
         resp = client.post(
