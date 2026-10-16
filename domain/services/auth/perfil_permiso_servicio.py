@@ -87,12 +87,15 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         perfiles de otro taller (RLS: verificar_perfil_existe no los ve)."""
         perfil = await self.perfil_repo.verificar_perfil_existe(cod_prf)
         if not perfil:
-            raise DomainException("Perfil no encontrado", HTTP_404_NOT_FOUND)
+            raise DomainException(
+                "Perfil no encontrado. Recarga la página y vuelve a intentar.", HTTP_404_NOT_FOUND
+            )
 
         cod_rol = perfil.get("COD_ROL_PRF")
         if cod_rol == ADMIN_ROL:
             raise DomainException(
-                "El rol Administrador no se puede editar, ya tiene acceso a todo",
+                "El rol Administrador no se puede editar: ya tiene acceso a todo. Si "
+                "necesitas un rol con menos permisos, crea uno nuevo.",
                 HTTP_400_BAD_REQUEST,
             )
 

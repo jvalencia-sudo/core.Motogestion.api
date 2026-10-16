@@ -42,20 +42,25 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
         total = await self.repository.contar_perfiles_taller()
         if total >= MAX_PERFILES_POR_TALLER:
             raise DomainException(
-                f"Ya existe el máximo de {MAX_PERFILES_POR_TALLER} perfiles para este taller",
+                f"Ya existe el máximo de {MAX_PERFILES_POR_TALLER} perfiles para este taller. "
+                "Elimina uno que no uses antes de crear otro.",
                 HTTP_400_BAD_REQUEST,
             )
 
         duplicado = await self.repository.buscar_por_nombre(contract.nombre_prf)
         if duplicado:
             raise DomainException(
-                "Ya existe un perfil con ese nombre en este taller", HTTP_400_BAD_REQUEST
+                "Ya existe un perfil con ese nombre en este taller. Elige otro nombre.",
+                HTTP_400_BAD_REQUEST,
             )
 
         if contract.duplicar_de:
             origen = await self.repository.verificar_perfil_existe(contract.duplicar_de)
             if not origen:
-                raise DomainException("El perfil a duplicar no existe", HTTP_404_NOT_FOUND)
+                raise DomainException(
+                    "El perfil a duplicar no existe. Recarga la página y vuelve a intentar.",
+                    HTTP_404_NOT_FOUND,
+                )
             cod_prf = await self.repository.duplicar_perfil(
                 contract.nombre_prf,
                 contract.descripcion_prf,
@@ -86,11 +91,15 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
         existe = await self.repository.verificar_perfil_existe(contract.cod_prf)
 
         if not existe:
-            raise DomainException("El perfil no existe", HTTP_404_NOT_FOUND)
+            raise DomainException(
+                "El perfil no existe. Recarga la página y vuelve a intentar.", HTTP_404_NOT_FOUND
+            )
 
         if existe.get("COD_ROL_PRF") == ADMIN_ROL:
             raise DomainException(
-                "El perfil Administrador no se puede renombrar ni editar", HTTP_400_BAD_REQUEST
+                "El perfil Administrador no se puede renombrar ni editar: siempre tiene "
+                "acceso total. Si necesitas otro rol con menos permisos, crea uno nuevo.",
+                HTTP_400_BAD_REQUEST,
             )
 
         duplicado = await self.repository.buscar_por_nombre(
@@ -98,7 +107,8 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
         )
         if duplicado:
             raise DomainException(
-                "Ya existe un perfil con ese nombre en este taller", HTTP_400_BAD_REQUEST
+                "Ya existe un perfil con ese nombre en este taller. Elige otro nombre.",
+                HTTP_400_BAD_REQUEST,
             )
 
         modelo = PerfilModelo(
@@ -121,12 +131,16 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
         nunca si todavía tiene usuarios asignados (hay que reasignarlos antes)."""
         existe = await self.repository.verificar_perfil_existe(cod_prf)
         if not existe:
-            raise DomainException("El perfil no existe", HTTP_404_NOT_FOUND)
+            raise DomainException(
+                "El perfil no existe. Recarga la página y vuelve a intentar.", HTTP_404_NOT_FOUND
+            )
 
         cod_rol = existe.get("COD_ROL_PRF")
         if cod_rol == ADMIN_ROL:
             raise DomainException(
-                "El perfil Administrador no se puede eliminar", HTTP_400_BAD_REQUEST
+                "El perfil Administrador no se puede eliminar: siempre debe quedar al menos "
+                "un administrador en el taller.",
+                HTTP_400_BAD_REQUEST,
             )
 
         num_usuarios = await self.repository.contar_usuarios_de_perfil(cod_prf)

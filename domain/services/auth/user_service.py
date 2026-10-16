@@ -92,7 +92,11 @@ class UserService(BaseService[UserModel, UserRepository]):
                 )
             acceso = await self.identidad_repo.get_acceso_por_correo(info.get("email"))
             if not acceso:
-                raise DomainException("Usuario no registrado en el sistema", HTTP_403_FORBIDDEN)
+                raise DomainException(
+                    "Usuario no registrado en el sistema. Pídele a tu administrador que te "
+                    "invite con este mismo correo.",
+                    HTTP_403_FORBIDDEN,
+                )
             sub_vinculado = acceso.get("SUB_ID_USU")
             if sub_vinculado and sub_vinculado != sub:
                 raise DomainException(
@@ -142,7 +146,10 @@ class UserService(BaseService[UserModel, UserRepository]):
         existe en este taller, la consulta no devuelve nada (RLS) y se rechaza."""
         rol = await self.perfil_repo.obtener_rol_por_perfil(contract.cod_prf)
         if rol is None:
-            raise DomainException("El perfil elegido no existe", HTTP_404_NOT_FOUND)
+            raise DomainException(
+                "El perfil elegido no existe. Recarga la página y vuelve a elegir el rol.",
+                HTTP_404_NOT_FOUND,
+            )
         nombre, apellido_1, _ = self._split_full_name(contract.nombre)
         documento = self.generate_provisional_document()
         await self.repository.crear_pre_registrado(

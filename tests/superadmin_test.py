@@ -12,6 +12,8 @@ import pytest
 
 from domain.models.auth.user_model import UserPermissionsModel
 from domain.services.superadmin.metricas_servicio import MetricasServicio
+from infrastructure.utils.tenant_context import set_tenant
+from repository.data.database import Database
 from tests.conftest import TALLER_A, TALLER_B, _SUB_POR_TOKEN, auth_headers
 
 pytestmark = [pytest.mark.db, pytest.mark.usefixtures("mock_auth0")]
@@ -144,7 +146,12 @@ class TestMFAObligatorioParaSuperAdmin:
 
 
 class TestMetricasPorTenantNoSeMezclan:
-    async def test_cada_taller_ve_sus_propias_metricas(self, db_conn, seed_talleres):
+    # `client` no se usa directamente, pero su fixture (module-scoped) es lo
+    # que inicializa el pool async real -- estos tests llaman al servicio
+    # directo, sin pasar por el TestClient, así que necesitan que algo más
+    # ya lo haya levantado (si esta clase corre aislada, sin otro test que
+    # use `client` antes, falla con "Pool no inicializado").
+    async def test_cada_taller_ve_sus_propias_metricas(self, client, db_conn, seed_talleres):
         # TALLER_B recibe una segunda orden para que A y B NO queden simétricos --
         # si el loop de set_tenant tuviera una fuga, un conteo igual en ambos no
         # probaría nada.
@@ -171,6 +178,23 @@ class TestMetricasPorTenantNoSeMezclan:
                     (TALLER_B,),
                 )
 
+    async def test_el_tenant_del_caller_se_restaura_despues_de_calcular_metricas(
+        self, client, seed_talleres
+    ):
+        """metricas_de_todos_los_talleres() recorre A y B internamente -- si no
+        restaurara el tenant al salir, una consulta DESPUÉS, en el mismo
+        request/contexto, vería los datos del último taller recorrido (B) en
+        vez de los del caller (A), sin ningún aviso."""
+        set_tenant(TALLER_A)
+        try:
+            await MetricasServicio().metricas_de_todos_los_talleres()
+            filas = await Database().execute(
+                "SELECT cod_taller FROM ordenes_trabajo", None
+            )
+            assert {f["COD_TALLER"] for f in filas} == {TALLER_A}
+        finally:
+            set_tenant(None)
+
 
 class TestAccionesSobreUnTallerExigenMotivoYQuedanEnAuditoria:
     def test_extender_prueba_en_taller_activo_rechaza(self, client, seed_talleres, superadmin_headers):
@@ -182,6 +206,38 @@ class TestAccionesSobreUnTallerExigenMotivoYQuedanEnAuditoria:
         )
         assert resp.status_code == 400, resp.text
         assert seed.cod_taller == TALLER_A  # sanity
+
+    def test_extender_prueba_en_taller_de_prueba_funciona_y_audita(
+        self, client, db_conn, seed_talleres, superadmin_headers
+    ):
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "UPDATE talleres SET estado_tal = 'prueba' WHERE cod_taller = %s", (TALLER_A,)
+            )
+        try:
+            resp = client.post(
+                f"/api/superadmin/talleres/{TALLER_A}/extender-prueba",
+                json={"dias": 15, "motivo": "pidió más tiempo por soporte"},
+                headers=superadmin_headers,
+            )
+            assert resp.status_code == 200, resp.text
+
+            with db_conn.cursor() as cur:
+                cur.execute(
+                    "SELECT accion, motivo FROM auditoria_superadmin "
+                    "WHERE cod_taller = %s AND accion = 'extender_prueba' "
+                    "ORDER BY fecha DESC LIMIT 1",
+                    (TALLER_A,),
+                )
+                fila = cur.fetchone()
+                assert fila is not None
+                assert fila[0] == "extender_prueba"
+                assert fila[1] == "pidió más tiempo por soporte"
+        finally:
+            with db_conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE talleres SET estado_tal = 'activo' WHERE cod_taller = %s", (TALLER_A,)
+                )
 
     def test_sin_motivo_falla_validacion(self, client, seed_talleres, superadmin_headers):
         resp = client.put(
@@ -235,10 +291,14 @@ class TestAccionesSobreUnTallerExigenMotivoYQuedanEnAuditoria:
             assert cur.fetchone()[0] == "activo"
 
             cur.execute(
-                "SELECT count(*) FROM auditoria_superadmin WHERE cod_taller = %s AND accion IN ('suspender','reactivar')",
+                "SELECT accion, motivo FROM auditoria_superadmin "
+                "WHERE cod_taller = %s AND accion IN ('suspender','reactivar') ORDER BY fecha",
                 (TALLER_A,),
             )
-            assert cur.fetchone()[0] == 2
+            filas = cur.fetchall()
+            assert len(filas) == 2
+            assert filas[0] == ("suspender", "falta de pago")
+            assert filas[1] == ("reactivar", "pagó")
 
     def test_pago_manual_activa_suscripcion_y_registra_pago(self, client, db_conn, seed_talleres, superadmin_headers):
         with db_conn.cursor() as cur:
@@ -271,3 +331,57 @@ class TestAccionesSobreUnTallerExigenMotivoYQuedanEnAuditoria:
             )
             fila = cur.fetchone()
             assert fila == ("MANUAL", "Nequi", "APPROVED")
+
+    def test_pago_manual_con_vencimiento_futuro_extiende_desde_esa_fecha(
+        self, client, db_conn, seed_talleres, superadmin_headers
+    ):
+        """GREATEST(vencimiento, hoy) + 30: si el taller todavía tiene días
+        pagados por delante, el pago nuevo se SUMA a esa fecha, no a hoy."""
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "UPDATE talleres SET fecha_fin_susc_tal = CURRENT_DATE + 10 "
+                "WHERE cod_taller = %s", (TALLER_A,)
+            )
+
+        resp = client.post(
+            f"/api/superadmin/talleres/{TALLER_A}/pago-manual",
+            # Monto distinto al de los otros tests de esta clase: la referencia
+            # del pago manual es determinística (taller+usuario+monto, ver
+            # acciones_taller_servicio.py), así que un monto repetido chocaría
+            # con ux_pagos_referencia si los pagos de otro test no se borraron.
+            json={"monto": 69000, "detalleMedio": "Nequi", "motivo": "renovación anticipada"},
+            headers=superadmin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "SELECT fecha_fin_susc_tal = CURRENT_DATE + 40 FROM talleres WHERE cod_taller = %s",
+                (TALLER_A,),
+            )
+            assert cur.fetchone()[0] is True
+
+    def test_pago_manual_con_suscripcion_vencida_extiende_desde_hoy(
+        self, client, db_conn, seed_talleres, superadmin_headers
+    ):
+        """GREATEST(vencimiento, hoy) + 30: si el taller ya venció, el pago
+        nuevo cuenta desde HOY, no desde la fecha vieja ya pasada."""
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "UPDATE talleres SET fecha_fin_susc_tal = CURRENT_DATE - 10 "
+                "WHERE cod_taller = %s", (TALLER_A,)
+            )
+
+        resp = client.post(
+            f"/api/superadmin/talleres/{TALLER_A}/pago-manual",
+            json={"monto": 89000, "detalleMedio": "Efectivo", "motivo": "puso al día su cuenta"},
+            headers=superadmin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "SELECT fecha_fin_susc_tal = CURRENT_DATE + 30 FROM talleres WHERE cod_taller = %s",
+                (TALLER_A,),
+            )
+            assert cur.fetchone()[0] is True

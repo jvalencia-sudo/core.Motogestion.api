@@ -43,6 +43,36 @@ def test_toda_ruta_no_get_exige_permiso_o_esta_documentada():
     )
 
 
+def test_toda_ruta_get_de_superadmin_exige_require_super_admin():
+    """F0-14 corrección 7: el test de arriba salta TODA ruta cuyo único método
+    sea GET (por diseño -- no es su alcance). Las GET de /api/superadmin
+    (ej. detalle de taller: correo/teléfono del dueño) sí están protegidas hoy
+    -- vía `dependencies=_super_admin` a nivel de router en api/__init__.py,
+    que FastAPI mezcla en el `dependant` de cada ruta -- pero nada lo verificaba
+    de forma genérica. Si alguien agrega una ruta GET nueva bajo /superadmin
+    por fuera de ese router (sin ese guard), este test la atrapa."""
+    rutas_get_vistas = []
+    rutas_get_sin_guardia = []
+
+    for route in api_router.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        if not route.path.startswith("/superadmin"):
+            continue
+        if "GET" not in (route.methods - {"HEAD", "OPTIONS"}):
+            continue
+        rutas_get_vistas.append(route.path)
+        if not _tiene_guardia(route):
+            rutas_get_sin_guardia.append(f"GET {route.path}")
+
+    # Si esto da 0, el filtro de arriba está mal (ej. el prefijo cambió) y el
+    # test de abajo pasaría en falso por no haber encontrado nada que revisar.
+    assert rutas_get_vistas, "No se encontró ninguna ruta GET bajo /superadmin -- revisa el path del test"
+    assert not rutas_get_sin_guardia, (
+        f"Rutas GET de /superadmin sin require_super_admin: {sorted(rutas_get_sin_guardia)}"
+    )
+
+
 def test_las_excepciones_documentadas_siguen_existiendo():
     """Si una excepción documentada deja de corresponder a una ruta real (se borró o
     cambió de path/método), permission_policy.py queda con basura que nadie revisa:

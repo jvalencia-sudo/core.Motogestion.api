@@ -1,6 +1,6 @@
 import random
 import time
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Dict, List, Optional
 
 from starlette.status import HTTP_400_BAD_REQUEST
@@ -15,6 +15,7 @@ from domain.contracts.talleres.taller_contract import (
 from domain.models.talleres.taller_model import TallerModel
 from domain.services.base_service import BaseService
 from infrastructure.exceptions.domain_exception import DomainException
+from infrastructure.utils.fecha_bogota import hoy_bogota
 from infrastructure.utils.tenant_context import set_tenant
 from repository.talleres.taller_repositorio import TallerRepositorio
 from repository.auth.perfil_repositorio import PerfilRepositorio
@@ -87,8 +88,8 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         estado = susc.get("ESTADO_TAL")
         fecha_fin = susc.get("FECHA_FIN_SUSC_TAL")
         fecha_creacion = susc.get("FECHA_CREACION_TAL")
-        dias = (fecha_fin - date.today()).days if fecha_fin else None
-        vencido = estado == "prueba" and fecha_fin is not None and fecha_fin < date.today()
+        dias = (fecha_fin - hoy_bogota()).days if fecha_fin else None
+        vencido = estado == "prueba" and fecha_fin is not None and fecha_fin < hoy_bogota()
         return TallerSuscripcionContract(
             estado=estado,
             plan=susc.get("PLAN_TAL"),
@@ -113,7 +114,7 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
             )
 
         # 1) Crear el taller con su ventana de prueba (fecha_fin_susc = hoy + DIAS_PRUEBA).
-        fecha_fin = date.today() + timedelta(days=DIAS_PRUEBA)
+        fecha_fin = hoy_bogota() + timedelta(days=DIAS_PRUEBA)
         cod_taller = await self.repository.crear_taller(
             contract.nombre_tal, contract.correo, contract.nit_tal, fecha_fin
         )

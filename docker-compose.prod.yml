@@ -82,6 +82,9 @@ services:
         environment:
             ENVIRONMENT: ${ENVIRONMENT:-prod}
             PROJECT_NAME: ${PROJECT_NAME:-moto-api}
+            # Red de seguridad además de infrastructure/utils/fecha_bogota.py (que ya
+            # no depende de esto): mismo patrón que n8n más abajo.
+            TZ: America/Bogota
             # CORS: lista separada por comas. Debe incluir el dominio de Vercel.
             CORS_ORIGINS: ${CORS_ORIGINS:?Falta CORS_ORIGINS en .env}
             FRONTEND_URL: ${FRONTEND_URL:?Falta FRONTEND_URL en .env}
