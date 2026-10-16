@@ -152,10 +152,18 @@ jobs:
       # tercera BD que arranca SOLO con la línea base, le aplicamos las
       # migraciones de verdad, y comparamos su esquema contra el de "motogestion"
       # (cargada por el camino de siempre, full_schema.sql). Deben ser idénticos.
+      # ALTER SCHEMA public OWNER TO mt_app (no solo CREATE DATABASE ... OWNER):
+      # es lo mismo que hace db/init/00_roles.sql para "motogestion" y
+      # db/init-prod/00_init.sh en producción -- sin esto, pg_dump trata el
+      # public "de fábrica" (dueño del CREATE DATABASE, acá postgres) distinto
+      # al que sí tuvo un ALTER explícito, y el diff de abajo falla en falso por
+      # una diferencia de dueño, no de esquema real.
       - name: Crear BD solo-línea-base
         env:
           PGPASSWORD: postgres
-        run: psql -h localhost -U postgres -d motogestion -c "CREATE DATABASE motogestion_baseline_check OWNER mt_app;"
+        run: |
+          psql -h localhost -U postgres -d motogestion -c "CREATE DATABASE motogestion_baseline_check OWNER mt_app;"
+          psql -h localhost -U postgres -d motogestion_baseline_check -c "ALTER SCHEMA public OWNER TO mt_app;"
 
       - name: Cargar solo la línea base
         env:
@@ -186,9 +194,11 @@ jobs:
           pg_dump --schema-only --no-owner --no-privileges -h localhost -U mt_app -d motogestion > /tmp/full.sql
           pg_dump --schema-only --no-owner --no-privileges -h localhost -U mt_app -d motogestion_baseline_check > /tmp/baseline.sql
           # \restrict/\unrestrict llevan un token aleatorio por dump (candado de
-          # pg_dump, no es esquema real) -- se excluyen antes de comparar.
-          diff <(grep -v -e '^\\restrict' -e '^\\unrestrict' /tmp/full.sql) \
-               <(grep -v -e '^\\restrict' -e '^\\unrestrict' /tmp/baseline.sql)
+          # pg_dump, no es esquema real) -- se excluyen antes de comparar. -F
+          # (cadena fija, sin regex): un backslash inicial en patrón BRE sin -F
+          # es ambiguo entre implementaciones de grep.
+          diff <(grep -vF -e '\restrict' -e '\unrestrict' /tmp/full.sql) \
+               <(grep -vF -e '\restrict' -e '\unrestrict' /tmp/baseline.sql)
 
   docker-build:
     name: Build de la imagen Docker
