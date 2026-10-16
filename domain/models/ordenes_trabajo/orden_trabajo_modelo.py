@@ -13,7 +13,7 @@ class OrdenTrabajoModelo(BaseSchema):
     observacion_ot: Optional[str] = None
     placa_mot_ot: str
     documento_usu_rp_ot: str
-    documento_usu_mc_ot: str
+    documento_usu_mc_ot: Optional[str] = None
     cod_ot_est_ot: int
     fecha_fin_garantia_ot: Optional[date] = None
 
@@ -38,8 +38,8 @@ class VwOrdenesTrabajoCompleta(BaseSchema):
     direccion_cli: Optional[str] = None
     documento_recepcionista: str
     recepcionista: str
-    documento_mecanico: str
-    mecanico: str
+    documento_mecanico: Optional[str] = None
+    mecanico: Optional[str] = None
     estado_ot: str
     cod_ot_est_ot: int
 
@@ -63,7 +63,7 @@ class VwOtPendientes(BaseSchema):
     telefono_cli: str
     placa_mot: str
     moto: str
-    mecanico_asignado: str
+    mecanico_asignado: Optional[str] = None
     estado: str
 
 

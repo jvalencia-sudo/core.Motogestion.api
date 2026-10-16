@@ -12,8 +12,11 @@ class OrdenTrabajoCreateContract(BaseContractSchema):
     """Contrato para crear una orden de trabajo"""
     placa_mot_ot: str = Field(..., min_length=5, max_length=6, description="Placa de la moto")
     kilometraje_ingreso_ot: int = Field(..., gt=0, description="Kilometraje de ingreso")
-    documento_usu_rp_ot: str = Field(..., min_length=8, max_length=11, description="Documento del recepcionista")
-    documento_usu_mc_ot: str = Field(..., min_length=8, max_length=11, description="Documento del mecanico")
+    # F1-01: ambos opcionales -- una orden rápida se abre solo con placa, km y
+    # motivo. Si no se manda documento_usu_rp_ot, el endpoint usa el usuario
+    # autenticado. El mecánico se asigna después.
+    documento_usu_rp_ot: Optional[str] = Field(None, min_length=8, max_length=11, description="Documento del recepcionista (default: usuario autenticado)")
+    documento_usu_mc_ot: Optional[str] = Field(None, min_length=8, max_length=11, description="Documento del mecanico (se puede asignar después)")
     observacion_cli_ot: Optional[str] = Field(None, max_length=500, description="Observacion del cliente")
     observacion_ot: Optional[str] = Field(None, max_length=500, description="Observacion interna")
     fecha_entrega_ot: Optional[date] = Field(None, description="Fecha estimada de entrega")
@@ -85,8 +88,8 @@ class OrdenTrabajoResponseContract(BaseContractSchema):
     # Informacion de usuarios
     documento_recepcionista: str
     recepcionista: str
-    documento_mecanico: str
-    mecanico: str
+    documento_mecanico: Optional[str] = None
+    mecanico: Optional[str] = None
 
     # Estado
     estado_ot: str
@@ -109,7 +112,7 @@ class OrdenTrabajoResumenContract(BaseContractSchema):
     nombre_completo_cliente: str
     telefono_cli: str
     estado_ot: str
-    mecanico: str
+    mecanico: Optional[str] = None
     total_ot: Optional[float] = 0.0
 
 
