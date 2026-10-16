@@ -59,6 +59,8 @@ class UserService(BaseService[UserModel, UserRepository]):
         - Si es su primer ingreso y su correo está pre-registrado (sin sub) -> se
           vincula el sub y entra.
         - Si no está registrado -> 403 (no se crean usuarios sueltos).
+        - Si es super-admin (F0-14) y no tiene MFA activo en Auth0 -> 403 (la
+          verificación en dos pasos es obligatoria para esa marca).
         """
         auth_user = await Auth0Provider().verify(request.token)
         sub = auth_user.user_id
@@ -73,6 +75,16 @@ class UserService(BaseService[UserModel, UserRepository]):
             set_tenant(acceso.get("COD_TALLER"))
             await self.repository.vincular_sub(acceso.get("DOCUMENTO_USU"), sub)
             existing_user = await self.repository.get_user_by_sub(sub)
+
+        if existing_user.get("ES_SUPER_ADMIN"):
+            info = await Auth0Provider().get_user_info(sub)
+            if not (info and info.get("multifactor")):
+                raise DomainException(
+                    "Debes activar la verificación en dos pasos en tu cuenta antes de continuar",
+                    HTTP_403_FORBIDDEN,
+                )
+
+        await self.repository.marcar_ultimo_ingreso(existing_user.get("DOCUMENTO_USU"))
 
         user = self._map_user_from_db(existing_user, sub, request)
 
@@ -121,6 +133,7 @@ class UserService(BaseService[UserModel, UserRepository]):
             sub_id_usu=db_user.get("SUB_ID_USU", sub_id),
             cod_prf_usu=db_user.get("COD_PRF_USU", 1),
             cod_rol_prf_usu=db_user.get("COD_ROL_PRF_USU", 1),
+            es_super_admin=bool(db_user.get("ES_SUPER_ADMIN", False)),
         )
 
     async def _create_new_user(self, sub_id: str, request: LoginContract) -> UserModel:

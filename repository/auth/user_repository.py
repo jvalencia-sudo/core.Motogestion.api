@@ -35,3 +35,11 @@ class UserRepository(BaseRepository):
             'update usuarios set sub_id_usu = :1 where documento_usu = :2',
             (sub, documento_usu)
         )
+
+    async def marcar_ultimo_ingreso(self, documento_usu: str) -> None:
+        """Se llama en cada login exitoso (F0-14: lo necesita el panel de
+        super-admin para mostrar 'último ingreso' por usuario)."""
+        await self.execute_non_query(
+            'update usuarios set ultimo_ingreso_usu = now() where documento_usu = :1',
+            (documento_usu,)
+        )

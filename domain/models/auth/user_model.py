@@ -18,6 +18,7 @@ class UserModel(BaseSchema):
     sub_id_usu: Optional[str] = None  # NULL hasta el primer login (se vincula ahí)
     cod_prf_usu: int
     cod_rol_prf_usu: int
+    es_super_admin: bool = False
 
 class VwUsuariosPerfiles(BaseSchema):
     documento_usu: str

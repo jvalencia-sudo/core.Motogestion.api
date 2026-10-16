@@ -2,7 +2,8 @@
 
 - get_current_usuario: devuelve el registro de BD del usuario (o None si no se puede
   resolver). Reusa el contexto de tenant que ya fijó resolve_tenant (RLS).
-- require_super_admin: exige que el usuario sea Admin del taller plataforma.
+- require_super_admin: exige la marca es_super_admin (F0-14), independiente de a qué
+  taller pertenezca el usuario o qué rol tenga ahí.
 - require_permiso: exige un permiso puntual (tabla perfiles_permisos) del perfil del
   usuario, o que sea Administrador (pasa siempre). Es el guardia real por acción
   (F0-11): antes del backend no validaba nada de esto, solo lo ocultaba el front.
@@ -28,8 +29,6 @@ from repository.auth.user_repository import UserRepository
 from repository.talleres.taller_repositorio import TallerRepositorio
 from repository.planes.plan_repositorio import PlanRepositorio
 
-# Taller plataforma: sus administradores son los super-admin del sistema.
-PLATFORM_TALLER = 1
 ADMIN_ROL = 1
 
 
@@ -52,11 +51,17 @@ async def get_current_usuario(request: Request) -> Optional[Dict]:
 
 
 async def require_super_admin(request: Request) -> Dict:
-    """Exige Admin del taller plataforma. Lanza 401/403 si no cumple (fail-closed)."""
+    """Exige es_super_admin=true (F0-14). Lanza 401/403 si no cumple (fail-closed).
+
+    Antes de F0-14 esto exigía "Admin del taller plataforma (cod_taller=1)" -- un
+    taller hardcodeado que también se usaba para demos: si alguien recibía rol Admin
+    ahí por error, quedaba con acceso a toda la plataforma sin que nadie lo decidiera.
+    Ahora es una marca explícita e independiente de cualquier taller/rol, otorgada
+    solo por SQL directo (no hay UI para darla, a propósito)."""
     user = await get_current_usuario(request)
     if user is None:
         raise DomainException("No autenticado", HTTP_401_UNAUTHORIZED)
-    if user.get("COD_TALLER") != PLATFORM_TALLER or user.get("COD_ROL_PRF_USU") != ADMIN_ROL:
+    if not user.get("ES_SUPER_ADMIN"):
         raise DomainException("Requiere permisos de super-administrador", HTTP_403_FORBIDDEN)
     return user
 

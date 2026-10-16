@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends
 
-from infrastructure.dependencies.current_user import require_active_subscription, require_admin
+from infrastructure.dependencies.current_user import (
+    require_active_subscription,
+    require_admin,
+    require_super_admin,
+)
 from api.endpoints.auth.user_api import router as users_router
 from api.endpoints.auth.rol import router as rol_router
 from api.endpoints.auth.perfil import router as perfil_router
@@ -21,6 +25,7 @@ from api.endpoints.inventario.inventario_api import router as inventario_router
 from api.endpoints.impuestos.impuesto_api import router as impuestos_router
 from api.endpoints.suscripciones.suscripcion_api import router as suscripciones_router
 from api.endpoints.public.wompi_webhook_api import router as wompi_webhook_router
+from api.endpoints.superadmin import router as superadmin_router
 
 api_router = APIRouter()
 
@@ -84,3 +89,10 @@ api_router.include_router(suscripciones_router, prefix="/suscripciones", tags=["
 
 # Webhook público de Wompi (sin auth; validado por firma del evento)
 api_router.include_router(wompi_webhook_router, prefix="/public", tags=["Public"])
+
+# Panel de super-admin de la plataforma (F0-14): exige es_super_admin explícito,
+# independiente de taller/rol -- no "Admin del taller plataforma" como antes.
+_super_admin = [Depends(require_super_admin)]
+api_router.include_router(
+    superadmin_router, prefix="/superadmin", tags=["SuperAdmin"], dependencies=_super_admin
+)
