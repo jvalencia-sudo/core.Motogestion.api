@@ -118,11 +118,39 @@ docker compose logs -f backend
 ```
 Solo se reconstruye el backend; db, n8n y Caddy no se tocan.
 
-Si el cambio incluye un SQL nuevo (migración), aplícalo como el rol de la app para
-que las tablas sigan siendo suyas:
+Si el cambio incluye una migración nueva (`db/migrations/NNN_*.sql`), **no hace
+falta aplicarla a mano**: el deploy automático (`.github/workflows/deploy.yml`,
+dispara con cada push a `main`) corre `scripts/migrate.py up` dentro de la imagen
+recién publicada, antes de reiniciar el backend. Si falla, el workflow se detiene
+ahí y el backend anterior sigue sirviendo. Ver el checklist de cómo agregar una
+migración en el `README.md` de este repo.
+
+Para correrlas a mano contra la VM igual (ej. un `workflow_dispatch` manual, o
+verificar el estado sin esperar al próximo push):
 ```bash
-docker compose exec -T db sh -c 'PGPASSWORD="$APP_DB_PASSWORD" psql -h 127.0.0.1 -U "$APP_DB_USER" -d "$POSTGRES_DB"' < db/migration_XXXX.sql
+docker compose run --rm --no-deps backend python scripts/migrate.py status
+docker compose run --rm --no-deps backend python scripts/migrate.py up
 ```
+
+### 5.1 Una sola vez: activar el sistema de migraciones (F1-00)
+
+La tabla `schema_migrations` no existe todavía en la base de producción actual
+(se creó junto con el sistema de migraciones, después de que esa base ya estaba
+desplegada). Antes del primer deploy que use `scripts/migrate.py`, corre esto UNA
+sola vez, a mano, contra la BD real:
+```bash
+docker compose exec -T db sh -c 'PGPASSWORD="$APP_DB_PASSWORD" psql -h 127.0.0.1 -U "$APP_DB_USER" -d "$POSTGRES_DB"' <<'SQL'
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TIMESTAMP NOT NULL DEFAULT now()
+);
+INSERT INTO schema_migrations (version) VALUES ('000_baseline') ON CONFLICT DO NOTHING;
+SQL
+```
+Esto le dice al sistema "la producción está al día hasta la línea base" — el
+siguiente deploy (o un `scripts/migrate.py up` manual) aplica de verdad las
+migraciones `001_mi_taller_campos` y `002_garantia_pred_trigger`, que todavía no
+están en producción.
 
 ## 6. Backups
 

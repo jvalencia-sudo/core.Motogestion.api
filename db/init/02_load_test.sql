@@ -6,3 +6,16 @@ SET ROLE mt_app;
 -- tests/superadmin_test.py reutiliza al admin demo (sub-1000000001) como
 -- fixture de super-admin -- esta BD también necesita el seed de demo.
 \i /seed_demo.sql
+
+-- F1-00: ver el mismo bloque en 01_load.sql -- deja constancia de que
+-- full_schema.sql ya incluye estas migraciones, para que scripts/migrate.py no
+-- intente reaplicarlas.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TIMESTAMP NOT NULL DEFAULT now()
+);
+INSERT INTO schema_migrations (version) VALUES
+    ('000_baseline'),
+    ('001_mi_taller_campos'),
+    ('002_garantia_pred_trigger')
+ON CONFLICT (version) DO NOTHING;

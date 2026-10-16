@@ -1,13 +1,10 @@
 -- F0-13 (revisión): el trigger de garantía pisaba SIEMPRE fecha_fin_garantia_ot
 -- con "entrega + 1 mes" fijo, sin importar qué hubiera calculado la app (con
 -- el dias_garantia_pred configurado en "Mi taller") -- dias_garantia_pred no
--- tenía ningún efecto real. Aplicar a mano en la BD de producción (igual que
--- migration_super_admin.sql). CI/fresh DBs ya tienen esto en
--- full_schema_v2_multitenant.sql -- este archivo es solo la versión
--- incremental para una BD ya desplegada.
+-- tenía ningún efecto real.
 --
--- Esto es DDL (CREATE OR REPLACE FUNCTION), no toca filas -- se aplica
--- directo, sin fijar app.tenant_id.
+-- Esto es DDL (CREATE OR REPLACE FUNCTION), no toca filas -- no necesita fijar
+-- app.tenant_id.
 
 CREATE OR REPLACE FUNCTION fn_calc_fecha_garantia()
 RETURNS TRIGGER AS $$
@@ -39,7 +36,8 @@ $$ LANGUAGE plpgsql;
 -- calculada con el "+1 mes" viejo en vez del dias_garantia_pred real del
 -- taller. Si hace falta corregir datos históricos, hacerlo taller por taller,
 -- fijando el tenant primero (ordenes_trabajo SÍ tiene RLS) y verificando las
--- filas afectadas antes de confiar en el resultado:
+-- filas afectadas antes de confiar en el resultado -- esto es aparte, manual,
+-- NO lo corre scripts/migrate.py (es un UPDATE condicional, no DDL idempotente):
 --
 --   BEGIN;
 --   SELECT set_config('app.tenant_id', '<cod_taller>', true);
