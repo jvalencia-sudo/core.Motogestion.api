@@ -161,6 +161,16 @@ class TestMecanicoNoPuedeAsignarsePermisos:
         )
         assert resp.status_code == 403
 
+    def test_no_puede_editar_config_de_mi_taller(self, client, mecanico_headers):
+        """F0-13 (cierre): 'Mi taller' (PUT /talleres/config) exige require_admin --
+        un mecánico no puede tocar mano de obra, comprobante ni garantía del taller."""
+        resp = client.put(
+            "/api/talleres/config",
+            json={"modo_mano_obra": "HORAS", "tarifa_hora_pred": 99999},
+            headers=mecanico_headers,
+        )
+        assert resp.status_code == 403
+
 
 class TestMecanicoSiPuedeHacerLoQueSeLeAsigno:
     """El objetivo no es bloquear todo: el mecánico sigue pudiendo trabajar con lo

@@ -32,9 +32,13 @@ from repository.ordenes_trabajo.ot_estado_repositorio import OtEstadoRepositorio
 from repository.motos.moto_repositorio import MotoRepositorio
 from repository.productos.producto_repositorio import ProductoRepositorio
 from repository.productos.paquete_componente_repositorio import PaqueteComponenteRepositorio
+from repository.talleres.taller_repositorio import TallerRepositorio
 from infrastructure.exceptions.domain_exception import DomainException
+from infrastructure.utils.tenant_context import get_tenant
 
 logger = logging.getLogger(__name__)
+
+DIAS_GARANTIA_DEFECTO = 30  # fallback si el taller no tiene dias_garantia_pred (no debería: NOT NULL)
 
 
 class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositorio]):
@@ -45,6 +49,14 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         self.moto_repository = MotoRepositorio()
         self.producto_repository = ProductoRepositorio()
         self.paquete_repository = PaqueteComponenteRepositorio()
+        self.taller_repository = TallerRepositorio()
+
+    async def _config_comprobante_taller(self) -> dict:
+        """texto_pie_comprobante y dias_garantia_pred del taller actual (tabla
+        talleres no tiene RLS -- el tenant se toma del contexto de la petición)."""
+        cod_taller = get_tenant()
+        config = await self.taller_repository.obtener_config_comprobante(cod_taller) if cod_taller else None
+        return config or {}
 
     def __parse__(self, record: Dict) -> OrdenTrabajoModelo:
         return OrdenTrabajoModelo.model_validate(record)
@@ -421,9 +433,11 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 HTTP_400_BAD_REQUEST
             )
 
-        # Calcular fecha fin de garantia (30 dias despues de la entrega)
+        # Calcular fecha fin de garantía (dias_garantia_pred del taller despues de la entrega)
+        config_taller = await self._config_comprobante_taller()
+        dias_garantia = config_taller.get("DIAS_GARANTIA_PRED") or DIAS_GARANTIA_DEFECTO
         fecha_entrega = date.today()
-        fecha_fin_garantia = fecha_entrega + timedelta(days=30)
+        fecha_fin_garantia = fecha_entrega + timedelta(days=dias_garantia)
 
         # Registrar entrega
         await self.repository.registrar_entrega(
@@ -674,6 +688,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             )
 
         # Actualizar fechas si están vacías
+        config_taller = await self._config_comprobante_taller()
         hoy = date.today()
         update_dict = {}
 
@@ -681,9 +696,10 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         if not orden.fecha_entrega_ot:
             update_dict['fecha_entrega_ot'] = hoy
 
-        # Si fecha_fin_garantia_ot está vacía, calcular como hoy + 30 días
+        # Si fecha_fin_garantia_ot está vacía, calcular como hoy + dias_garantia_pred del taller
         if not orden.fecha_fin_garantia_ot:
-            update_dict['fecha_fin_garantia_ot'] = hoy + timedelta(days=30)
+            dias_garantia = config_taller.get("DIAS_GARANTIA_PRED") or DIAS_GARANTIA_DEFECTO
+            update_dict['fecha_fin_garantia_ot'] = hoy + timedelta(days=dias_garantia)
 
         # Actualizar la orden si es necesario
         if update_dict:
@@ -713,4 +729,5 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
         # Generar el PDF en formato POS
         pdf_generator = ComprobanteServicioPDFGenerator()
-        return pdf_generator.generar_comprobante(orden)
+        texto_pie = config_taller.get("TEXTO_PIE_COMPROBANTE")
+        return pdf_generator.generar_comprobante(orden, texto_pie_comprobante=texto_pie)

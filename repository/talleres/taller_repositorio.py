@@ -51,6 +51,14 @@ class TallerRepositorio(BaseRepository):
             (cod_taller,),
         )
 
+    async def obtener_config_comprobante(self, cod_taller: int) -> Optional[Dict]:
+        """Texto de pie y días de garantía por defecto, para imprimir en el
+        comprobante de servicio. talleres no tiene RLS."""
+        return await self.db.get_first(
+            "SELECT texto_pie_comprobante, dias_garantia_pred FROM talleres WHERE cod_taller = :1",
+            (cod_taller,),
+        )
+
     async def contar_por_precio_susc(self, monto: int) -> int:
         """Cuenta talleres que ya tienen ese precio pactado (congelado desde su
         primer pago aprobado). Se usa para contar cupos de precio fundador."""

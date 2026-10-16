@@ -6,7 +6,8 @@ from typing import Dict, List, Optional
 from starlette.status import HTTP_400_BAD_REQUEST
 
 from domain.contracts.talleres.taller_contract import (
-    TallerConfigManoObraContract,
+    TallerConfigContract,
+    TallerConfigResponse,
     TallerRegistroContract,
     TallerRegistroResponse,
     TallerSuscripcionContract,
@@ -29,6 +30,9 @@ IMPUESTOS_INICIALES = [("IVA", 19.00), ("IVA Reducido", 5.00), ("Excluido", 0.00
 
 # Política de prueba gratis (días). Anti-abuso: 1 correo = 1 taller (índice único).
 DIAS_PRUEBA = 30
+
+# Fallback si dias_garantia_pred llegara nulo (no debería: la columna es NOT NULL).
+DIAS_GARANTIA_DEFECTO = 30
 
 
 class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
@@ -59,25 +63,36 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         await self.repository.actualizar(cod_taller, campos)
         return await self.obtener(cod_taller)
 
-    # ---- Config de mano de obra (para el dueño/Admin de su propio taller) ----
+    # ---- Config del propio taller ("Mi taller": mano de obra + comprobante) ----
 
-    async def obtener_config_mano_obra(self, cod_taller: int) -> TallerConfigManoObraContract:
+    async def obtener_config(self, cod_taller: int) -> TallerConfigResponse:
         taller = await self.obtener(cod_taller)
         if not taller:
-            raise DomainException("Taller no encontrado", 404)
-        return TallerConfigManoObraContract(
+            raise DomainException(
+                "Tu taller no existe o fue eliminado. Escríbenos a soporte.", 404
+            )
+        return TallerConfigResponse(
             modo_mano_obra=taller.modo_mano_obra or "HORAS",
             tarifa_hora_pred=taller.tarifa_hora_pred or 0,
+            telefono_tal=taller.telefono_tal,
+            direccion_tal=taller.direccion_tal,
+            texto_pie_comprobante=taller.texto_pie_comprobante,
+            dias_garantia_pred=taller.dias_garantia_pred or DIAS_GARANTIA_DEFECTO,
+            nombre_tal=taller.nombre_tal,
+            nit_tal=taller.nit_tal,
+            correo_tal=taller.correo_tal,
         )
 
-    async def actualizar_config_mano_obra(
-        self, cod_taller: int, contract: TallerConfigManoObraContract
-    ) -> TallerConfigManoObraContract:
+    async def actualizar_config(
+        self, cod_taller: int, contract: TallerConfigContract
+    ) -> TallerConfigResponse:
         taller = await self.obtener(cod_taller)
         if not taller:
-            raise DomainException("Taller no encontrado", 404)
+            raise DomainException(
+                "Tu taller no existe o fue eliminado. Escríbenos a soporte.", 404
+            )
         await self.repository.actualizar(cod_taller, contract.model_dump())
-        return await self.obtener_config_mano_obra(cod_taller)
+        return await self.obtener_config(cod_taller)
 
     # ---- Suscripción (estado del plan/trial para el front) ----
 

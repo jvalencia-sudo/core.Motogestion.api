@@ -3,6 +3,7 @@ Generador de PDF para Comprobantes de Servicio (Ticket de 80mm)
 """
 from datetime import datetime
 import io
+import textwrap
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
@@ -19,7 +20,9 @@ class ComprobanteServicioPDFGenerator:
         self.margen = 5 * mm
         self.ancho_util = self.ancho_ticket - (2 * self.margen)
 
-    def generar_comprobante(self, orden: OrdenTrabajoResponseContract) -> bytes:
+    def generar_comprobante(
+        self, orden: OrdenTrabajoResponseContract, texto_pie_comprobante: str = None
+    ) -> bytes:
         """
         Genera un comprobante de servicio en formato POS, en memoria (ver nota
         de seguridad en OrdenTrabajoPDFGenerator.generar_pdf: consecutivo_ot
@@ -27,6 +30,8 @@ class ComprobanteServicioPDFGenerator:
 
         Args:
             orden: Contrato con los datos de la orden de trabajo
+            texto_pie_comprobante: línea libre configurable por el taller
+                ("Mi taller"), se imprime al final del ticket. Puede ser None.
 
         Returns:
             bytes: Contenido del PDF generado
@@ -49,7 +54,7 @@ class ComprobanteServicioPDFGenerator:
         y = self._crear_datos_vehiculo(c, orden, y)
         y = self._crear_productos(c, orden, y)
         y = self._crear_totales(c, orden, y)
-        y = self._crear_pie(c, orden, y)
+        y = self._crear_pie(c, orden, y, texto_pie_comprobante)
 
         # Finalizar PDF
         c.save()
@@ -253,7 +258,10 @@ class ComprobanteServicioPDFGenerator:
 
         return y
 
-    def _crear_pie(self, c: canvas.Canvas, orden: OrdenTrabajoResponseContract, y: float) -> float:
+    def _crear_pie(
+        self, c: canvas.Canvas, orden: OrdenTrabajoResponseContract, y: float,
+        texto_pie_comprobante: str = None,
+    ) -> float:
         """Crea el pie del ticket"""
         c.setFont("Courier", 8)
 
@@ -320,6 +328,19 @@ class ComprobanteServicioPDFGenerator:
 
         c.line(self.margen, y, self.ancho_ticket - self.margen, y)
         y -= 10
+
+        # Texto de pie configurable por el taller ("Mi taller"): límite visual
+        # de 3 líneas / ~38 caracteres cada una (recorte por longitud, igual
+        # que el resto de este generador -- no usa reportlab.platypus.Paragraph,
+        # así que no aplica texto_seguro aquí).
+        if texto_pie_comprobante:
+            lineas_pie = textwrap.wrap(texto_pie_comprobante.strip(), width=38)[:3]
+            c.setFont("Courier", 7)
+            for linea in lineas_pie:
+                y = self._texto_centrado(c, linea, y, 7, "Courier")
+            y -= 5
+            c.line(self.margen, y, self.ancho_ticket - self.margen, y)
+            y -= 10
 
         # Fecha de impresión
         c.setFont("Courier", 6)
