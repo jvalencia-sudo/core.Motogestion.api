@@ -130,6 +130,20 @@ class Database:
 
             raise e
 
+    async def execute_transaction(self, statements: List[Tuple[str, Optional[Params]]]) -> NoReturn:
+        """Ejecuta varias sentencias (INSERT/UPDATE/DELETE) en una sola conexión,
+        con un único commit al final: todas o ninguna. Para operaciones tipo
+        "reemplazar por completo X" que no pueden quedar a medias si una
+        sentencia falla a mitad de camino (a diferencia del resto de métodos de
+        esta clase, que abren su propia conexión y hacen commit cada uno)."""
+        pool = get_pool()
+        async with pool.connection() as conn:
+            async with conn.cursor() as cursor:
+                await _apply_tenant(cursor)
+                for query, params in statements:
+                    await cursor.execute(_translate(query), params)
+                await conn.commit()
+
     async def execute_values(self, query: str, params: List[Params]):
         """Ejecuta múltiples valores"""
         pool = get_pool()

@@ -16,7 +16,7 @@ from domain.models.auth.user_model import (
 from domain.models.providers.auth0_user import Auth0UserModel
 from domain.services.auth.permiso_servicio import PermisoServicio
 from domain.services.base_service import BaseService
-from starlette.status import HTTP_403_FORBIDDEN
+from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
@@ -94,12 +94,16 @@ class UserService(BaseService[UserModel, UserRepository]):
 
     async def invitar(self, contract) -> Dict:
         """Crea un miembro del equipo en el taller actual (pre-registrado por correo).
-        El taller sale del contexto de la petición (resolve_tenant)."""
-        rol = contract.rol if contract.rol in (1, 2, 3) else 2
+        El taller sale del contexto de la petición (resolve_tenant). El rol se
+        deriva del perfil elegido -- no se recibe aparte (F0-13); si el cod_prf no
+        existe en este taller, la consulta no devuelve nada (RLS) y se rechaza."""
+        rol = await self.perfil_repo.obtener_rol_por_perfil(contract.cod_prf)
+        if rol is None:
+            raise DomainException("El perfil elegido no existe", HTTP_404_NOT_FOUND)
         nombre, apellido_1, _ = self._split_full_name(contract.nombre)
         documento = self.generate_provisional_document()
         await self.repository.crear_pre_registrado(
-            documento, nombre, apellido_1, contract.correo, rol, rol
+            documento, nombre, apellido_1, contract.correo, contract.cod_prf, rol
         )
         return {"correo": contract.correo, "documento_usu": documento, "rol": rol}
 

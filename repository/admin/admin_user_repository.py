@@ -156,6 +156,18 @@ class AdminUserRepository(BaseRepository):
             (cod_prf_usu, cod_rol_prf_usu, documento_usu)
         )
 
+    async def contar_admins_activos(self, excluir_documento: Optional[str] = None) -> int:
+        """Admins activos del taller (RLS ya acota). excluir_documento sirve para
+        preguntar "si saco a ESTE usuario, ¿queda alguno más?" sin tener que
+        aplicar el cambio primero para averiguarlo."""
+        query = f"SELECT COUNT(*) AS total FROM {self.table_name} WHERE cod_rol_prf_usu = 1 AND cod_est_usu = 1"
+        params: tuple = ()
+        if excluir_documento is not None:
+            query += " AND documento_usu != :1"
+            params = (excluir_documento,)
+        row = await self.db.get_first(query, params or None)
+        return row.get("TOTAL", 0) if row else 0
+
     async def get_usuarios_perfiles(self) -> List[Dict]:
         """
         Obtiene todos los usuarios con información de perfiles y roles desde la vista

@@ -30,8 +30,7 @@ async def create_user(contract: AdminUserCreationContract):
     - **apellido_2_usu**: Segundo apellido (opcional)
     - **correo_usu**: Email único
     - **password**: Contraseña (mínimo 8 caracteres)
-    - **cod_prf_usu**: ID del perfil
-    - **cod_rol_prf_usu**: ID del rol
+    - **cod_prf_usu**: ID del perfil (el rol global se deriva de este)
     - **cod_tipo_usu**: Tipo de usuario (1=cliente, 2=admin, etc.)
     - **cod_est_usu**: Estado (1=activo, 0=inactivo)
     """
@@ -124,9 +123,7 @@ async def update_user(
     Si se actualiza el email, también se actualiza en Auth0.
     Un usuario no puede cambiar su propio rol/perfil (evita auto-degradarse).
     """
-    assert_no_self_role_change(
-        documento_usu, contract.cod_prf_usu, contract.cod_rol_prf_usu, current
-    )
+    assert_no_self_role_change(documento_usu, contract.cod_prf_usu, current)
     return await AdminUserService().update_user_admin(documento_usu, contract)
 
 
@@ -167,14 +164,11 @@ async def update_user_profile(
     current: Optional[Dict] = Depends(get_current_usuario),
 ):
     """
-    Actualiza el perfil y rol de un usuario (cambia sus permisos).
+    Actualiza el rol (perfil) de un usuario (cambia sus permisos).
 
-    - **cod_prf_usu**: Nuevo código de perfil
-    - **cod_rol_prf_usu**: Nuevo código de rol
+    - **cod_prf_usu**: Nuevo código de perfil (el rol global se deriva de este)
 
     Un usuario no puede cambiar su propio rol/perfil (evita auto-degradarse).
     """
-    assert_no_self_role_change(
-        documento_usu, contract.cod_prf_usu, contract.cod_rol_prf_usu, current
-    )
+    assert_no_self_role_change(documento_usu, contract.cod_prf_usu, current)
     return await AdminUserService().update_user_profile(documento_usu, contract)

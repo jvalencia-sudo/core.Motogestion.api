@@ -11,17 +11,34 @@ from domain.services.base_service import BaseService
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.providers.auth.auth0_provider import Auth0Provider
 from repository.admin.admin_user_repository import AdminUserRepository
+from repository.auth.perfil_repositorio import PerfilRepositorio
+from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 # Sin el documento en el texto: este mensaje llega tal cual a logs/Sentry desde
 # el handler de DomainException, y quien hizo la petición ya sabe qué documento
 # escribió (viene de la propia URL/formulario).
 _USUARIO_NO_ENCONTRADO = "Usuario no encontrado"
+_SIN_ADMINS = "El taller debe tener al menos un administrador activo"
+ADMIN_ROL = 1
 
 
 class AdminUserService(BaseService[UserModel, AdminUserRepository]):
     def __init__(self):
         super().__init__(AdminUserRepository())
         self.auth0_provider = Auth0Provider()
+        self.perfil_repo = PerfilRepositorio()
+
+    async def _derivar_rol(self, cod_prf: int) -> int:
+        rol = await self.perfil_repo.obtener_rol_por_perfil(cod_prf)
+        if rol is None:
+            raise DomainException("El perfil elegido no existe", HTTP_404_NOT_FOUND)
+        return rol
+
+    async def _assert_admin_restante(self, documento_usu: str) -> None:
+        """Antes de sacar a `documento_usu` de la lista de admins activos (por
+        cambio de rol o desactivación): confirma que quede al menos otro."""
+        if await self.repository.contar_admins_activos(excluir_documento=documento_usu) < 1:
+            raise DomainException(_SIN_ADMINS, HTTP_400_BAD_REQUEST)
 
     def __parse__(self, record: Dict) -> UserModel:
         normalized = self.__normalize_keys__(record)
@@ -43,6 +60,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         if await self.repository.get_user_by_documento(contract.documento_usu):
             raise DomainException("Ya existe un usuario con ese documento")
 
+        cod_rol_prf_usu = await self._derivar_rol(contract.cod_prf_usu)
         await self.repository.crear_pre_registrado(
             documento=contract.documento_usu,
             nombre=contract.nombre_usu,
@@ -50,7 +68,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
             apellido_2=contract.apellido_2_usu,
             correo=contract.correo_usu,
             cod_prf=contract.cod_prf_usu,
-            cod_rol=contract.cod_rol_prf_usu,
+            cod_rol=cod_rol_prf_usu,
             cod_est=contract.cod_est_usu or 1,
             cod_tipo=contract.cod_tipo_usu or 2,
         )
@@ -79,6 +97,19 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
             raise DomainException(_USUARIO_NO_ENCONTRADO)
 
         existing_user = self.__parse__(record)
+
+        rol_nuevo = (
+            await self._derivar_rol(contract.cod_prf_usu)
+            if contract.cod_prf_usu is not None
+            else existing_user.cod_rol_prf_usu
+        )
+        estado_nuevo = (
+            contract.cod_est_usu if contract.cod_est_usu is not None else existing_user.cod_est_usu
+        )
+        era_admin_activo = existing_user.cod_rol_prf_usu == ADMIN_ROL and existing_user.cod_est_usu == 1
+        sigue_admin_activo = rol_nuevo == ADMIN_ROL and estado_nuevo == 1
+        if era_admin_activo and not sigue_admin_activo:
+            await self._assert_admin_restante(documento_usu)
 
         # Validar correo único si se está actualizando
         if contract.correo_usu and contract.correo_usu != existing_user.correo_usu:
@@ -118,11 +149,11 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
             apellido_2_usu=contract.apellido_2_usu if contract.apellido_2_usu is not None else existing_user.apellido_2_usu,
             correo_usu=contract.correo_usu or existing_user.correo_usu,
             contrasena_usu=existing_user.contrasena_usu or "auth0_managed",
-            cod_est_usu=contract.cod_est_usu if contract.cod_est_usu is not None else existing_user.cod_est_usu,
+            cod_est_usu=estado_nuevo,
             cod_tipo_usu=contract.cod_tipo_usu if contract.cod_tipo_usu is not None else existing_user.cod_tipo_usu,
             sub_id_usu=existing_user.sub_id_usu,
             cod_prf_usu=contract.cod_prf_usu if contract.cod_prf_usu is not None else existing_user.cod_prf_usu,
-            cod_rol_prf_usu=contract.cod_rol_prf_usu if contract.cod_rol_prf_usu is not None else existing_user.cod_rol_prf_usu,
+            cod_rol_prf_usu=rol_nuevo,
         )
 
         await self.update(updated_model)
@@ -149,6 +180,9 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
 
         if existing_user.cod_est_usu == 2:
             raise DomainException("El usuario ya está desactivado")
+
+        if existing_user.cod_rol_prf_usu == ADMIN_ROL:
+            await self._assert_admin_restante(documento_usu)
 
         await self.repository.deactivate_user(documento_usu)
 
@@ -243,11 +277,12 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         self, documento_usu: str, contract: UpdateUserProfileContract
     ) -> UserModel:
         """
-        Actualiza el perfil y rol de un usuario (cambia sus permisos)
+        Actualiza el rol (perfil) de un usuario (cambia sus permisos). El rol
+        global se deriva del perfil elegido, no se recibe aparte (F0-13).
 
         Args:
             documento_usu: Documento del usuario
-            contract: Nuevo perfil y rol
+            contract: Nuevo perfil
 
         Returns:
             UserModel: Usuario actualizado
@@ -256,8 +291,14 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         if not record:
             raise DomainException(_USUARIO_NO_ENCONTRADO)
 
+        existing_user = self.__parse__(record)
+        rol_nuevo = await self._derivar_rol(contract.cod_prf_usu)
+
+        if existing_user.cod_rol_prf_usu == ADMIN_ROL and rol_nuevo != ADMIN_ROL:
+            await self._assert_admin_restante(documento_usu)
+
         await self.repository.update_user_profile(
-            documento_usu, contract.cod_prf_usu, contract.cod_rol_prf_usu
+            documento_usu, contract.cod_prf_usu, rol_nuevo
         )
 
         updated_record = await self.repository.get_user_by_documento(documento_usu)

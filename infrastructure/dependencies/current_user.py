@@ -156,20 +156,20 @@ def require_permiso(nombre_prm: str) -> Callable:
 def assert_no_self_role_change(
     target_documento: str,
     nuevo_prf: Optional[int],
-    nuevo_rol: Optional[int],
     current: Optional[Dict],
 ) -> None:
-    """Impide que un usuario cambie su PROPIO rol/perfil (evita auto-degradarse).
+    """Impide que un usuario cambie su PROPIO rol (evita auto-degradarse).
 
-    Solo aplica cuando se identifica al llamante y edita su propio documento. Permite
-    guardar otros campos (nombre, correo) si no toca rol/perfil. Si no se pudo
-    identificar al llamante, el guard no aplica (la seguridad real es el RLS).
+    El rol global se deriva siempre del perfil (F0-13: cod_rol_prf es una columna
+    de `perfiles`, 1:1 por perfil), así que basta con comparar el perfil -- no
+    puede cambiar el rol sin cambiar el perfil. Solo aplica cuando se identifica
+    al llamante y edita su propio documento. Permite guardar otros campos (nombre,
+    correo) si no toca el perfil. Si no se pudo identificar al llamante, el guard
+    no aplica (la seguridad real es el RLS).
     """
     if current is None:
         return
     if str(current.get("DOCUMENTO_USU")) != str(target_documento):
         return
-    cambia_prf = nuevo_prf is not None and nuevo_prf != current.get("COD_PRF_USU")
-    cambia_rol = nuevo_rol is not None and nuevo_rol != current.get("COD_ROL_PRF_USU")
-    if cambia_prf or cambia_rol:
-        raise DomainException("No puedes cambiar tu propio rol o perfil", HTTP_403_FORBIDDEN)
+    if nuevo_prf is not None and nuevo_prf != current.get("COD_PRF_USU"):
+        raise DomainException("No puedes cambiar tu propio rol", HTTP_403_FORBIDDEN)

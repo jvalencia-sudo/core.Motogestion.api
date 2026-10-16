@@ -44,3 +44,4 @@ class PerfilDetalleContract(BaseContractSchema):
     cod_est_prf: Optional[int] = None
     nombre_est_prf: str
     nombre_rol_prf: str
+    num_usuarios: int = 0
