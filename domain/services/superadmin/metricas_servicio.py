@@ -1,6 +1,6 @@
 from typing import Dict
 
-from infrastructure.utils.tenant_context import set_tenant
+from infrastructure.utils.tenant_context import reset_tenant, set_tenant
 from repository.superadmin.metricas_repositorio import MetricasRepositorio
 from repository.talleres.taller_repositorio import TallerRepositorio
 
@@ -11,9 +11,11 @@ class MetricasServicio:
     consultas a tablas CON RLS (ordenes_trabajo, usuarios, audit_log) vean solo
     ese taller. O(N talleres) secuencial -- aceptable a la escala del piloto.
 
-    resolve_tenant ya fija el tenant real del request al entrar; acá lo pisamos
-    por iteración sin necesidad de restaurarlo: el próximo request lo vuelve a
-    fijar desde cero."""
+    Cada iteración restaura el tenant anterior al salir (ver tenant_context.py)
+    -- no por el request SIGUIENTE (resolve_tenant ya lo fija de cero), sino
+    por si DENTRO del mismo request, después de pedir métricas, se hace otra
+    consulta a una tabla con RLS: sin restaurar, esa consulta vería el taller
+    del último recorrido, no el del caller, sin ningún aviso."""
 
     def __init__(self):
         self.taller_repo = TallerRepositorio()
@@ -28,10 +30,13 @@ class MetricasServicio:
         return resultado
 
     async def metricas_de_un_taller(self, cod_taller: int) -> Dict:
-        set_tenant(cod_taller)
-        return {
-            "ordenes_7d": await self.metricas_repo.contar_ordenes_periodo(7),
-            "ordenes_30d": await self.metricas_repo.contar_ordenes_periodo(30),
-            "usuarios_activos": await self.metricas_repo.contar_usuarios_activos(),
-            "ultima_actividad": await self.metricas_repo.fecha_ultima_actividad(),
-        }
+        token = set_tenant(cod_taller)
+        try:
+            return {
+                "ordenes_7d": await self.metricas_repo.contar_ordenes_periodo(7),
+                "ordenes_30d": await self.metricas_repo.contar_ordenes_periodo(30),
+                "usuarios_activos": await self.metricas_repo.contar_usuarios_activos(),
+                "ultima_actividad": await self.metricas_repo.fecha_ultima_actividad(),
+            }
+        finally:
+            reset_tenant(token)
