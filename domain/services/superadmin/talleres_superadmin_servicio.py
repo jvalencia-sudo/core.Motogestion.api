@@ -16,7 +16,7 @@ from domain.services.suscripciones.suscripcion_servicio import PRECIO_FUNDADOR
 from domain.services.superadmin.metricas_servicio import MetricasServicio
 from domain.services.talleres.taller_servicio import TallerServicio
 from infrastructure.exceptions.domain_exception import DomainException
-from infrastructure.utils.tenant_context import set_tenant
+from infrastructure.utils.tenant_context import reset_tenant, set_tenant
 from repository.admin.admin_user_repository import AdminUserRepository
 from repository.pagos.pago_repositorio import PagoRepositorio
 from repository.superadmin.nota_repositorio import NotaRepositorio
@@ -76,9 +76,12 @@ class TalleresSuperAdminServicio:
         metricas = await self.metricas_servicio.metricas_de_un_taller(cod_taller)
         pagos = await self.pago_repo.listar_por_taller(cod_taller)
 
-        set_tenant(cod_taller)
-        usuarios = await self.usuario_repo.get_usuarios_perfiles()
-        notas = await self.nota_repo.listar_por_taller(cod_taller)
+        token = set_tenant(cod_taller)
+        try:
+            usuarios = await self.usuario_repo.get_usuarios_perfiles()
+            notas = await self.nota_repo.listar_por_taller(cod_taller)
+        finally:
+            reset_tenant(token)
 
         return TallerDetalleContract(
             taller=self._a_contrato_listado(fila, metricas),

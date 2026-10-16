@@ -6,9 +6,23 @@
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS es_super_admin BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_ingreso_usu TIMESTAMP;
 
--- Preserva el acceso de quien hoy es "super-admin" bajo el significado viejo
--- (Admin del taller plataforma, cod_taller=1) para no perder acceso al desplegar.
-UPDATE usuarios SET es_super_admin = true WHERE cod_taller = 1 AND cod_rol_prf_usu = 1;
+-- NO ejecutar un UPDATE masivo acá: `usuarios` tiene RLS forzado y esta
+-- migración se aplica como mt_app sin `app.tenant_id` fijado -- la política no
+-- deja ver ninguna fila y el UPDATE responde "UPDATE 0" sin error (nadie queda
+-- como super-admin, el despliegue te deja sin acceso a /superadmin). Y aunque
+-- fijaras el tenant, `cod_taller=1 AND cod_rol_prf_usu=1` volvería a convertir
+-- en super-admin a TODOS los administradores del taller 1 -- exactamente el
+-- hueco de seguridad que F0-14 cerró (ese taller también se usa para demos).
+--
+-- Aplicar a mano, en una transacción, apuntando solo a tu propio usuario:
+--
+--   BEGIN;
+--   SELECT set_config('app.tenant_id', '1', true);
+--   UPDATE usuarios SET es_super_admin = true WHERE documento_usu = '<tu documento>';
+--   COMMIT;
+--
+-- y confirmar después que hay exactamente un super-admin:
+--   SELECT documento_usu FROM usuarios WHERE es_super_admin = true;
 
 ALTER TABLE pagos ADD COLUMN IF NOT EXISTS medio VARCHAR(10) NOT NULL DEFAULT 'WOMPI';
 ALTER TABLE pagos ADD COLUMN IF NOT EXISTS detalle_medio VARCHAR(50);
