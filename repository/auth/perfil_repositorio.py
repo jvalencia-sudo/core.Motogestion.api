@@ -1,4 +1,7 @@
 from typing import Dict, Optional, List
+
+from psycopg.types.json import Jsonb
+
 from repository.base_repository import BaseRepository
 
 
@@ -70,3 +73,94 @@ class PerfilRepositorio(BaseRepository):
             None,
         )
         return {row["COD_PRF_USU"]: row["TOTAL"] for row in rows}
+
+    async def contar_perfiles_taller(self) -> int:
+        """Cuántos perfiles tiene el taller actual (RLS ya acota)."""
+        row = await self.get_one("SELECT COUNT(*) AS total FROM perfiles", None)
+        return row.get("TOTAL", 0) if row else 0
+
+    async def buscar_por_nombre(self, nombre_prf: str, excluir_cod_prf: Optional[int] = None) -> Optional[Dict]:
+        """Busca un perfil del taller actual por nombre, sin distinguir
+        mayúsculas/minúsculas (para validar nombres únicos por taller)."""
+        if excluir_cod_prf is not None:
+            return await self.get_one(
+                "SELECT cod_prf FROM perfiles WHERE LOWER(nombre_prf) = LOWER(:1) AND cod_prf != :2",
+                (nombre_prf, excluir_cod_prf),
+            )
+        return await self.get_one(
+            "SELECT cod_prf FROM perfiles WHERE LOWER(nombre_prf) = LOWER(:1)",
+            (nombre_prf,),
+        )
+
+    async def contar_usuarios_de_perfil(self, cod_prf: int) -> int:
+        """Cuántos usuarios (cualquier estado, activos o no) tiene asignado
+        este perfil -- `usuarios` nunca se borra físicamente, así que un
+        perfil con 0 usuarios activos puede igual tener inactivos cuyo FK
+        rechazaría el DELETE; se cuentan todos para dar el mensaje amable
+        antes de intentarlo."""
+        row = await self.get_one(
+            "SELECT COUNT(*) AS total FROM usuarios WHERE cod_prf_usu = :1", (cod_prf,)
+        )
+        return row.get("TOTAL", 0) if row else 0
+
+    async def duplicar_perfil(
+        self,
+        nombre_prf: str,
+        descripcion_prf: str,
+        cod_rol_prf: int,
+        cod_prf_origen: int,
+        cod_rol_origen: int,
+        usuario: str,
+    ) -> int:
+        """Crea un perfil nuevo copiando los permisos de uno existente, en una
+        sola transacción (perfil + permisos + auditoría, o nada)."""
+        nuevo = await self.get_one("SELECT nextval('seq_perfiles') AS cod_prf", None)
+        cod_prf = nuevo["COD_PRF"]
+        statements = [
+            (
+                "INSERT INTO perfiles (cod_prf, nombre_prf, descripcion_prf, cod_est_prf, cod_rol_prf) "
+                "VALUES (:1, :2, :3, 1, :4)",
+                (cod_prf, nombre_prf, descripcion_prf, cod_rol_prf),
+            ),
+            (
+                "INSERT INTO perfiles_permisos (cod_prm_pp, cod_prf_pp, cod_rol_prf_pp, cod_est_pp) "
+                "SELECT cod_prm_pp, :1, :2, cod_est_pp FROM perfiles_permisos "
+                "WHERE cod_prf_pp = :3 AND cod_rol_prf_pp = :4",
+                (cod_prf, cod_rol_prf, cod_prf_origen, cod_rol_origen),
+            ),
+            (
+                "INSERT INTO audit_log (cod_taller, usuario, tabla, evento, valor_nuevo) "
+                "VALUES (current_setting('app.tenant_id')::integer, :1, 'perfiles', 'C', :2)",
+                (
+                    usuario,
+                    Jsonb({
+                        "cod_prf": cod_prf,
+                        "nombre_prf": nombre_prf,
+                        "duplicado_de": cod_prf_origen,
+                    }),
+                ),
+            ),
+        ]
+        await self.execute_transaction(statements)
+        return cod_prf
+
+    async def eliminar_perfil(self, cod_prf: int, cod_rol_prf: int, usuario: str) -> None:
+        """Elimina un perfil y sus permisos en una sola transacción, con una
+        entrada de auditoría. El caller ya validó que no tiene usuarios
+        asignados y que no es el perfil Administrador."""
+        statements = [
+            (
+                "DELETE FROM perfiles_permisos WHERE cod_prf_pp = :1 AND cod_rol_prf_pp = :2",
+                (cod_prf, cod_rol_prf),
+            ),
+            (
+                "DELETE FROM perfiles WHERE cod_prf = :1 AND cod_rol_prf = :2",
+                (cod_prf, cod_rol_prf),
+            ),
+            (
+                "INSERT INTO audit_log (cod_taller, usuario, tabla, evento, valor_anterior) "
+                "VALUES (current_setting('app.tenant_id')::integer, :1, 'perfiles', 'D', :2)",
+                (usuario, Jsonb({"cod_prf": cod_prf})),
+            ),
+        ]
+        await self.execute_transaction(statements)

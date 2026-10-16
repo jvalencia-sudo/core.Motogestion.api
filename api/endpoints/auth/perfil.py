@@ -1,6 +1,6 @@
-from typing import List
+from typing import Dict, List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from domain.contracts.auth.perfil_contract import (
@@ -11,6 +11,7 @@ from domain.contracts.auth.perfil_contract import (
     PerfilDetalleContract
 )
 from domain.services.auth.perfil_servicio import PerfilServicio
+from infrastructure.dependencies.current_user import get_current_usuario
 
 router = APIRouter()
 
@@ -32,14 +33,11 @@ async def obtener_todos_perfiles():
 
 
 @router.post("", status_code=HTTP_201_CREATED)
-async def crear_perfil(contract: CrearPerfilContract):
-    """Crea un nuevo perfil"""
-    resultado = await PerfilServicio().crear_perfil(contract)
-
-    if not resultado["success"]:
-        raise HTTPException(status_code=400, detail=resultado["message"])
-
-    return resultado
+async def crear_perfil(contract: CrearPerfilContract, current: Dict = Depends(get_current_usuario)):
+    """Crea un nuevo perfil propio del taller (desde cero o duplicando otro)"""
+    return await PerfilServicio().crear_perfil(
+        contract, str(current.get("DOCUMENTO_USU")) if current else "desconocido"
+    )
 
 
 @router.put("/estado", status_code=HTTP_200_OK)
@@ -55,13 +53,8 @@ async def cambiar_estado_perfil(contract: CambiarEstadoPerfilContract):
 
 @router.put("", status_code=HTTP_200_OK)
 async def actualizar_perfil(contract: ActualizarPerfilContract):
-    """Actualiza un perfil existente"""
-    resultado = await PerfilServicio().actualizar_perfil(contract)
-
-    if not resultado["success"]:
-        raise HTTPException(status_code=404, detail=resultado["message"])
-
-    return resultado
+    """Renombra/edita un perfil existente"""
+    return await PerfilServicio().actualizar_perfil(contract)
 
 
 @router.get("/{cod_prf}", response_model=PerfilResponseContract)
@@ -74,9 +67,11 @@ async def obtener_perfil_por_id(cod_prf: int):
 
 
 @router.delete("/{cod_prf}", status_code=HTTP_204_NO_CONTENT)
-async def eliminar_perfil(cod_prf: int):
-    """Elimina físicamente un perfil de la base de datos"""
-    await PerfilServicio().delete(cod_prf)
+async def eliminar_perfil(cod_prf: int, current: Dict = Depends(get_current_usuario)):
+    """Elimina un perfil propio del taller (nunca el Administrador, nunca con usuarios asignados)"""
+    await PerfilServicio().eliminar_perfil(
+        cod_prf, str(current.get("DOCUMENTO_USU")) if current else "desconocido"
+    )
     return None
 
 
