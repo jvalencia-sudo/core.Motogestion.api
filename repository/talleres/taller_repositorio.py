@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from repository.base_repository import BaseRepository
 
@@ -60,6 +60,18 @@ class TallerRepositorio(BaseRepository):
         )
         return (row.get("TOTAL") or 0) if row else 0
 
+    async def extender_prueba(self, cod_taller: int, dias: int) -> None:
+        """Extiende la ventana de prueba sin tocar estado_tal (solo aplica mientras
+        sigue en 'prueba'; para un taller ya 'activo' se usa pago manual o ajuste de
+        precio). Mismo GREATEST(vencimiento, hoy) que activar_suscripcion."""
+        await self.db.execute_non_query(
+            "UPDATE talleres SET "
+            "  fecha_fin_susc_tal = (GREATEST(COALESCE(fecha_fin_susc_tal, CURRENT_DATE), CURRENT_DATE) "
+            "                        + make_interval(days => :1))::date "
+            "WHERE cod_taller = :2 AND estado_tal = 'prueba'",
+            (dias, cod_taller),
+        )
+
     async def activar_suscripcion(self, cod_taller: int, nombre_plan: str, dias: int = 30) -> None:
         """Activa/renueva la suscripción tras un pago aprobado: estado='activo',
         fija el plan y extiende la vigencia `dias` desde hoy (o desde la fecha fin
@@ -70,6 +82,111 @@ class TallerRepositorio(BaseRepository):
             "                        + make_interval(days => :2))::date "
             "WHERE cod_taller = :3",
             (nombre_plan, dias, cod_taller),
+        )
+
+    async def resumen_por_estado(self) -> List[Dict]:
+        """Cantidad de talleres por estado_tal (Resumen de super-admin, F0-14)."""
+        return await self.db.execute(
+            "SELECT estado_tal, count(*) AS total FROM talleres GROUP BY estado_tal", None
+        )
+
+    async def mrr(self) -> int:
+        """Ingreso mensual recurrente: suma del precio pactado (o el del plan
+        catálogo si aún no tiene uno pactado) de los talleres 'activo'."""
+        row = await self.db.get_first(
+            "SELECT coalesce(sum(coalesce(t.precio_susc_tal, p.precio_plan)), 0) AS total "
+            "FROM talleres t LEFT JOIN planes p ON p.nombre_plan = t.plan_tal "
+            "WHERE t.estado_tal = 'activo'",
+            None,
+        )
+        return (row.get("TOTAL") or 0) if row else 0
+
+    async def vencimientos_proximos(self, dias: int = 7) -> List[Dict]:
+        """Talleres 'activo' cuya suscripción vence en los próximos `dias`."""
+        return await self.db.execute(
+            "SELECT cod_taller, nombre_tal, telefono_tal, fecha_fin_susc_tal, "
+            "  (fecha_fin_susc_tal - CURRENT_DATE) AS dias_restantes "
+            "FROM talleres "
+            "WHERE estado_tal = 'activo' AND fecha_fin_susc_tal IS NOT NULL "
+            "  AND fecha_fin_susc_tal BETWEEN CURRENT_DATE AND CURRENT_DATE + make_interval(days => :1) "
+            "ORDER BY fecha_fin_susc_tal",
+            (dias,),
+        )
+
+    async def conversion_prueba_pago(self) -> float:
+        """Fracción de talleres que ya pagaron al menos una vez (precio_susc_tal
+        se congela en el primer pago aprobado, ver SuscripcionServicio)."""
+        row = await self.db.get_first(
+            "SELECT count(*) FILTER (WHERE precio_susc_tal IS NOT NULL)::float "
+            "  / greatest(count(*), 1) AS conversion "
+            "FROM talleres",
+            None,
+        )
+        return float(row.get("CONVERSION") or 0.0) if row else 0.0
+
+    async def obtener_con_ultimo_pago(self, cod_taller: int) -> Optional[Dict]:
+        """Un taller con su último pago aprobado (para el detalle de super-admin)."""
+        return await self.db.get_first(
+            "SELECT t.*, "
+            "  (SELECT max(p.fecha) FROM pagos p WHERE p.cod_taller = t.cod_taller "
+            "     AND p.estado = 'APPROVED') AS ultimo_pago_fecha "
+            "FROM talleres t WHERE t.cod_taller = :1",
+            (cod_taller,),
+        )
+
+    async def listar_con_filtro(self, estado: Optional[str] = None) -> List[Dict]:
+        """Lista de talleres para el panel de super-admin, con último pago
+        aprobado (subconsulta correlacionada: pagos tampoco tiene RLS)."""
+        where = "WHERE t.estado_tal = :1" if estado else ""
+        query = (
+            "SELECT t.*, "
+            "  (SELECT max(p.fecha) FROM pagos p WHERE p.cod_taller = t.cod_taller "
+            "     AND p.estado = 'APPROVED') AS ultimo_pago_fecha "
+            f"FROM talleres t {where} ORDER BY t.fecha_creacion_tal DESC"
+        )
+        return await self.db.execute(query, (estado,) if estado else None)
+
+    # ---- Statements para acciones transaccionales de super-admin (F0-14) ----
+    # Cada acción las compone con un INSERT a auditoria_superadmin en un único
+    # execute_transaction (ver domain/services/superadmin/acciones_taller_servicio.py):
+    # todo o nada, igual que reemplazar_permisos de F0-13.
+
+    @staticmethod
+    def statement_extender_prueba(cod_taller: int, dias: int):
+        return (
+            "UPDATE talleres SET "
+            "  fecha_fin_susc_tal = (GREATEST(COALESCE(fecha_fin_susc_tal, CURRENT_DATE), CURRENT_DATE) "
+            "                        + make_interval(days => :1))::date "
+            "WHERE cod_taller = :2 AND estado_tal = 'prueba'",
+            (dias, cod_taller),
+        )
+
+    @staticmethod
+    def statement_activar_suscripcion(cod_taller: int, nombre_plan: str, dias: int):
+        return (
+            "UPDATE talleres SET estado_tal = 'activo', plan_tal = :1, "
+            "  fecha_fin_susc_tal = (GREATEST(COALESCE(fecha_fin_susc_tal, CURRENT_DATE), CURRENT_DATE) "
+            "                        + make_interval(days => :2))::date "
+            "WHERE cod_taller = :3",
+            (nombre_plan, dias, cod_taller),
+        )
+
+    @staticmethod
+    def statement_congelar_precio_si_nulo(cod_taller: int, monto: int):
+        return (
+            "UPDATE talleres SET precio_susc_tal = :1 WHERE cod_taller = :2 AND precio_susc_tal IS NULL",
+            (monto, cod_taller),
+        )
+
+    @staticmethod
+    def statement_cambiar_estado(cod_taller: int, estado: str):
+        return ("UPDATE talleres SET estado_tal = :1 WHERE cod_taller = :2", (estado, cod_taller))
+
+    @staticmethod
+    def statement_ajustar_precio(cod_taller: int, precio: int):
+        return (
+            "UPDATE talleres SET precio_susc_tal = :1 WHERE cod_taller = :2",
+            (precio, cod_taller),
         )
 
     async def actualizar(self, cod_taller: int, campos: dict) -> None:

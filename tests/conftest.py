@@ -250,8 +250,11 @@ def _seed_taller(cur, cod_taller: int) -> TallerSeed:
 
 
 def _borrar_taller(cur, cod_taller: int) -> None:
-    # pagos no tiene RLS: se borra sin depender de app.tenant_id.
+    # pagos/auditoria_superadmin/notas_taller no tienen RLS: se borran sin
+    # depender de app.tenant_id, y ANTES que talleres (lo referencian por FK).
     cur.execute("DELETE FROM pagos WHERE cod_taller = %s", (cod_taller,))
+    cur.execute("DELETE FROM auditoria_superadmin WHERE cod_taller = %s", (cod_taller,))
+    cur.execute("DELETE FROM notas_taller WHERE cod_taller = %s", (cod_taller,))
     cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(cod_taller),))
     # reclamos y detalle_orden_trabajo van ANTES que movimientos_inventario: borrar
     # detalle_orden_trabajo dispara tg_revertir_stock (fn_revertir_stock_detalle),

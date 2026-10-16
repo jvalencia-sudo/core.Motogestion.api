@@ -66,10 +66,13 @@ CREATE TABLE pagos (
     estado               VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
     wompi_transaction_id VARCHAR(80),
     fecha                TIMESTAMP    NOT NULL DEFAULT now(),
+    medio                VARCHAR(10)  NOT NULL DEFAULT 'WOMPI',  -- WOMPI | MANUAL (F0-14)
+    detalle_medio        VARCHAR(50),                           -- "Efectivo"/"Transferencia"/"Nequi" si medio=MANUAL
     CONSTRAINT pk_pagos PRIMARY KEY (cod_pago),
     CONSTRAINT ux_pagos_referencia UNIQUE (referencia),
     CONSTRAINT fk_pagos_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
-    CONSTRAINT chk_pagos_estado CHECK (estado IN ('PENDING', 'APPROVED', 'DECLINED'))
+    CONSTRAINT chk_pagos_estado CHECK (estado IN ('PENDING', 'APPROVED', 'DECLINED')),
+    CONSTRAINT chk_pagos_medio CHECK (medio IN ('WOMPI', 'MANUAL'))
 );
 
 -- ============================================================
@@ -173,6 +176,8 @@ CREATE TABLE usuarios (
     sub_id_usu      VARCHAR(250),
     cod_prf_usu     INTEGER,
     cod_rol_prf_usu INTEGER,
+    es_super_admin  BOOLEAN NOT NULL DEFAULT false,  -- F0-14: super-admin de plataforma, independiente de taller/rol
+    ultimo_ingreso_usu TIMESTAMP,                    -- F0-14: se actualiza en cada login, para el panel de super-admin
     CONSTRAINT pk_usuarios PRIMARY KEY (cod_taller, documento_usu),
     CONSTRAINT fk_usuarios_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_usuarios_estado FOREIGN KEY (cod_est_usu) REFERENCES estados (cod_est),
@@ -680,6 +685,30 @@ AFTER INSERT OR UPDATE OR DELETE ON usuarios
 FOR EACH ROW EXECUTE FUNCTION fn_sync_identidad();
 
 -- ============================================================
+-- 5c. SUPER-ADMIN DE PLATAFORMA (F0-14). SIN RLS a propósito: el super-admin
+--     necesita ver auditoría/notas de TODOS los talleres, no aisladas por
+--     tenant (igual motivo que talleres/pagos, ver rls_policy.py).
+-- ============================================================
+CREATE TABLE auditoria_superadmin (
+    id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    usuario        VARCHAR(100) NOT NULL,
+    fecha          TIMESTAMP    NOT NULL DEFAULT now(),
+    cod_taller     INTEGER REFERENCES talleres (cod_taller),
+    accion         VARCHAR(50)  NOT NULL,
+    valor_anterior JSONB,
+    valor_nuevo    JSONB,
+    motivo         TEXT         NOT NULL
+);
+
+CREATE TABLE notas_taller (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cod_taller INTEGER NOT NULL REFERENCES talleres (cod_taller),
+    autor      VARCHAR(100) NOT NULL,
+    fecha      TIMESTAMP NOT NULL DEFAULT now(),
+    texto      TEXT NOT NULL
+);
+
+-- ============================================================
 -- 6. RLS (Row-Level Security) en las tablas por taller
 --    Política: solo filas del taller actual (app.tenant_id).
 --    FORCE para que aplique también al dueño de las tablas (el usuario de la app).
@@ -968,7 +997,8 @@ SELECT u.documento_usu,
        u.nombre_usu || ' ' || u.apellido_1_usu || ' ' || COALESCE(u.apellido_2_usu, '') AS nombre_completo,
        u.correo_usu, u.cod_tipo_usu, e.nombre_est AS estado_usuario,
        p.nombre_prf AS perfil, p.descripcion_prf AS descripcion_perfil,
-       r.nombre_rol AS rol, r.descripcion_rol AS descripcion_rol
+       r.nombre_rol AS rol, r.descripcion_rol AS descripcion_rol,
+       u.ultimo_ingreso_usu
 FROM usuarios u
 INNER JOIN estados e  ON u.cod_est_usu = e.cod_est
 INNER JOIN perfiles p ON u.cod_taller = p.cod_taller AND u.cod_prf_usu = p.cod_prf AND u.cod_rol_prf_usu = p.cod_rol_prf
@@ -1231,6 +1261,9 @@ INSERT INTO usuarios (documento_usu, nombre_usu, apellido_1_usu, apellido_2_usu,
 ('1000000007','Andrés','Ramírez','Castro','andres.ramirez@motogestion.com','meca123',2,1,'sub-1000000007',2,2),
 ('1000000008','Santiago','Vargas','Muñoz','santiago.vargas@motogestion.com','meca123',2,1,'sub-1000000008',2,2),
 ('1000000009','Sebastián','Jiménez','Ruiz','sebastian.jimenez@motogestion.com','meca123',2,1,'sub-1000000009',2,2);
+
+-- F0-14: el admin demo es el super-admin de plataforma (seed/CI/local).
+UPDATE usuarios SET es_super_admin = true WHERE documento_usu = '1000000001';
 
 -- Órdenes de trabajo (consecutivo explícito por taller)
 INSERT INTO ordenes_trabajo (consecutivo_ot, fecha_elaboracion_ot, placa_mot_ot, kilometraje_ingreso_ot, documento_usu_rp_ot, documento_usu_mc_ot, observacion_cli_ot, observacion_ot, cod_ot_est_ot) VALUES
