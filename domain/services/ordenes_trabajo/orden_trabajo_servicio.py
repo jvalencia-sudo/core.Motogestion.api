@@ -210,6 +210,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             fecha_elaboracion_ot=orden_modelo.fecha_elaboracion_ot,
             fecha_entrega_ot=orden_modelo.fecha_entrega_ot,
             kilometraje_ingreso_ot=orden_modelo.kilometraje_ingreso_ot,
+            kilometraje_salida_ot=orden_modelo.kilometraje_salida_ot,
             observacion_cli_ot=orden_modelo.observacion_cli_ot,
             observacion_ot=orden_modelo.observacion_ot,
             fecha_fin_garantia_ot=orden_modelo.fecha_fin_garantia_ot,
@@ -476,6 +477,17 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 HTTP_400_BAD_REQUEST
             )
 
+        # F1-11: el kilometraje de salida no puede ser menor al de ingreso.
+        if (
+            contract.kilometraje_salida_ot is not None
+            and contract.kilometraje_salida_ot < orden_modelo.kilometraje_ingreso_ot
+        ):
+            raise DomainException(
+                f"El kilometraje de salida ({contract.kilometraje_salida_ot}) no puede ser "
+                f"menor al de ingreso ({orden_modelo.kilometraje_ingreso_ot})",
+                HTTP_400_BAD_REQUEST
+            )
+
         # Calcular fecha fin de garantía (dias_garantia_pred del taller despues de la entrega)
         config_taller = await self._config_comprobante_taller()
         dias_pred = config_taller.get("DIAS_GARANTIA_PRED")
@@ -487,7 +499,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         await self.repository.registrar_entrega(
             consecutivo_ot=consecutivo_ot,
             fecha_entrega=fecha_entrega,
-            km_salida=contract.kilometreje_salida_ot,
+            km_salida=contract.kilometraje_salida_ot,
             fecha_fin_garantia=fecha_fin_garantia
         )
 

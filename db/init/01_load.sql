@@ -20,5 +20,6 @@ INSERT INTO schema_migrations (version) VALUES
     ('002_garantia_pred_trigger'),
     ('003_orden_rapida_mecanico_opcional'),
     ('004_cortesias_y_stock_decimal'),
-    ('005_busqueda_placa')
+    ('005_busqueda_placa'),
+    ('006_corregir_kilometraje_salida')
 ON CONFLICT (version) DO NOTHING;

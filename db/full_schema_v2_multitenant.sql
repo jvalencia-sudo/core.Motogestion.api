@@ -269,7 +269,6 @@ CREATE TABLE ordenes_trabajo (
     fecha_elaboracion_ot   DATE,
     fecha_entrega_ot       DATE,
     kilometraje_ingreso_ot INTEGER,
-    kilometreje_salida_ot  DATE,
     observacion_cli_ot     VARCHAR(500),
     observacion_ot         VARCHAR(500),
     placa_mot_ot           VARCHAR(6),
@@ -277,12 +276,14 @@ CREATE TABLE ordenes_trabajo (
     documento_usu_mc_ot    VARCHAR(11),
     cod_ot_est_ot          INTEGER,
     fecha_fin_garantia_ot  DATE,
+    kilometraje_salida_ot  INTEGER,
     CONSTRAINT pk_ordenes_trabajo PRIMARY KEY (cod_taller, consecutivo_ot),
     CONSTRAINT fk_ot_taller   FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_ot_moto     FOREIGN KEY (cod_taller, placa_mot_ot)        REFERENCES motos (cod_taller, placa_mot),
     CONSTRAINT fk_ot_recep    FOREIGN KEY (cod_taller, documento_usu_rp_ot) REFERENCES usuarios (cod_taller, documento_usu),
     CONSTRAINT fk_ot_mecanico FOREIGN KEY (cod_taller, documento_usu_mc_ot) REFERENCES usuarios (cod_taller, documento_usu),
-    CONSTRAINT fk_ot_estado   FOREIGN KEY (cod_ot_est_ot)                   REFERENCES ot_estados (cod_ot_est)
+    CONSTRAINT fk_ot_estado   FOREIGN KEY (cod_ot_est_ot)                   REFERENCES ot_estados (cod_ot_est),
+    CONSTRAINT chk_ot_km_salida CHECK (kilometraje_salida_ot IS NULL OR kilometraje_salida_ot >= kilometraje_ingreso_ot)
 );
 
 CREATE TABLE detalle_orden_trabajo (
@@ -775,7 +776,8 @@ CREATE POLICY tenant_isolation_audit ON audit_log
 CREATE OR REPLACE VIEW vw_ordenes_trabajo_completa WITH (security_invoker = on) AS
 SELECT
     ot.consecutivo_ot, ot.fecha_elaboracion_ot, ot.fecha_entrega_ot,
-    ot.kilometraje_ingreso_ot, ot.observacion_cli_ot, ot.observacion_ot,
+    ot.kilometraje_ingreso_ot,
+    ot.observacion_cli_ot, ot.observacion_ot,
     ot.fecha_fin_garantia_ot,
     m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot,
     mar.nombre_mar AS marca_moto,
@@ -791,7 +793,8 @@ SELECT
        FROM detalle_orden_trabajo dot
        JOIN productos p ON dot.cod_pro_deto = p.cod_pro AND dot.cod_taller = p.cod_taller
       WHERE dot.consecutivo_ot_deto = ot.consecutivo_ot AND dot.cod_taller = ot.cod_taller
-    ) AS trabajos
+    ) AS trabajos,
+    ot.kilometraje_salida_ot
 FROM ordenes_trabajo ot
 INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller
 INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller
