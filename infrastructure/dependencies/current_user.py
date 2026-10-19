@@ -138,6 +138,18 @@ async def _permisos_del_usuario(user: Dict) -> Set[str]:
     return permisos
 
 
+async def usuario_tiene_permiso(user: Optional[Dict], nombre_prm: str) -> bool:
+    """Chequeo de permiso fuera del flujo Depends -- para gateos que dependen del
+    contenido del body, no de toda la ruta (p.ej. F1-06: solo bloquea si el body
+    trae cobrar_deto=False en algún ítem, no cualquier POST/PATCH de la orden)."""
+    if user is None:
+        return False
+    if user.get("COD_ROL_PRF_USU") == ADMIN_ROL:
+        return True
+    permisos = await _permisos_del_usuario(user)
+    return nombre_prm in permisos
+
+
 def require_permiso(nombre_prm: str) -> Callable:
     """Depends factory: exige el permiso `nombre_prm` (formato "accion:recurso",
     ej. "eliminar:productos") asignado y activo en el perfil del usuario. El
@@ -148,10 +160,7 @@ def require_permiso(nombre_prm: str) -> Callable:
         user = await get_current_usuario(request)
         if user is None:
             raise DomainException("No autenticado", HTTP_401_UNAUTHORIZED)
-        if user.get("COD_ROL_PRF_USU") == ADMIN_ROL:
-            return user
-        permisos = await _permisos_del_usuario(user)
-        if nombre_prm not in permisos:
+        if not await usuario_tiene_permiso(user, nombre_prm):
             raise DomainException(f"No tienes el permiso '{nombre_prm}'", HTTP_403_FORBIDDEN)
         return user
 

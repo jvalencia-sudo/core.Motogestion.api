@@ -133,7 +133,6 @@ INSERT INTO ordenes_trabajo (consecutivo_ot, fecha_elaboracion_ot, fecha_entrega
 -- Detalles de OT
 INSERT INTO detalle_orden_trabajo (consecutivo_ot_deto, cod_pro_deto, cantidad_deto, valor_unitario_deto, documento_usu_deto, fecha_confirmacion_deto) VALUES
 (1,1,2,35000,'1000000006', DATE '2025-11-20'),
-(1,2,-1,18000,'1000000006', DATE '2025-11-20'),
 (1,3,1,45000,'1000000006', DATE '2025-11-20'),
 (1,9,1,80000,'1000000006', DATE '2025-11-20'),
 (2,4,1,180000,'1000000007', DATE '2025-11-21'),
@@ -143,14 +142,18 @@ INSERT INTO detalle_orden_trabajo (consecutivo_ot_deto, cod_pro_deto, cantidad_d
 (3,1,1,35000,'1000000008', DATE '2025-11-19'),
 (3,9,2,80000,'1000000008', DATE '2025-11-19'),
 (4,8,1,95000,'1000000009', DATE '2025-11-15'),
-(4,7,-1,12000,'1000000009', DATE '2025-11-15'),
 (4,9,1,80000,'1000000009', DATE '2025-11-15'),
 (5,1,3,35000,'1000000006', DATE '2025-11-23'),
 (5,2,1,18000,'1000000006', DATE '2025-11-23'),
-(5,7,-2,12000,'1000000006', DATE '2025-11-23'),
 (5,10,1,22000,'1000000006', DATE '2025-11-23'),
 (5,3,1,45000,'1000000006', DATE '2025-11-23'),
 (5,9,3,80000,'1000000006', DATE '2025-11-23');
+
+-- Cortesías de demo (F1-06: cantidad siempre positiva, cobrar_deto=false + motivo).
+INSERT INTO detalle_orden_trabajo (consecutivo_ot_deto, cod_pro_deto, cantidad_deto, valor_unitario_deto, documento_usu_deto, fecha_confirmacion_deto, cobrar_deto, motivo_no_cobro_deto) VALUES
+(1,2,1,18000,'1000000006', DATE '2025-11-20', false, 'Cortesía demo'),
+(4,7,1,12000,'1000000009', DATE '2025-11-15', false, 'Cortesía demo'),
+(5,7,2,12000,'1000000006', DATE '2025-11-23', false, 'Cortesía demo');
 
 -- Avanzar secuencias de surrogates al máximo insertado (por si se insertan más luego)
 SELECT setval('seq_marcas',    (SELECT MAX(cod_mar) FROM marcas));

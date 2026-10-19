@@ -11,6 +11,8 @@ class DetalleOrdenTrabajoModelo(BaseSchema):
     valor_unitario_deto: int
     cantidad_deto: Decimal
     documento_usu_deto: str
+    cobrar_deto: bool = True
+    motivo_no_cobro_deto: Optional[str] = None
 
 
 class VwDetalleOtProductos(BaseSchema):
@@ -20,6 +22,8 @@ class VwDetalleOtProductos(BaseSchema):
     descripcion_pro: Optional[str] = None
     cantidad_deto: Decimal
     valor_unitario_deto: int
+    cobrar_deto: bool
+    motivo_no_cobro_deto: Optional[str] = None
     subtotal: float
     fecha_confirmacion_deto: Optional[datetime] = None
     usuario_confirmacion: str

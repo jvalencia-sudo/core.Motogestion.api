@@ -238,15 +238,17 @@ CREATE TABLE productos (
     cod_pro         INTEGER NOT NULL DEFAULT nextval('seq_productos'),
     nombre_pro      VARCHAR(70),
     descripcion_pro VARCHAR(500),
-    stock_pro       INTEGER,                                       -- NULL para SERVICIO/PAQUETE
-    stock_pro_min   INTEGER,
+    stock_pro       NUMERIC(12, 3),                                 -- NULL para SERVICIO/PAQUETE
+    stock_pro_min   NUMERIC(12, 3),
     cod_est_pro     INTEGER,
     precio_pro      INTEGER,
     tipo_pro        VARCHAR(10) NOT NULL DEFAULT 'BIEN',            -- BIEN | SERVICIO | PAQUETE
+    unidad_pro      VARCHAR(10) NOT NULL DEFAULT 'unidad',          -- unidad | litro | galon | metro
     CONSTRAINT pk_productos PRIMARY KEY (cod_taller, cod_pro),
     CONSTRAINT fk_productos_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_productos_estado FOREIGN KEY (cod_est_pro) REFERENCES estados (cod_est),
-    CONSTRAINT chk_producto_tipo CHECK (tipo_pro IN ('BIEN', 'SERVICIO', 'PAQUETE'))
+    CONSTRAINT chk_producto_tipo CHECK (tipo_pro IN ('BIEN', 'SERVICIO', 'PAQUETE')),
+    CONSTRAINT chk_producto_unidad CHECK (unidad_pro IN ('unidad', 'litro', 'galon', 'metro'))
 );
 
 CREATE TABLE productos_impuestos (
@@ -290,13 +292,17 @@ CREATE TABLE detalle_orden_trabajo (
     cod_pro_deto            INTEGER NOT NULL,
     fecha_confirmacion_deto DATE,
     valor_unitario_deto     INTEGER,
-    cantidad_deto           NUMERIC(10, 2),   -- permite fracciones (p.ej. 1.5 h de mano de obra)
+    cantidad_deto           NUMERIC(12, 3),   -- siempre positiva; permite fracciones (p.ej. 1.5 h de mano de obra)
     documento_usu_deto      VARCHAR(11),
+    cobrar_deto             BOOLEAN NOT NULL DEFAULT true,          -- false: cortesía -- SÍ descuenta stock igual
+    motivo_no_cobro_deto    VARCHAR(200),                           -- obligatorio si cobrar_deto = false
     CONSTRAINT pk_detalle_ot PRIMARY KEY (cod_taller, id_deto),
     CONSTRAINT fk_deto_taller   FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_deto_orden    FOREIGN KEY (cod_taller, consecutivo_ot_deto) REFERENCES ordenes_trabajo (cod_taller, consecutivo_ot),
     CONSTRAINT fk_deto_producto FOREIGN KEY (cod_taller, cod_pro_deto)        REFERENCES productos (cod_taller, cod_pro),
-    CONSTRAINT fk_deto_usuario  FOREIGN KEY (cod_taller, documento_usu_deto)  REFERENCES usuarios (cod_taller, documento_usu)
+    CONSTRAINT fk_deto_usuario  FOREIGN KEY (cod_taller, documento_usu_deto)  REFERENCES usuarios (cod_taller, documento_usu),
+    CONSTRAINT chk_deto_cantidad_positiva  CHECK (cantidad_deto > 0),
+    CONSTRAINT chk_deto_motivo_si_no_cobra CHECK (cobrar_deto OR motivo_no_cobro_deto IS NOT NULL)
 );
 
 CREATE TABLE reclamos (
@@ -315,9 +321,9 @@ CREATE TABLE movimientos_inventario (
     cod_mov           INTEGER NOT NULL DEFAULT nextval('seq_movimientos_inventario'),
     cod_pro_mov       INTEGER NOT NULL,
     tipo_mov          VARCHAR(10) NOT NULL,   -- ENTRADA / SALIDA / AJUSTE
-    cantidad_mov      INTEGER NOT NULL,       -- delta aplicado al stock (+entra, -sale)
-    stock_ant_mov     INTEGER,
-    stock_nue_mov     INTEGER,
+    cantidad_mov      NUMERIC(12, 3) NOT NULL, -- delta aplicado al stock (+entra, -sale)
+    stock_ant_mov     NUMERIC(12, 3),
+    stock_nue_mov     NUMERIC(12, 3),
     motivo_mov        VARCHAR(255),
     documento_usu_mov VARCHAR(11),            -- quién lo hizo (auditoría, sin FK)
     fecha_mov         TIMESTAMP NOT NULL DEFAULT now(),
@@ -335,7 +341,7 @@ CREATE TABLE paquete_componentes (
     cod_paq_comp  INTEGER NOT NULL DEFAULT nextval('seq_paquete_componentes'),
     cod_pro_paq   INTEGER NOT NULL,                 -- el paquete (producto tipo PAQUETE)
     cod_pro_comp  INTEGER NOT NULL,                 -- el componente incluido
-    cantidad_comp NUMERIC(10, 2) NOT NULL DEFAULT 1,
+    cantidad_comp NUMERIC(12, 3) NOT NULL DEFAULT 1,
     CONSTRAINT pk_paq_comp      PRIMARY KEY (cod_taller, cod_paq_comp),
     CONSTRAINT fk_paqc_taller   FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_paqc_paquete  FOREIGN KEY (cod_taller, cod_pro_paq)  REFERENCES productos (cod_taller, cod_pro),
@@ -348,19 +354,22 @@ CREATE TABLE paquete_componentes (
 -- ============================================================
 
 -- La BD es la ÚNICA dueña del stock + kardex. INSERT descuenta, UPDATE ajusta el
--- delta, DELETE revierte. El servicio Python ya NO toca stock. Regla de cortesía:
--- cantidad_deto <= 0 (línea no facturable) NO afecta stock. Tipos: BIEN descuenta,
--- SERVICIO no toca inventario, PAQUETE explota sus componentes BIEN.
+-- delta, DELETE revierte. El servicio Python ya NO toca stock. El stock SIEMPRE
+-- se descuenta para BIEN, se cobre o no (cobrar_deto=false es una cortesía, no
+-- una excepción de inventario -- solo cambia el motivo que queda en el kardex).
+-- Tipos: BIEN descuenta, SERVICIO no toca inventario, PAQUETE explota sus
+-- componentes BIEN.
 
 -- INSERT
 CREATE OR REPLACE FUNCTION fn_actualizar_stock()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_tipo TEXT;
-    v_ant  INTEGER;
-    v_nue  INTEGER;
-    v_cant INTEGER;
-    r      RECORD;
+    v_tipo   TEXT;
+    v_ant    NUMERIC(12, 3);
+    v_nue    NUMERIC(12, 3);
+    v_cant   NUMERIC(12, 3);
+    v_motivo VARCHAR(255);
+    r        RECORD;
 BEGIN
     SELECT tipo_pro INTO v_tipo FROM productos
      WHERE cod_pro = NEW.cod_pro_deto AND cod_taller = NEW.cod_taller;
@@ -368,9 +377,9 @@ BEGIN
     IF v_tipo = 'SERVICIO' THEN
         RETURN NEW;
     END IF;
-    IF NEW.cantidad_deto <= 0 THEN   -- cortesía: no afecta inventario
-        RETURN NEW;
-    END IF;
+
+    v_motivo := CASE WHEN NEW.cobrar_deto THEN 'Uso en orden de trabajo'
+                     ELSE 'Cortesía OT #' || NEW.consecutivo_ot_deto END;
 
     IF v_tipo = 'PAQUETE' THEN
         FOR r IN
@@ -380,7 +389,7 @@ BEGIN
              WHERE pc.cod_pro_paq = NEW.cod_pro_deto AND pc.cod_taller = NEW.cod_taller
         LOOP
             IF r.tipo_comp = 'BIEN' THEN
-                v_cant := (r.cantidad_comp * NEW.cantidad_deto)::integer;
+                v_cant := r.cantidad_comp * NEW.cantidad_deto;
                 SELECT stock_pro INTO v_ant FROM productos
                  WHERE cod_pro = r.cod_pro_comp AND cod_taller = NEW.cod_taller;
                 v_nue := COALESCE(v_ant, 0) - v_cant;
@@ -391,14 +400,20 @@ BEGIN
                    motivo_mov, documento_usu_mov, referencia_mov)
                 VALUES
                   (NEW.cod_taller, r.cod_pro_comp, 'SALIDA', -v_cant, v_ant, v_nue,
-                   'Componente de paquete', NEW.documento_usu_deto, 'OT #' || NEW.consecutivo_ot_deto);
+                   CASE WHEN NEW.cobrar_deto THEN 'Componente de paquete'
+                        ELSE 'Componente de paquete (Cortesía OT #' || NEW.consecutivo_ot_deto || ')' END,
+                   NEW.documento_usu_deto, 'OT #' || NEW.consecutivo_ot_deto);
             END IF;
         END LOOP;
         RETURN NEW;
     END IF;
 
+    IF v_tipo IS DISTINCT FROM 'BIEN' THEN
+        RETURN NEW;
+    END IF;
+
     -- BIEN
-    v_cant := NEW.cantidad_deto::integer;
+    v_cant := NEW.cantidad_deto;
     SELECT stock_pro INTO v_ant FROM productos
      WHERE cod_pro = NEW.cod_pro_deto AND cod_taller = NEW.cod_taller;
     v_nue := COALESCE(v_ant, 0) - v_cant;
@@ -409,7 +424,7 @@ BEGIN
        motivo_mov, documento_usu_mov, referencia_mov)
     VALUES
       (NEW.cod_taller, NEW.cod_pro_deto, 'SALIDA', -v_cant, v_ant, v_nue,
-       'Uso en orden de trabajo', NEW.documento_usu_deto, 'OT #' || NEW.consecutivo_ot_deto);
+       v_motivo, NEW.documento_usu_deto, 'OT #' || NEW.consecutivo_ot_deto);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -424,17 +439,13 @@ CREATE OR REPLACE FUNCTION fn_revertir_stock_detalle()
 RETURNS TRIGGER AS $$
 DECLARE
     v_tipo TEXT;
-    v_ant  INTEGER;
-    v_nue  INTEGER;
-    v_cant INTEGER;
+    v_ant  NUMERIC(12, 3);
+    v_nue  NUMERIC(12, 3);
+    v_cant NUMERIC(12, 3);
     r      RECORD;
 BEGIN
     SELECT tipo_pro INTO v_tipo FROM productos
      WHERE cod_pro = OLD.cod_pro_deto AND cod_taller = OLD.cod_taller;
-
-    IF OLD.cantidad_deto <= 0 THEN
-        RETURN OLD;
-    END IF;
 
     IF v_tipo = 'PAQUETE' THEN
         FOR r IN
@@ -444,7 +455,7 @@ BEGIN
              WHERE pc.cod_pro_paq = OLD.cod_pro_deto AND pc.cod_taller = OLD.cod_taller
         LOOP
             IF r.tipo_comp = 'BIEN' THEN
-                v_cant := (r.cantidad_comp * OLD.cantidad_deto)::integer;
+                v_cant := r.cantidad_comp * OLD.cantidad_deto;
                 SELECT stock_pro INTO v_ant FROM productos
                  WHERE cod_pro = r.cod_pro_comp AND cod_taller = OLD.cod_taller;
                 v_nue := COALESCE(v_ant, 0) + v_cant;
@@ -465,7 +476,7 @@ BEGIN
         RETURN OLD;
     END IF;
 
-    v_cant := OLD.cantidad_deto::integer;
+    v_cant := OLD.cantidad_deto;
     SELECT stock_pro INTO v_ant FROM productos
      WHERE cod_pro = OLD.cod_pro_deto AND cod_taller = OLD.cod_taller;
     v_nue := COALESCE(v_ant, 0) + v_cant;
@@ -491,11 +502,10 @@ CREATE OR REPLACE FUNCTION fn_ajustar_stock_detalle()
 RETURNS TRIGGER AS $$
 DECLARE
     v_tipo   TEXT;
-    v_ant    INTEGER;
-    v_nue    INTEGER;
-    v_old_ef NUMERIC;
-    v_new_ef NUMERIC;
-    v_delta  INTEGER;
+    v_ant    NUMERIC(12, 3);
+    v_nue    NUMERIC(12, 3);
+    v_delta  NUMERIC(12, 3);
+    v_motivo VARCHAR(255);
     r        RECORD;
 BEGIN
     IF NEW.cod_pro_deto <> OLD.cod_pro_deto THEN
@@ -508,8 +518,8 @@ BEGIN
     SELECT tipo_pro INTO v_tipo FROM productos
      WHERE cod_pro = NEW.cod_pro_deto AND cod_taller = NEW.cod_taller;
 
-    v_old_ef := CASE WHEN OLD.cantidad_deto > 0 THEN OLD.cantidad_deto ELSE 0 END;
-    v_new_ef := CASE WHEN NEW.cantidad_deto > 0 THEN NEW.cantidad_deto ELSE 0 END;
+    v_motivo := CASE WHEN NEW.cobrar_deto THEN 'Edición de OT'
+                     ELSE 'Edición de OT (Cortesía OT #' || NEW.consecutivo_ot_deto || ')' END;
 
     IF v_tipo = 'PAQUETE' THEN
         FOR r IN
@@ -519,7 +529,7 @@ BEGIN
              WHERE pc.cod_pro_paq = NEW.cod_pro_deto AND pc.cod_taller = NEW.cod_taller
         LOOP
             IF r.tipo_comp = 'BIEN' THEN
-                v_delta := (r.cantidad_comp * (v_new_ef - v_old_ef))::integer;
+                v_delta := r.cantidad_comp * (NEW.cantidad_deto - OLD.cantidad_deto);
                 IF v_delta <> 0 THEN
                     SELECT stock_pro INTO v_ant FROM productos
                      WHERE cod_pro = r.cod_pro_comp AND cod_taller = NEW.cod_taller;
@@ -542,11 +552,7 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    v_delta := (v_new_ef - v_old_ef)::integer;
-    IF v_delta = 0 THEN
-        RETURN NEW;
-    END IF;
-
+    v_delta := NEW.cantidad_deto - OLD.cantidad_deto;
     SELECT stock_pro INTO v_ant FROM productos
      WHERE cod_pro = NEW.cod_pro_deto AND cod_taller = NEW.cod_taller;
     v_nue := COALESCE(v_ant, 0) - v_delta;
@@ -557,7 +563,7 @@ BEGIN
        motivo_mov, documento_usu_mov, referencia_mov)
     VALUES
       (NEW.cod_taller, NEW.cod_pro_deto, 'AJUSTE', -v_delta, v_ant, v_nue,
-       'Edición de OT', NEW.documento_usu_deto, 'OT #' || NEW.consecutivo_ot_deto);
+       v_motivo, NEW.documento_usu_deto, 'OT #' || NEW.consecutivo_ot_deto);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -793,7 +799,8 @@ CREATE OR REPLACE VIEW vw_detalle_ot_productos WITH (security_invoker = on) AS
 SELECT
     dot.consecutivo_ot_deto, dot.cod_pro_deto,
     p.nombre_pro, p.descripcion_pro, dot.cantidad_deto, dot.valor_unitario_deto,
-    (ABS(dot.cantidad_deto) * dot.valor_unitario_deto) AS subtotal,
+    dot.cobrar_deto, dot.motivo_no_cobro_deto,
+    (dot.cantidad_deto * dot.valor_unitario_deto) AS subtotal,
     dot.fecha_confirmacion_deto,
     u.nombre_usu || ' ' || u.apellido_1_usu AS usuario_confirmacion,
     e.nombre_est AS estado_producto
@@ -806,10 +813,10 @@ CREATE OR REPLACE VIEW vw_resumen_financiero_ot WITH (security_invoker = on) AS
 SELECT
     ot.consecutivo_ot, ot.fecha_elaboracion_ot,
     c.nombre_cli || ' ' || c.apellido_1_cli AS cliente, m.placa_mot,
-    COUNT(CASE WHEN dot.cantidad_deto > 0 THEN dot.cod_pro_deto END) AS total_items,
-    SUM(CASE WHEN dot.cantidad_deto > 0 THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS subtotal_productos,
+    COUNT(CASE WHEN dot.cobrar_deto THEN dot.cod_pro_deto END) AS total_items,
+    SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS subtotal_productos,
     0 AS total_impuestos,
-    SUM(CASE WHEN dot.cantidad_deto > 0 THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS total_ot
+    SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS total_ot
 FROM ordenes_trabajo ot
 INNER JOIN detalle_orden_trabajo dot ON ot.consecutivo_ot = dot.consecutivo_ot_deto AND ot.cod_taller = dot.cod_taller
 INNER JOIN motos m    ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller
@@ -916,13 +923,13 @@ INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est;
 
 CREATE OR REPLACE VIEW vw_productos WITH (security_invoker = on) AS
 SELECT p.cod_pro, p.nombre_pro, p.descripcion_pro, p.precio_pro,
-       p.stock_pro, p.stock_pro_min, p.cod_est_pro, e.nombre_est AS estado_producto,
+       p.stock_pro, p.stock_pro_min, p.unidad_pro, p.cod_est_pro, e.nombre_est AS estado_producto,
        p.tipo_pro
 FROM productos p INNER JOIN estados e ON p.cod_est_pro = e.cod_est;
 
 CREATE OR REPLACE VIEW vw_productos_activos WITH (security_invoker = on) AS
 SELECT p.cod_pro, p.nombre_pro, p.descripcion_pro, p.precio_pro,
-       p.stock_pro, p.stock_pro_min, p.cod_est_pro, e.nombre_est AS estado_producto,
+       p.stock_pro, p.stock_pro_min, p.unidad_pro, p.cod_est_pro, e.nombre_est AS estado_producto,
        p.tipo_pro
 FROM productos p INNER JOIN estados e ON p.cod_est_pro = e.cod_est
 WHERE p.cod_est_pro = 1;
@@ -935,7 +942,7 @@ INNER JOIN impuestos i ON pi.cod_imp_pro_imp = i.cod_imp AND pi.cod_taller = i.c
 
 CREATE OR REPLACE VIEW vw_productos_con_impuestos WITH (security_invoker = on) AS
 SELECT p.cod_pro, p.nombre_pro, p.descripcion_pro, p.precio_pro,
-       p.stock_pro, p.stock_pro_min, e.nombre_est AS estado_producto,
+       p.stock_pro, p.stock_pro_min, p.unidad_pro, e.nombre_est AS estado_producto,
        pi.cod_pro_imp, i.nombre_imp, pi.porcentaje_pro_imp,
        ROUND(p.precio_pro * (pi.porcentaje_pro_imp / 100), 2) AS valor_impuesto,
        ROUND(p.precio_pro + (p.precio_pro * (pi.porcentaje_pro_imp / 100)), 2) AS precio_con_impuesto
@@ -1156,6 +1163,7 @@ INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
 (nextval('seq_permisos'),'crear:ordenes-trabajo','Permite crear órdenes de trabajo','/ordenes'),
 (nextval('seq_permisos'),'actualizar:ordenes-trabajo','Permite actualizar órdenes de trabajo','/ordenes'),
 (nextval('seq_permisos'),'eliminar:ordenes-trabajo','Permite eliminar - desactivar órdenes de trabajo','/ordenes'),
+(nextval('seq_permisos'),'marcar_no_cobro:ordenes-trabajo','Permite marcar un ítem de una orden como "no se cobra" (cortesía)','/ordenes'),
 (nextval('seq_permisos'),'leer:orders','Permite ver pedidos','/productos'),
 (nextval('seq_permisos'),'crear:orders','Permite crear pedidos','/productos'),
 (nextval('seq_permisos'),'actualizar:orders','Permite actualizar pedidos','/productos'),

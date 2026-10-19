@@ -29,7 +29,9 @@ class DetalleOrdenTrabajoRepositorio(BaseRepository):
         cod_pro: int,
         cantidad: Cantidad,
         valor_unitario: int,
-        documento_usu: str
+        documento_usu: str,
+        cobrar: bool = True,
+        motivo_no_cobro: Optional[str] = None,
     ) -> bool:
         """Crea un detalle de orden de trabajo"""
         query = """
@@ -39,10 +41,14 @@ class DetalleOrdenTrabajoRepositorio(BaseRepository):
                 cantidad_deto,
                 valor_unitario_deto,
                 documento_usu_deto,
-                fecha_confirmacion_deto
-            ) VALUES (:1, :2, :3, :4, :5, CURRENT_DATE)
+                fecha_confirmacion_deto,
+                cobrar_deto,
+                motivo_no_cobro_deto
+            ) VALUES (:1, :2, :3, :4, :5, CURRENT_DATE, :6, :7)
         """
-        await self.execute_non_query(query, (consecutivo_ot, cod_pro, cantidad, valor_unitario, documento_usu))
+        await self.execute_non_query(
+            query, (consecutivo_ot, cod_pro, cantidad, valor_unitario, documento_usu, cobrar, motivo_no_cobro)
+        )
         return True
 
     async def existe_detalle(self, consecutivo_ot: int, cod_pro: int) -> bool:
@@ -59,15 +65,17 @@ class DetalleOrdenTrabajoRepositorio(BaseRepository):
         self,
         consecutivo_ot: int,
         cod_pro: int,
-        nueva_cantidad: Cantidad
+        nueva_cantidad: Cantidad,
+        cobrar: bool = True,
+        motivo_no_cobro: Optional[str] = None,
     ) -> bool:
-        """Actualiza la cantidad de un producto en el detalle"""
+        """Actualiza la cantidad (y el estado de cobro) de un producto en el detalle"""
         query = """
             UPDATE detalle_orden_trabajo
-            SET cantidad_deto = :1
-            WHERE consecutivo_ot_deto = :2 AND cod_pro_deto = :3
+            SET cantidad_deto = :1, cobrar_deto = :2, motivo_no_cobro_deto = :3
+            WHERE consecutivo_ot_deto = :4 AND cod_pro_deto = :5
         """
-        await self.execute_non_query(query, (nueva_cantidad, consecutivo_ot, cod_pro))
+        await self.execute_non_query(query, (nueva_cantidad, cobrar, motivo_no_cobro, consecutivo_ot, cod_pro))
         return True
 
     async def eliminar_detalle(self, consecutivo_ot: int, cod_pro: int) -> bool:

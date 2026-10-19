@@ -221,27 +221,23 @@ class OrdenTrabajoPDFGenerator:
             cantidad_deto = detalle.cantidad_deto
             valor_unitario = detalle.valor_unitario_deto
 
-            # Determinar si se factura según el signo de la cantidad
-            se_factura = 'Si' if cantidad_deto > 0 else 'No'
-
-            # Mostrar la cantidad sin signo (valor absoluto)
-            cantidad_mostrar = abs(cantidad_deto)
-
-            # Calcular subtotal usando valor absoluto de la cantidad
-            subtotal = abs(cantidad_deto) * valor_unitario
+            # F1-06: cobrar_deto es explícito -- cantidad_deto ya siempre es positiva
+            # (una cortesía también descuenta stock, el signo ya no significa nada).
+            se_factura = 'Si' if detalle.cobrar_deto else 'No'
+            subtotal = cantidad_deto * valor_unitario
 
             # Acumular al subtotal total (todos los productos)
             subtotal_total += subtotal
 
             # Acumular al total facturable solo si se factura
-            if cantidad_deto > 0:
+            if detalle.cobrar_deto:
                 total_facturable += subtotal
 
             data.append([
                 str(idx),
                 str(codigo),
                 referencia,
-                str(cantidad_mostrar),
+                str(cantidad_deto),
                 self._formatear_moneda(valor_unitario),
                 se_factura,
                 self._formatear_moneda(subtotal)

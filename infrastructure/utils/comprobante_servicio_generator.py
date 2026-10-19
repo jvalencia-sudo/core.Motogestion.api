@@ -184,8 +184,8 @@ class ComprobanteServicioPDFGenerator:
         y = self._linea_separadora(c, y)
         y -= 5
 
-        # Filtrar solo productos facturables (cantidad > 0)
-        productos_facturables = [d for d in orden.detalles if d.cantidad_deto > 0]
+        # Filtrar solo productos facturables (cobrar_deto=True)
+        productos_facturables = [d for d in orden.detalles if d.cobrar_deto]
 
         if not productos_facturables:
             c.setFont("Courier", 8)
@@ -236,7 +236,7 @@ class ComprobanteServicioPDFGenerator:
         y -= 5
 
         # Calcular totales SOLO de productos facturables
-        productos_facturables = [d for d in orden.detalles if d.cantidad_deto > 0]
+        productos_facturables = [d for d in orden.detalles if d.cobrar_deto]
 
         subtotal = sum(
             d.cantidad_deto * d.valor_unitario_deto

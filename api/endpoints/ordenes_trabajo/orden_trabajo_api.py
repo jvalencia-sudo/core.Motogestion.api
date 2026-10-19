@@ -16,7 +16,7 @@ from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
     DetalleOrdenUpdateContract
 )
 from domain.services.ordenes_trabajo.orden_trabajo_servicio import OrdenTrabajoServicio
-from infrastructure.dependencies.current_user import get_current_usuario, require_permiso
+from infrastructure.dependencies.current_user import get_current_usuario, require_permiso, usuario_tiene_permiso
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
 
@@ -26,6 +26,18 @@ router = APIRouter(
     prefix="/ordenes-trabajo",
     tags=["Ordenes de Trabajo"]
 )
+
+
+async def _verificar_permiso_no_cobro(cobrar_flags: List[bool], current: Optional[Dict]) -> None:
+    """F1-06: marcar un ítem como 'no se cobra' (cortesía) exige un permiso
+    específico -- solo se chequea si el body realmente trae algún cobrar_deto=False,
+    no en cualquier POST/PATCH de la orden."""
+    if any(not c for c in cobrar_flags):
+        if not await usuario_tiene_permiso(current, "marcar_no_cobro:ordenes-trabajo"):
+            raise DomainException(
+                "No tienes permiso para marcar productos como 'no se cobra'",
+                status.HTTP_403_FORBIDDEN,
+            )
 
 
 @router.get("", response_model=List[OrdenTrabajoResumenContract])
@@ -147,6 +159,7 @@ async def crear_orden_trabajo(
     documento_usuario = orden.documento_usu_rp_ot or (current and str(current.get("DOCUMENTO_USU")))
     if not documento_usuario:
         raise DomainException("No se pudo identificar al usuario autenticado", status.HTTP_401_UNAUTHORIZED)
+    await _verificar_permiso_no_cobro([d.cobrar_deto for d in orden.detalles], current)
     return await servicio.crear_orden_trabajo(orden, documento_usuario)
 
 
@@ -188,9 +201,11 @@ async def agregar_producto_a_orden(
     consecutivo_ot: int,
     detalle: DetalleOrdenTrabajoContract,
     _=Depends(require_permiso("actualizar:ordenes-trabajo")),
+    current: Optional[Dict] = Depends(get_current_usuario),
 ):
     """Agrega un producto/servicio a una orden de trabajo existente"""
     servicio = OrdenTrabajoServicio()
+    await _verificar_permiso_no_cobro([detalle.cobrar_deto], current)
 
     # Obtener la orden para usar el documento del recepcionista
     orden = await servicio.obtener_orden_por_id(consecutivo_ot)
@@ -205,12 +220,14 @@ async def actualizar_cantidad_producto(
     cod_pro: int,
     detalle: DetalleOrdenUpdateContract,
     _=Depends(require_permiso("actualizar:ordenes-trabajo")),
+    current: Optional[Dict] = Depends(get_current_usuario),
 ):
     """
     Actualiza la cantidad de un producto en una orden de trabajo.
     Maneja automáticamente el ajuste de stock.
     """
     servicio = OrdenTrabajoServicio()
+    await _verificar_permiso_no_cobro([detalle.cobrar_deto], current)
     return await servicio.actualizar_cantidad_producto(consecutivo_ot, cod_pro, detalle)
 
 
