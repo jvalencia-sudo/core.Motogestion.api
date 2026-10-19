@@ -97,12 +97,16 @@ class SuscripcionServicio:
         referencia = f"MG-{cod_taller}-{secrets.token_hex(6)}"
         await self.pago_repo.crear_pendiente(cod_taller, nombre_plan, monto, referencia)
 
-        redirect_url = f"{settings.frontend_url}/planes/gracias"
-        url = wompi_provider.construir_url_checkout(
-            cfg.checkout_url, cfg.public_key, cfg.integrity_secret,
-            referencia, monto * 100, redirect_url,   # Wompi usa centavos
+        moneda = "COP"
+        monto_centavos = monto * 100  # Wompi usa centavos
+        firma = wompi_provider.firma_integridad(referencia, monto_centavos, moneda, cfg.integrity_secret)
+        return CheckoutResponseContract(
+            public_key=cfg.public_key,
+            currency=moneda,
+            amount_in_cents=monto_centavos,
+            reference=referencia,
+            signature=firma,
         )
-        return CheckoutResponseContract(checkout_url=url, referencia=referencia)
 
     async def procesar_webhook(self, payload: Dict) -> Dict:
         """Verifica la firma del evento de Wompi y, si el pago fue APROBADO, activa

@@ -15,6 +15,7 @@ from domain.services.suscripciones.suscripcion_servicio import (
     SuscripcionServicio,
 )
 from infrastructure.exceptions.domain_exception import DomainException
+from infrastructure.providers.payments import wompi_provider
 
 MONTO = 49000
 PAYLOAD_BASE = {
@@ -228,6 +229,36 @@ async def test_checkout_con_plan_inexistente_o_inactivo_responde_400():
             await servicio.crear_checkout(cod_taller=1, nombre_plan="Premium")
 
     assert exc.value.code == 400
+
+
+# ---- crear_checkout: datos del Widget de Wompi (modal, F1-xx) ----
+
+async def test_checkout_devuelve_los_datos_del_widget_con_firma_correcta():
+    """El front abre el Widget de Wompi con estos campos (sin redirect a una
+    URL de Wompi) -- la firma debe coincidir exactamente con la que Wompi
+    recalcula de su lado, o el pago se rechaza."""
+    servicio = SuscripcionServicio()
+    servicio.plan_repo = AsyncMock()
+    servicio.plan_repo.get_por_nombre.return_value = {"PRECIO_PLAN": MONTO, "ACTIVO": True}
+    servicio.pago_repo = AsyncMock()
+    servicio.taller_repo = AsyncMock()
+    servicio.taller_repo.get_suscripcion.return_value = {"PRECIO_SUSC_TAL": None}
+    servicio.taller_repo.contar_por_precio_susc.return_value = CUPOS_FUNDADOR  # sin cupo: paga catálogo
+
+    with patch("domain.services.suscripciones.suscripcion_servicio.settings") as settings_mock:
+        settings_mock.wompi_config.configurado = True
+        settings_mock.wompi_config.public_key = "pub_test_abc"
+        settings_mock.wompi_config.integrity_secret = "secreto"
+
+        resp = await servicio.crear_checkout(cod_taller=1, nombre_plan="Premium")
+
+    assert resp.public_key == "pub_test_abc"
+    assert resp.currency == "COP"
+    assert resp.amount_in_cents == MONTO * 100
+    firma_esperada = wompi_provider.firma_integridad(
+        resp.reference, MONTO * 100, "COP", "secreto"
+    )
+    assert resp.signature == firma_esperada
 
 
 # ---- listar_pagos: historial de pagos del taller (vista de Administración) ----

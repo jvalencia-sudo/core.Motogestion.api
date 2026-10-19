@@ -27,9 +27,15 @@ class PlanContract(BaseContractSchema):
 
 
 class CheckoutResponseContract(BaseContractSchema):
-    """Respuesta del checkout: link de pago de Wompi + referencia."""
-    checkout_url: str
-    referencia: str
+    """Datos para que el front abra el Widget de Wompi (modal embebido, sin
+    salir del sitio) -- en vez de un link de redirect al Web Checkout. Sin
+    redirect_url a propósito: el resultado se maneja en el callback del
+    widget, no con una navegación de página completa."""
+    public_key: str
+    currency: str
+    amount_in_cents: int
+    reference: str
+    signature: str
 
 
 class PagoContract(BaseContractSchema):
