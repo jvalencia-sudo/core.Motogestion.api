@@ -26,6 +26,7 @@ from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
     DetalleOrdenTrabajoResponseContract
 )
 from domain.services.base_service import BaseService
+from infrastructure.utils.placa import normalizar_placa
 from repository.ordenes_trabajo.orden_trabajo_repositorio import OrdenTrabajoRepositorio
 from repository.ordenes_trabajo.detalle_orden_trabajo_repositorio import DetalleOrdenTrabajoRepositorio
 from repository.ordenes_trabajo.ot_estado_repositorio import OtEstadoRepositorio
@@ -131,7 +132,10 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 nombre_completo_cliente=orden.nombre_completo_cliente,
                 telefono_cli=orden.telefono_cli,
                 estado_ot=orden.estado_ot,
+                cod_ot_est_ot=orden.cod_ot_est_ot,
                 mecanico=orden.mecanico,
+                kilometraje_ingreso_ot=orden.kilometraje_ingreso_ot,
+                trabajos=orden.trabajos,
                 total_ot=total_ot
             ))
 
@@ -671,7 +675,10 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 nombre_completo_cliente=orden.nombre_completo_cliente,
                 telefono_cli=orden.telefono_cli,
                 estado_ot=orden.estado_ot,
+                cod_ot_est_ot=orden.cod_ot_est_ot,
                 mecanico=orden.mecanico,
+                kilometraje_ingreso_ot=orden.kilometraje_ingreso_ot,
+                trabajos=orden.trabajos,
                 total_ot=total_ot
             ))
 
@@ -679,6 +686,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
     async def obtener_ordenes_por_moto(self, placa_mot: str) -> List[OrdenTrabajoResumenContract]:
         """Obtiene todas las ordenes de una moto"""
+        placa_mot = normalizar_placa(placa_mot)
         ordenes_dict = await self.repository.obtener_ordenes_por_moto(placa_mot)
         ordenes_modelos = self.__parse_all_custom__(ordenes_dict, VwOrdenesTrabajoCompleta)
 
@@ -698,7 +706,10 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 nombre_completo_cliente=orden.nombre_completo_cliente,
                 telefono_cli=orden.telefono_cli,
                 estado_ot=orden.estado_ot,
+                cod_ot_est_ot=orden.cod_ot_est_ot,
                 mecanico=orden.mecanico,
+                kilometraje_ingreso_ot=orden.kilometraje_ingreso_ot,
+                trabajos=orden.trabajos,
                 total_ot=total_ot
             ))
 

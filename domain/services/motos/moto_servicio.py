@@ -14,6 +14,7 @@ from domain.services.base_service import BaseService
 from domain.services.marcas.marca_servicio import MarcaServicio
 from domain.services.clientes.cliente_servicio import ClienteServicio
 from infrastructure.exceptions.domain_exception import DomainException
+from infrastructure.utils.placa import normalizar_placa
 from repository.motos.moto_repositorio import MotoRepositorio
 
 logger = logging.getLogger(__name__)
@@ -171,7 +172,10 @@ class MotoServicio(BaseService[MotoModelo, MotoRepositorio]):
 
     async def obtener_moto_por_id(self, placa_mot: str) -> MotoResponseContract:
         """Obtiene moto por placa"""
-        if not placa_mot or len(placa_mot) != 6:
+        placa_mot = normalizar_placa(placa_mot) if placa_mot else placa_mot
+        # Mismo rango que MotoCreateContract (5-6 caracteres): placas de moto
+        # colombianas antiguas tienen 5 (ej. "CQZ69"), no solo 6.
+        if not placa_mot or len(placa_mot) < 5 or len(placa_mot) > 6:
             raise DomainException(
                 "Placa de moto inválida",
                 HTTP_400_BAD_REQUEST
@@ -277,6 +281,7 @@ class MotoServicio(BaseService[MotoModelo, MotoRepositorio]):
 
     async def actualizar_moto(self, placa_mot: str, contract: MotoUpdateContract) -> MotoResponseContract:
         """Actualiza moto"""
+        placa_mot = normalizar_placa(placa_mot)
         # Validar existencia
         moto_dict = await self.repository.get_by_id(placa_mot)
         if not moto_dict:
@@ -358,6 +363,7 @@ class MotoServicio(BaseService[MotoModelo, MotoRepositorio]):
 
     async def eliminar_moto(self, placa_mot: str) -> bool:
         """Elimina moto"""
+        placa_mot = normalizar_placa(placa_mot)
         try:
             moto_dict = await self.repository.get_by_id(placa_mot)
             if not moto_dict:

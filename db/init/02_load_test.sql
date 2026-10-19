@@ -19,5 +19,6 @@ INSERT INTO schema_migrations (version) VALUES
     ('001_mi_taller_campos'),
     ('002_garantia_pred_trigger'),
     ('003_orden_rapida_mecanico_opcional'),
-    ('004_cortesias_y_stock_decimal')
+    ('004_cortesias_y_stock_decimal'),
+    ('005_busqueda_placa')
 ON CONFLICT (version) DO NOTHING;
