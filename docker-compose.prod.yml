@@ -115,7 +115,6 @@ services:
             WOMPI_PRIVATE_KEY: ${WOMPI_PRIVATE_KEY:-}
             WOMPI_EVENTS_SECRET: ${WOMPI_EVENTS_SECRET:-}
             WOMPI_INTEGRITY_SECRET: ${WOMPI_INTEGRITY_SECRET:-}
-            WOMPI_CHECKOUT_URL: ${WOMPI_CHECKOUT_URL:-https://checkout.wompi.co/p/}
             WOMPI_BASE_URL: ${WOMPI_BASE_URL:-https://sandbox.wompi.co/v1}
         healthcheck:
             test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]

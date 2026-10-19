@@ -39,7 +39,6 @@ class WompiConfig(BaseSettingModel):
     private_key: str = Field("", alias="WOMPI_PRIVATE_KEY")
     events_secret: str = Field("", alias="WOMPI_EVENTS_SECRET")
     integrity_secret: str = Field("", alias="WOMPI_INTEGRITY_SECRET")
-    checkout_url: str = Field("https://checkout.wompi.co/p/", alias="WOMPI_CHECKOUT_URL")
     base_url: str = Field("https://sandbox.wompi.co/v1", alias="WOMPI_BASE_URL")
 
     @property
