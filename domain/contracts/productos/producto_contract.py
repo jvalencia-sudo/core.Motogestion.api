@@ -32,14 +32,19 @@ class ComponenteResponseContract(BaseContractSchema):
     cantidad_comp: Decimal
 
 
+UnidadMedida = Literal["unidad", "litro", "galon", "metro"]
+
+
 class ProductoCreateContract(BaseContractSchema):
     """Contrato para crear un producto con sus impuestos"""
     nombre_pro: str = Field(..., min_length=1, max_length=70, description="Nombre del producto")
     descripcion_pro: str = Field(..., min_length=1, max_length=500, description="Descripción del producto")
     # BIEN maneja stock; SERVICIO (mano de obra) no; PAQUETE es un combo de precio fijo.
     tipo_pro: Literal["BIEN", "SERVICIO", "PAQUETE"] = Field("BIEN", description="Tipo: BIEN, SERVICIO o PAQUETE")
-    stock_pro: Optional[int] = Field(None, ge=0, description="Stock actual (solo BIEN)")
-    stock_pro_min: Optional[int] = Field(None, ge=0, description="Stock mínimo (solo BIEN)")
+    # F1-03: Decimal -- permite fracciones (p.ej. 1.5 litros de aceite).
+    stock_pro: Optional[Decimal] = Field(None, ge=0, description="Stock actual (solo BIEN)")
+    stock_pro_min: Optional[Decimal] = Field(None, ge=0, description="Stock mínimo (solo BIEN)")
+    unidad_pro: UnidadMedida = Field("unidad", description="Unidad de medida del stock")
     precio_pro: int = Field(..., gt=0, description="Precio del producto (debe ser mayor a 0)")
     impuestos: Optional[List[ImpuestoProductoContract]] = Field(default=[], description="Lista de impuestos a aplicar")
     # Componentes de la "receta" cuando tipo_pro == PAQUETE.
@@ -51,8 +56,9 @@ class ProductoUpdateContract(BaseContractSchema):
     nombre_pro: Optional[str] = Field(None, min_length=1, max_length=70, description="Nombre del producto")
     descripcion_pro: Optional[str] = Field(None, min_length=1, max_length=500, description="Descripción del producto")
     tipo_pro: Optional[Literal["BIEN", "SERVICIO", "PAQUETE"]] = Field(None, description="Tipo: BIEN, SERVICIO o PAQUETE")
-    stock_pro: Optional[int] = Field(None, ge=0, description="Stock actual (solo BIEN)")
-    stock_pro_min: Optional[int] = Field(None, ge=0, description="Stock mínimo (solo BIEN)")
+    stock_pro: Optional[Decimal] = Field(None, ge=0, description="Stock actual (solo BIEN)")
+    stock_pro_min: Optional[Decimal] = Field(None, ge=0, description="Stock mínimo (solo BIEN)")
+    unidad_pro: Optional[UnidadMedida] = Field(None, description="Unidad de medida del stock")
     precio_pro: Optional[int] = Field(None, gt=0, description="Precio del producto (debe ser mayor a 0)")
     impuestos: Optional[List[ImpuestoProductoContract]] = Field(None, description="Lista de impuestos a aplicar")
     componentes: Optional[List[ComponenteContract]] = Field(None, description="Componentes del paquete (solo PAQUETE, reemplaza los existentes)")
@@ -64,8 +70,9 @@ class ProductoResponseContract(BaseContractSchema):
     nombre_pro: str
     descripcion_pro: Optional[str]
     tipo_pro: str = "BIEN"
-    stock_pro: Optional[int] = None
-    stock_pro_min: Optional[int] = None
+    stock_pro: Optional[Decimal] = None
+    stock_pro_min: Optional[Decimal] = None
+    unidad_pro: str = "unidad"
     cod_est_pro: int
     precio_pro: int
     estado_producto: Optional[str] = None

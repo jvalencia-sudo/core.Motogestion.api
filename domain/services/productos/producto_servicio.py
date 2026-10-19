@@ -102,6 +102,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                 tipo_pro=producto_modelo.tipo_pro,
                 stock_pro=producto_modelo.stock_pro,
                 stock_pro_min=producto_modelo.stock_pro_min,
+                unidad_pro=producto_modelo.unidad_pro,
                 cod_est_pro=producto_modelo.cod_est_pro,
                 precio_pro=producto_modelo.precio_pro,
                 estado_producto=producto_modelo.estado_producto,
@@ -148,6 +149,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                 tipo_pro=producto_modelo.tipo_pro,
                 stock_pro=producto_modelo.stock_pro,
                 stock_pro_min=producto_modelo.stock_pro_min,
+                unidad_pro=producto_modelo.unidad_pro,
                 cod_est_pro=producto_modelo.cod_est_pro,
                 precio_pro=producto_modelo.precio_pro,
                 estado_producto=producto_modelo.estado_producto,
@@ -195,6 +197,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
             tipo_pro=producto_modelo.tipo_pro,
             stock_pro=producto_modelo.stock_pro,
             stock_pro_min=producto_modelo.stock_pro_min,
+            unidad_pro=producto_modelo.unidad_pro,
             cod_est_pro=producto_modelo.cod_est_pro,
             precio_pro=producto_modelo.precio_pro,
             estado_producto=producto_modelo.estado_producto,
@@ -233,6 +236,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
             descripcion_pro=contract.descripcion_pro,
             stock_pro=stock_pro,
             stock_pro_min=stock_pro_min,
+            unidad_pro=contract.unidad_pro,
             cod_est_pro=1,  # Activo
             precio_pro=contract.precio_pro,
             tipo_pro=contract.tipo_pro
@@ -306,6 +310,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
             descripcion_pro=contract.descripcion_pro if contract.descripcion_pro else producto_actual_modelo.descripcion_pro,
             stock_pro=stock_actual,
             stock_pro_min=stock_min,
+            unidad_pro=contract.unidad_pro if contract.unidad_pro is not None else producto_actual_modelo.unidad_pro,
             cod_est_pro=producto_actual_modelo.cod_est_pro,
             precio_pro=contract.precio_pro if contract.precio_pro is not None else producto_actual_modelo.precio_pro,
             tipo_pro=tipo_pro

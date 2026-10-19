@@ -41,6 +41,7 @@ def _orden_de_prueba() -> OrdenTrabajoResponseContract:
                 nombre_pro="Cambio de aceite",
                 cantidad_deto=1,
                 valor_unitario_deto=50000,
+                cobrar_deto=True,
                 subtotal=50000,
                 usuario_confirmacion="1",
                 estado_producto="Confirmado",

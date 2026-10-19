@@ -80,14 +80,14 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             )
 
     async def _validar_stock(self, producto: ProductoModelo, cantidad) -> None:
-        """Valida stock disponible antes de insertar un detalle facturable (cantidad>0).
+        """Valida stock disponible antes de insertar cualquier detalle de tipo BIEN,
+        se cobre o no (F1-06: una cortesía descuenta stock igual que una venta, así
+        que también debe validarse contra el disponible).
         - BIEN: valida su propio stock.
         - PAQUETE: valida el stock de cada componente BIEN (cantidad_comp * cantidad).
         - SERVICIO: no valida (no maneja stock).
         El descuento real lo hace el trigger de la BD.
         """
-        if cantidad <= 0:
-            return
         if producto.tipo_pro == "BIEN":
             if (producto.stock_pro or 0) < cantidad:
                 raise DomainException(
@@ -177,6 +177,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 descripcion_pro=det.descripcion_pro,
                 cantidad_deto=det.cantidad_deto,
                 valor_unitario_deto=det.valor_unitario_deto,
+                cobrar_deto=det.cobrar_deto,
+                motivo_no_cobro_deto=det.motivo_no_cobro_deto,
                 subtotal=float(det.subtotal),
                 fecha_confirmacion_deto=det.fecha_confirmacion_deto,
                 usuario_confirmacion=det.usuario_confirmacion,
@@ -329,7 +331,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 cod_pro=detalle.cod_pro_deto,
                 cantidad=detalle.cantidad_deto,
                 valor_unitario=valor_unitario,
-                documento_usu=documento_usu_creador
+                documento_usu=documento_usu_creador,
+                cobrar=detalle.cobrar_deto,
+                motivo_no_cobro=detalle.motivo_no_cobro_deto
             )
 
         # Retornar la orden creada completa
@@ -532,7 +536,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             cod_pro=detalle_contract.cod_pro_deto,
             cantidad=detalle_contract.cantidad_deto,
             valor_unitario=valor_unitario,
-            documento_usu=documento_usu
+            documento_usu=documento_usu,
+            cobrar=detalle_contract.cobrar_deto,
+            motivo_no_cobro=detalle_contract.motivo_no_cobro_deto
         )
 
         return await self.obtener_orden_por_id(consecutivo_ot)
@@ -580,22 +586,22 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
 
         # Validación de stock solo para BIEN: comprobar que el aumento de consumo no
         # deje el stock negativo. El ajuste real de stock + kardex lo hace el trigger
-        # de UPDATE (tg_ajustar_stock). Solo cuentan las cantidades positivas (cortesía = 0).
+        # de UPDATE (tg_ajustar_stock). F1-06: toda cantidad cuenta, se cobre o no.
         if producto.tipo_pro == "BIEN":
-            efecto_anterior = cantidad_anterior if cantidad_anterior > 0 else 0
-            efecto_nuevo = cantidad_nueva if cantidad_nueva > 0 else 0
-            delta_consumo = efecto_nuevo - efecto_anterior  # > 0: consume más stock
+            delta_consumo = cantidad_nueva - cantidad_anterior  # > 0: consume más stock
             if delta_consumo > 0 and (producto.stock_pro or 0) < delta_consumo:
                 raise DomainException(
                     f"Stock insuficiente. Disponible: {producto.stock_pro}, Requerido: {delta_consumo}",
                     HTTP_400_BAD_REQUEST
                 )
 
-        # Actualizar cantidad en el detalle (el trigger ajusta stock + kardex).
+        # Actualizar cantidad (y estado de cobro) en el detalle (el trigger ajusta stock + kardex).
         await self.detalle_repository.actualizar_cantidad_detalle(
             consecutivo_ot,
             cod_pro,
-            cantidad_nueva
+            cantidad_nueva,
+            cobrar=detalle_contract.cobrar_deto,
+            motivo_no_cobro=detalle_contract.motivo_no_cobro_deto
         )
 
         return await self.obtener_orden_por_id(consecutivo_ot)
@@ -744,8 +750,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             update_data = OrdenTrabajoUpdateContract(**update_dict)
             orden = await self.actualizar_orden(consecutivo_ot, update_data)
 
-        # Validar que haya productos facturables (cantidad > 0)
-        productos_facturables = [d for d in orden.detalles if d.cantidad_deto > 0]
+        # Validar que haya productos facturables (cobrar_deto=True)
+        productos_facturables = [d for d in orden.detalles if d.cobrar_deto]
         if not productos_facturables:
             if not orden.detalles:
                 raise DomainException(
