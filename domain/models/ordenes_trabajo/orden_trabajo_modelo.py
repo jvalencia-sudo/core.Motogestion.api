@@ -42,6 +42,7 @@ class VwOrdenesTrabajoCompleta(BaseSchema):
     mecanico: Optional[str] = None
     estado_ot: str
     cod_ot_est_ot: int
+    trabajos: Optional[str] = None
 
 
 class VwResumenFinancieroOt(BaseSchema):

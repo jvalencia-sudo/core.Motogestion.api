@@ -786,7 +786,12 @@ SELECT
     urp.nombre_usu || ' ' || urp.apellido_1_usu AS recepcionista,
     umc.documento_usu AS documento_mecanico,
     umc.nombre_usu || ' ' || umc.apellido_1_usu AS mecanico,
-    ote.nombre_ot_est AS estado_ot, ot.cod_ot_est_ot
+    ote.nombre_ot_est AS estado_ot, ot.cod_ot_est_ot,
+    (SELECT STRING_AGG(p.nombre_pro, ', ' ORDER BY p.nombre_pro)
+       FROM detalle_orden_trabajo dot
+       JOIN productos p ON dot.cod_pro_deto = p.cod_pro AND dot.cod_taller = p.cod_taller
+      WHERE dot.consecutivo_ot_deto = ot.consecutivo_ot AND dot.cod_taller = ot.cod_taller
+    ) AS trabajos
 FROM ordenes_trabajo ot
 INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller
 INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller

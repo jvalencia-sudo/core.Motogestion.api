@@ -112,7 +112,11 @@ class OrdenTrabajoResumenContract(BaseContractSchema):
     nombre_completo_cliente: str
     telefono_cli: str
     estado_ot: str
+    cod_ot_est_ot: int
     mecanico: Optional[str] = None
+    # F1-02: para el historial del buscador de placa (fecha, kilometraje, trabajos).
+    kilometraje_ingreso_ot: int
+    trabajos: Optional[str] = None
     total_ot: Optional[float] = 0.0
 
 

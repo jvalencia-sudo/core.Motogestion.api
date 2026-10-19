@@ -1,7 +1,8 @@
 from typing import Optional
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from domain.contracts.base_contract import BaseContractSchema
+from infrastructure.utils.placa import normalizar_placa
 
 
 class MotoCreateContract(BaseContractSchema):
@@ -13,6 +14,11 @@ class MotoCreateContract(BaseContractSchema):
     documento_cli_mot: str = Field(..., min_length=8, max_length=11, description="Documento del propietario")
     cod_marca_mot: int = Field(..., gt=0, description="Código de la marca (debe ser mayor a 0)")
 
+    @field_validator("placa_mot", mode="before")
+    @classmethod
+    def _normalizar_placa(cls, v):
+        return normalizar_placa(v) if isinstance(v, str) else v
+
 
 class MotoUpdateContract(BaseContractSchema):
     """Contrato para actualizar una moto"""
@@ -22,6 +28,11 @@ class MotoUpdateContract(BaseContractSchema):
     cilindraje_mot: Optional[int] = Field(None, gt=0, description="Cilindraje de la moto")
     documento_cli_mot: Optional[str] = Field(None, min_length=8, max_length=11, description="Documento del propietario")
     cod_marca_mot: Optional[int] = Field(None, gt=0, description="Código de la marca")
+
+    @field_validator("placa_mot", mode="before")
+    @classmethod
+    def _normalizar_placa(cls, v):
+        return normalizar_placa(v) if isinstance(v, str) else v
 
 
 class MotoResponseContract(BaseContractSchema):
