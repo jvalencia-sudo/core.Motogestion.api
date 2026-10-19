@@ -8,7 +8,7 @@ class OrdenTrabajoModelo(BaseSchema):
     fecha_elaboracion_ot: date
     fecha_entrega_ot: Optional[date] = None
     kilometraje_ingreso_ot: int
-    kilometreje_salida_ot: Optional[int] = None
+    kilometraje_salida_ot: Optional[int] = None
     observacion_cli_ot: Optional[str] = None
     observacion_ot: Optional[str] = None
     placa_mot_ot: str
@@ -23,6 +23,7 @@ class VwOrdenesTrabajoCompleta(BaseSchema):
     fecha_elaboracion_ot: date
     fecha_entrega_ot: Optional[date] = None
     kilometraje_ingreso_ot: int
+    kilometraje_salida_ot: Optional[int] = None
     observacion_cli_ot: Optional[str] = None
     observacion_ot: Optional[str] = None
     fecha_fin_garantia_ot: Optional[date] = None

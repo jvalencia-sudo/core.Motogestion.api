@@ -58,7 +58,7 @@ class CambiarEstadoContract(BaseContractSchema):
 
 class EntregarOrdenContract(BaseContractSchema):
     """Contrato para marcar una orden como entregada"""
-    kilometreje_salida_ot: Optional[int] = Field(None, gt=0, description="Kilometraje de salida")
+    kilometraje_salida_ot: Optional[int] = Field(None, gt=0, description="Kilometraje de salida")
 
 
 class OrdenTrabajoResponseContract(BaseContractSchema):
@@ -67,6 +67,7 @@ class OrdenTrabajoResponseContract(BaseContractSchema):
     fecha_elaboracion_ot: date
     fecha_entrega_ot: Optional[date] = None
     kilometraje_ingreso_ot: int
+    kilometraje_salida_ot: Optional[int] = None
     observacion_cli_ot: Optional[str] = None
     observacion_ot: Optional[str] = None
     fecha_fin_garantia_ot: Optional[date] = None

@@ -73,7 +73,7 @@ class OrdenTrabajoRepositorio(BaseRepository):
         query = """
             UPDATE ordenes_trabajo
             SET fecha_entrega_ot = :1,
-                kilometreje_salida_ot = :2,
+                kilometraje_salida_ot = :2,
                 cod_ot_est_ot = 4,
                 fecha_fin_garantia_ot = :3
             WHERE consecutivo_ot = :4
