@@ -1,14 +1,16 @@
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 
 from domain.contracts.talleres.taller_contract import (
+    LogoSubidoResponse,
     TallerConfigContract,
     TallerConfigResponse,
     TallerRegistroContract,
     TallerRegistroResponse,
     TallerSuscripcionContract,
     TallerUpdateContract,
+    VistaPreviaOrdenContract,
 )
 from domain.models.talleres.taller_model import TallerModel
 from domain.services.talleres.taller_servicio import TallerServicio
@@ -50,6 +52,46 @@ async def actualizar_config(
     """Actualiza la config del taller: mano de obra, teléfono/dirección, pie del
     comprobante y días de garantía por defecto. nombre/NIT/correo no se tocan acá."""
     return await TallerServicio().actualizar_config(current.get("COD_TALLER"), contract)
+
+
+@router.post("/logo", response_model=LogoSubidoResponse)
+async def subir_logo(
+    file: UploadFile = File(...),
+    current: Dict = Depends(require_admin),
+):
+    """Sube (o reemplaza) el logo del taller para la orden/comprobante (F1-09).
+    PNG/JPG/WebP, máx. 2MB -- se valida y redimensiona en el servicio."""
+    contenido = await file.read()
+    await TallerServicio().subir_logo(
+        current.get("COD_TALLER"), contenido, file.content_type
+    )
+    return LogoSubidoResponse(mensaje="Logo actualizado correctamente.")
+
+
+@router.get(
+    "/logo",
+    responses={200: {"content": {"image/png": {}}}, 404: {"description": "Sin logo configurado"}},
+)
+async def obtener_logo(current: Dict = Depends(require_admin)):
+    """Devuelve el logo guardado del taller (binario), o 404 si no hay."""
+    logo = await TallerServicio().obtener_logo(current.get("COD_TALLER"))
+    if not logo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El taller no tiene logo configurado.")
+    return Response(content=logo.get("LOGO"), media_type=logo.get("CONTENT_TYPE") or "image/png")
+
+
+@router.post(
+    "/vista-previa-pdf",
+    responses={200: {"content": {"application/pdf": {}}, "description": "PDF de ejemplo con la personalización del formulario"}},
+)
+async def vista_previa_pdf(
+    contract: VistaPreviaOrdenContract,
+    current: Dict = Depends(require_admin),
+):
+    """Genera el PDF de una orden de EJEMPLO con la personalización del
+    formulario, sin guardar nada (F1-09: vista previa en 'Mi taller')."""
+    pdf_bytes = await TallerServicio().vista_previa_pdf(current.get("COD_TALLER"), contract)
+    return Response(content=pdf_bytes, media_type="application/pdf")
 
 
 @router.get("/suscripcion", response_model=TallerSuscripcionContract)

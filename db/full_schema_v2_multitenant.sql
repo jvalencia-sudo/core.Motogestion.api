@@ -31,12 +31,34 @@ CREATE TABLE talleres (
     precio_susc_tal       INTEGER,                                   -- precio pactado (congelado) con este taller
     direccion_tal         VARCHAR(200),
     texto_pie_comprobante VARCHAR(300),
+    -- F1-09: personalización visual de la orden (carta + tirilla).
+    nombre_comercial_tal          VARCHAR(150),
+    whatsapp_tal                  VARCHAR(20),
+    color_principal_tal           VARCHAR(7)  NOT NULL DEFAULT '#00B06E',
+    texto_condiciones_tal         VARCHAR(1500),
+    texto_pie_tal                 VARCHAR(200),
+    mostrar_precios_unitarios_tal BOOLEAN     NOT NULL DEFAULT true,
+    mostrar_mecanico_tal          BOOLEAN     NOT NULL DEFAULT true,
+    mostrar_firma_cliente_tal     BOOLEAN     NOT NULL DEFAULT false,
     CONSTRAINT pk_talleres PRIMARY KEY (cod_taller),
-    CONSTRAINT chk_taller_modo_mo CHECK (modo_mano_obra IN ('HORAS', 'LIBRE'))
+    CONSTRAINT chk_taller_modo_mo CHECK (modo_mano_obra IN ('HORAS', 'LIBRE')),
+    CONSTRAINT chk_taller_color_principal CHECK (color_principal_tal ~ '^#[0-9A-Fa-f]{6}$')
 );
 
 -- Anti-abuso del trial: un correo = un taller.
 CREATE UNIQUE INDEX ux_talleres_correo ON talleres (lower(correo_tal));
+
+-- F1-09: logo del taller, en tabla aparte -- ver 011_personalizacion_pdf.sql
+-- (evita que el SELECT * genérico de BaseRepository arrastre el BYTEA en
+-- cada fila/llamada que no lo necesita).
+CREATE TABLE taller_logo (
+    cod_taller     INTEGER      NOT NULL,
+    logo           BYTEA        NOT NULL,
+    content_type   VARCHAR(20)  NOT NULL,
+    actualizado_en TIMESTAMP    NOT NULL DEFAULT now(),
+    CONSTRAINT pk_taller_logo PRIMARY KEY (cod_taller),
+    CONSTRAINT fk_taller_logo_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller)
+);
 
 -- Catálogo GLOBAL de planes (sin RLS). talleres.plan_tal referencia nombre_plan.
 CREATE SEQUENCE seq_planes START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;

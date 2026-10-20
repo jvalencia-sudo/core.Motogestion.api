@@ -18,3 +18,11 @@ class TallerModel(BaseSchema):
     tarifa_hora_pred: Optional[int] = None
     direccion_tal: Optional[str] = None
     texto_pie_comprobante: Optional[str] = None
+    nombre_comercial_tal: Optional[str] = None
+    whatsapp_tal: Optional[str] = None
+    color_principal_tal: Optional[str] = None
+    texto_condiciones_tal: Optional[str] = None
+    texto_pie_tal: Optional[str] = None
+    mostrar_precios_unitarios_tal: Optional[bool] = None
+    mostrar_mecanico_tal: Optional[bool] = None
+    mostrar_firma_cliente_tal: Optional[bool] = None
