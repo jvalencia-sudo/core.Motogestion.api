@@ -166,10 +166,10 @@ class TestMetricasPorTenantNoSeMezclan:
             )
         try:
             metricas = await MetricasServicio().metricas_de_todos_los_talleres()
-            assert metricas[TALLER_A]["ordenes_7d"] == 1
-            assert metricas[TALLER_B]["ordenes_7d"] == 2
-            assert metricas[TALLER_A]["usuarios_activos"] == 1
-            assert metricas[TALLER_B]["usuarios_activos"] == 1
+            assert metricas[TALLER_A].ordenes_7d == 1
+            assert metricas[TALLER_B].ordenes_7d == 2
+            assert metricas[TALLER_A].usuarios_activos == 1
+            assert metricas[TALLER_B].usuarios_activos == 1
         finally:
             with db_conn.cursor() as cur:
                 cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_B),))
