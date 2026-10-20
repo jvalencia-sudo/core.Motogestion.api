@@ -9,6 +9,10 @@ from domain.contracts.admin.admin_user_contract import (
     UserFilterContract,
     UpdateUserProfileContract
 )
+from domain.contracts.shared.respuesta_contract import (
+    MensajeResponseContract,
+    UsuariosPaginadosResponseContract,
+)
 from domain.models.auth.user_model import UserModel, VwUsuariosPerfiles
 from domain.services.admin.admin_user_service import AdminUserService
 from infrastructure.dependencies.current_user import (
@@ -37,7 +41,7 @@ async def create_user(contract: AdminUserCreationContract):
     return await AdminUserService().create_user_with_password(contract)
 
 
-@router.get("", status_code=HTTP_200_OK)
+@router.get("", status_code=HTTP_200_OK, response_model=UsuariosPaginadosResponseContract)
 async def list_users(
     nombre: str = Query(None, description="Buscar por nombre o apellido"),
     correo: str = Query(None, description="Buscar por correo"),
@@ -127,8 +131,8 @@ async def update_user(
     return await AdminUserService().update_user_admin(documento_usu, contract)
 
 
-@router.delete("/{documento_usu}", status_code=HTTP_200_OK)
-async def deactivate_user(documento_usu: str) -> Dict[str, str]:
+@router.delete("/{documento_usu}", status_code=HTTP_200_OK, response_model=MensajeResponseContract)
+async def deactivate_user(documento_usu: str):
     """
     Desactiva un usuario (soft delete).
 
@@ -137,8 +141,8 @@ async def deactivate_user(documento_usu: str) -> Dict[str, str]:
     return await AdminUserService().deactivate_user(documento_usu)
 
 
-@router.post("/{documento_usu}/activate", status_code=HTTP_200_OK)
-async def activate_user(documento_usu: str) -> Dict[str, str]:
+@router.post("/{documento_usu}/activate", status_code=HTTP_200_OK, response_model=MensajeResponseContract)
+async def activate_user(documento_usu: str):
     """
     Activa un usuario previamente desactivado.
 
@@ -147,8 +151,12 @@ async def activate_user(documento_usu: str) -> Dict[str, str]:
     return await AdminUserService().activate_user(documento_usu)
 
 
-@router.post("/{documento_usu}/reset-password", status_code=HTTP_200_OK)
-async def reset_password(documento_usu: str, contract: ChangePasswordContract) -> Dict[str, str]:
+@router.post(
+    "/{documento_usu}/reset-password",
+    status_code=HTTP_200_OK,
+    response_model=MensajeResponseContract,
+)
+async def reset_password(documento_usu: str, contract: ChangePasswordContract):
     """
     Resetea la contraseña de un usuario en Auth0.
 

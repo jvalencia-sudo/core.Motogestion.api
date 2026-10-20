@@ -3,6 +3,10 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends
 from starlette.status import HTTP_201_CREATED
 
+from domain.contracts.shared.respuesta_contract import (
+    EntradaInventarioResponseContract,
+    TomaFisicaResponseContract,
+)
 from domain.models.inventario.inventario_model import (
     EntradaContract,
     MovimientoItem,
@@ -27,7 +31,7 @@ async def listar_productos():
     return await InventarioServicio().listar_productos()
 
 
-@router.post("/entrada", status_code=HTTP_201_CREATED)
+@router.post("/entrada", status_code=HTTP_201_CREATED, response_model=EntradaInventarioResponseContract)
 async def registrar_entrada(
     contract: EntradaContract,
     current: Dict = Depends(require_permiso("ajustar:inventario")),
@@ -36,7 +40,7 @@ async def registrar_entrada(
     return await InventarioServicio().entrada(current, contract)
 
 
-@router.post("/toma-fisica")
+@router.post("/toma-fisica", response_model=TomaFisicaResponseContract)
 async def toma_fisica(
     contract: TomaFisicaContract,
     current: Dict = Depends(require_permiso("ajustar:inventario")),

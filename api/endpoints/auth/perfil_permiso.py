@@ -10,6 +10,7 @@ from domain.contracts.auth.perfil_permiso_contract import (
     PermisoAsignadoContract,
     ReemplazarPermisosContract,
 )
+from domain.contracts.shared.respuesta_contract import OperacionResponseContract
 from domain.models.auth.perfil_permiso_modelo import VwPerfilesPermisosDetalle
 from domain.services.auth.perfil_permiso_servicio import PerfilPermisoServicio
 from infrastructure.dependencies.current_user import get_current_usuario
@@ -35,7 +36,7 @@ async def obtener_permisos_disponibles(cod_prf: int):
     return await PerfilPermisoServicio().obtener_permisos_disponibles(cod_prf)
 
 
-@router.post("/asignar", status_code=HTTP_201_CREATED)
+@router.post("/asignar", status_code=HTTP_201_CREATED, response_model=OperacionResponseContract)
 async def asignar_permiso(contract: AsignarPermisoContract):
     """Asigna un nuevo permiso a un perfil"""
     resultado = await PerfilPermisoServicio().asignar_permiso(contract)
@@ -46,7 +47,7 @@ async def asignar_permiso(contract: AsignarPermisoContract):
     return resultado
 
 
-@router.put("/perfil/{cod_prf}/permisos", status_code=HTTP_200_OK)
+@router.put("/perfil/{cod_prf}/permisos", status_code=HTTP_200_OK, response_model=OperacionResponseContract)
 async def reemplazar_permisos(
     cod_prf: int,
     contract: ReemplazarPermisosContract,
@@ -63,7 +64,7 @@ async def reemplazar_permisos(
     )
 
 
-@router.put("/estado", status_code=HTTP_200_OK)
+@router.put("/estado", status_code=HTTP_200_OK, response_model=OperacionResponseContract)
 async def cambiar_estado_permiso(contract: CambiarEstadoPermisoContract):
     """Activa o desactiva un permiso de un perfil (no lo elimina, solo cambia el estado)"""
     resultado = await PerfilPermisoServicio().cambiar_estado_permiso(contract)

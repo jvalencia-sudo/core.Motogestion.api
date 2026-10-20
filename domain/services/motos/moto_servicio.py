@@ -361,7 +361,7 @@ class MotoServicio(BaseService[MotoModelo, MotoRepositorio]):
             total_ordenes=0
         )
 
-    async def eliminar_moto(self, placa_mot: str) -> bool:
+    async def eliminar_moto(self, placa_mot: str) -> None:
         """Elimina moto"""
         placa_mot = normalizar_placa(placa_mot)
         try:

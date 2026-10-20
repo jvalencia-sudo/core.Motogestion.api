@@ -89,7 +89,11 @@ async def obtener_ordenes_por_moto(placa_mot: str):
     return await servicio.obtener_ordenes_por_moto(placa_mot)
 
 
-@router.get("/{consecutivo_ot}/generar-pdf")
+@router.get(
+    "/{consecutivo_ot}/generar-pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}, "description": "PDF de la orden de trabajo"}},
+)
 async def generar_pdf_orden_trabajo(consecutivo_ot: int):
     """Genera un PDF con la informacion completa de la orden de trabajo"""
     servicio = OrdenTrabajoServicio()
@@ -124,7 +128,11 @@ async def generar_pdf_orden_trabajo(consecutivo_ot: int):
         )
 
 
-@router.get("/{consecutivo_ot}/generar-comprobante")
+@router.get(
+    "/{consecutivo_ot}/generar-comprobante",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}, "description": "Comprobante POS en PDF"}},
+)
 async def generar_comprobante_orden_trabajo(consecutivo_ot: int):
     """Genera un PDF de comprobante de servicio en formato POS (ticket de 80mm)"""
     servicio = OrdenTrabajoServicio()

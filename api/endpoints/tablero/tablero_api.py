@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends
 
+from domain.contracts.shared.respuesta_contract import CambioEstadoTableroResponseContract
 from domain.models.tablero.tablero_model import CambiarEstadoContract, TableroResponse
 from domain.services.tablero.tablero_servicio import TableroServicio
 from infrastructure.dependencies.current_user import get_current_usuario, require_permiso
@@ -19,7 +20,7 @@ async def obtener_tablero(
     return await TableroServicio().obtener(current, mecanico)
 
 
-@router.put("/{consecutivo_ot}/estado")
+@router.put("/{consecutivo_ot}/estado", response_model=CambioEstadoTableroResponseContract)
 async def cambiar_estado(
     consecutivo_ot: int,
     contract: CambiarEstadoContract,

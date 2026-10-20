@@ -10,6 +10,10 @@ from domain.contracts.auth.perfil_contract import (
     PerfilResponseContract,
     PerfilDetalleContract
 )
+from domain.contracts.shared.respuesta_contract import (
+    OperacionResponseContract,
+    PerfilCreadoResponseContract,
+)
 from domain.services.auth.perfil_servicio import PerfilServicio
 from infrastructure.dependencies.current_user import get_current_usuario
 
@@ -32,7 +36,7 @@ async def obtener_todos_perfiles():
     return await PerfilServicio().obtener_vw_perfiles()
 
 
-@router.post("", status_code=HTTP_201_CREATED)
+@router.post("", status_code=HTTP_201_CREATED, response_model=PerfilCreadoResponseContract)
 async def crear_perfil(contract: CrearPerfilContract, current: Dict = Depends(get_current_usuario)):
     """Crea un nuevo perfil propio del taller (desde cero o duplicando otro)"""
     return await PerfilServicio().crear_perfil(
@@ -40,7 +44,7 @@ async def crear_perfil(contract: CrearPerfilContract, current: Dict = Depends(ge
     )
 
 
-@router.put("/estado", status_code=HTTP_200_OK)
+@router.put("/estado", status_code=HTTP_200_OK, response_model=OperacionResponseContract)
 async def cambiar_estado_perfil(contract: CambiarEstadoPerfilContract):
     """Activa o desactiva un perfil (no lo elimina, solo cambia el estado)"""
     resultado = await PerfilServicio().cambiar_estado_perfil(contract)
@@ -51,7 +55,7 @@ async def cambiar_estado_perfil(contract: CambiarEstadoPerfilContract):
     return resultado
 
 
-@router.put("", status_code=HTTP_200_OK)
+@router.put("", status_code=HTTP_200_OK, response_model=OperacionResponseContract)
 async def actualizar_perfil(contract: ActualizarPerfilContract):
     """Renombra/edita un perfil existente"""
     return await PerfilServicio().actualizar_perfil(contract)
