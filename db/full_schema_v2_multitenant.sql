@@ -163,9 +163,14 @@ CREATE TABLE usuarios (
     cod_est_usu     INTEGER,
     sub_id_usu      VARCHAR(250),
     cod_prf_usu     INTEGER,
-    es_admin_usu    BOOLEAN NOT NULL DEFAULT false,  -- F1-12: denormalizado desde el perfil (fusión perfil+rol)
     es_super_admin  BOOLEAN NOT NULL DEFAULT false,  -- F0-14: super-admin de plataforma, independiente de taller/rol
     ultimo_ingreso_usu TIMESTAMP,                    -- F0-14: se actualiza en cada login, para el panel de super-admin
+    es_admin_usu    BOOLEAN NOT NULL DEFAULT false,  -- F1-12: denormalizado desde el perfil (fusión perfil+rol);
+                                                      -- al final de la tabla porque la migración 007 lo agrega con
+                                                      -- ALTER TABLE ADD COLUMN sobre una BD ya existente (Postgres
+                                                      -- siempre añade al final, nunca reordena columnas físicas) --
+                                                      -- aquí también al final para que el diff de la 007 contra
+                                                      -- este archivo coincida columna por columna.
     CONSTRAINT pk_usuarios PRIMARY KEY (cod_taller, documento_usu),
     CONSTRAINT fk_usuarios_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_usuarios_estado FOREIGN KEY (cod_est_usu) REFERENCES estados (cod_est),
@@ -1074,7 +1079,6 @@ DECLARE
     v_meca  INTEGER;
     v_recep INTEGER;
 BEGIN
-    -- Asegura el contexto de tenant para que el RLS permita los INSERT.
     PERFORM set_config('app.tenant_id', p_taller::text, true);
 
     INSERT INTO perfiles (cod_taller, cod_prf, nombre_prf, descripcion_prf, cod_est_prf, es_admin)
@@ -1089,11 +1093,8 @@ BEGIN
     VALUES (p_taller, nextval('seq_perfiles'), 'Recepcionista', 'Gestión de clientes, motos y órdenes', 1, false)
     RETURNING cod_prf INTO v_recep;
 
-    -- Admin: SIN asignación explícita (F1-12: acceso total es un bypass
-    -- por es_admin_usu, no depende de ninguna fila de perfiles_permisos --
-    -- así un permiso nuevo queda disponible para el Admin sin migrar nada).
+    -- Admin: SIN asignación explícita (bypass vía es_admin_usu).
 
-    -- Mecánico
     INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_est_pp)
     SELECT p_taller, cod_prm, v_meca, 1 FROM permisos
     WHERE nombre_prm IN (
@@ -1102,9 +1103,6 @@ BEGIN
         'ver:tablero','ver:reclamos','crear_editar:reclamos'
     );
 
-    -- Recepcionista (incluye ver_todo:tablero/ajustar:inventario -- antes
-    -- esto lo daba un código de rol fijo comparado en tablero_servicio.py/
-    -- inventario_servicio.py, ahora es un permiso explícito del catálogo).
     INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_est_pp)
     SELECT p_taller, cod_prm, v_recep, 1 FROM permisos
     WHERE nombre_prm IN (
