@@ -104,6 +104,18 @@ def cmd_up() -> None:
         )
         try:
             with conn.cursor() as cur:
+                # Si una migración anterior de este mismo `up` hizo un loop por
+                # taller con set_config('app.tenant_id', ..., true) (ej. 004,
+                # 007), ese SET LOCAL deja registrado el GUC a nivel de sesión:
+                # al terminar su transacción no vuelve a "sin fijar", vuelve a
+                # '' (el reset de un placeholder custom que nunca tuvo un SET
+                # de sesión es string vacío, no NULL). Si ESTA migración toca
+                # una tabla con RLS sin fijar su propio tenant, current_setting
+                # (...)::integer revienta con '' en vez de devolver NULL/0 filas
+                # como se espera (ver el recordatorio de arriba). Se neutraliza
+                # acá, antes de cada archivo, para que ninguna migración dependa
+                # de lo que haya dejado la anterior en la misma conexión.
+                cur.execute("SELECT set_config('app.tenant_id', '-1', true)")
                 # Sin parámetros: psycopg manda el archivo completo por el
                 # protocolo simple de Postgres -- todas las sentencias corren
                 # atómicas en la transacción ya abierta (autocommit=False).
