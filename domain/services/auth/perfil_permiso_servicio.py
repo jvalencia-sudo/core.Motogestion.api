@@ -16,8 +16,6 @@ from repository.auth.perfil_permiso_repositorio import PerfilPermisoRepositorio
 from repository.auth.permiso_repositorio import PermisoRepositorio
 from repository.auth.perfil_repositorio import PerfilRepositorio
 
-ADMIN_ROL = 1
-
 
 class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoRepositorio]):
     def __init__(self):
@@ -34,16 +32,16 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         registros = await self.repository.obtener_vw_perfiles_permisos_detalle()
         return self.__parse_all_custom__(registros, VwPerfilesPermisosDetalle)
 
-    async def obtener_permisos_por_perfil(self, cod_prf: int, cod_rol: int) -> List[PermisoAsignadoContract]:
+    async def obtener_permisos_por_perfil(self, cod_prf: int) -> List[PermisoAsignadoContract]:
         """Obtiene todos los permisos asignados a un perfil específico"""
-        registros = await self.repository.obtener_permisos_por_perfil(cod_prf, cod_rol)
+        registros = await self.repository.obtener_permisos_por_perfil(cod_prf)
         return self.__parse_all_custom__(registros, PermisoAsignadoContract)
 
-    async def obtener_permisos_disponibles(self, cod_prf: int, cod_rol: int) -> List[PermisoDisponibleContract]:
+    async def obtener_permisos_disponibles(self, cod_prf: int) -> List[PermisoDisponibleContract]:
         """Permisos que NO están asignados al perfil. Se orquesta: catálogo completo
         (repo de permisos) menos los ya asignados (repo de perfiles_permisos)."""
         todos = await self.permiso_repo.obtener_vw_permisos()
-        asignados = await self.repository.obtener_cod_prm_asignados(cod_prf, cod_rol)
+        asignados = await self.repository.obtener_cod_prm_asignados(cod_prf)
         ids_asignados = {a.get("COD_PRM_PP") for a in asignados}
         disponibles = [p for p in todos if p.get("COD_PRM") not in ids_asignados]
         disponibles.sort(key=lambda p: (p.get("NOMBRE_PRM") or ""))
@@ -54,7 +52,6 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         # Verificar si el permiso ya existe
         existe = await self.repository.verificar_permiso_existe(
             contract.cod_prf,
-            contract.cod_rol,
             contract.cod_prm
         )
 
@@ -68,7 +65,6 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         modelo = PerfilPermisoModelo(
             cod_prm_pp=contract.cod_prm,
             cod_prf_pp=contract.cod_prf,
-            cod_rol_prf_pp=contract.cod_rol,
             cod_est_pp=contract.cod_est
         )
 
@@ -91,8 +87,7 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
                 "Perfil no encontrado. Recarga la página y vuelve a intentar.", HTTP_404_NOT_FOUND
             )
 
-        cod_rol = perfil.get("COD_ROL_PRF")
-        if cod_rol == ADMIN_ROL:
+        if perfil.get("ES_ADMIN"):
             raise DomainException(
                 "El rol Administrador no se puede editar: ya tiene acceso a todo. Si "
                 "necesitas un rol con menos permisos, crea uno nuevo.",
@@ -100,7 +95,7 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
             )
 
         await self.repository.reemplazar_permisos(
-            cod_prf, cod_rol, contract.cod_prm_list, usuario
+            cod_prf, contract.cod_prm_list, usuario
         )
         return {"success": True, "message": "Permisos actualizados correctamente"}
 
@@ -109,7 +104,6 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         # Verificar que el permiso exista
         existe = await self.repository.verificar_permiso_existe(
             contract.cod_prf,
-            contract.cod_rol,
             contract.cod_prm
         )
 
@@ -121,7 +115,6 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
 
         await self.repository.actualizar_estado_permiso(
             contract.cod_prf,
-            contract.cod_rol,
             contract.cod_prm,
             contract.cod_est
         )
@@ -131,4 +124,3 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
             "success": True,
             "message": f"Permiso {estado_texto} correctamente"
         }
-

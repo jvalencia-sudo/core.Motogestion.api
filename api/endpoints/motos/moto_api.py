@@ -62,7 +62,7 @@ async def obtener_moto(placa_mot: str):
 @router.post("", response_model=MotoResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_moto(
     moto: MotoCreateContract,
-    _=Depends(require_permiso("crear:motos")),
+    _=Depends(require_permiso("crear_editar:motos")),
 ):
     """
     Crea una nueva moto.
@@ -82,7 +82,7 @@ async def crear_moto(
 async def actualizar_moto(
     placa_mot: str,
     moto: MotoUpdateContract,
-    _=Depends(require_permiso("actualizar:motos")),
+    _=Depends(require_permiso("crear_editar:motos")),
 ):
     """
     Actualiza una moto existente.
@@ -104,7 +104,7 @@ async def actualizar_moto(
 @router.delete("/{placa_mot}")
 async def eliminar_moto(
     placa_mot: str,
-    _=Depends(require_permiso("eliminar:motos")),
+    _=Depends(require_permiso("eliminar_o_anular:motos")),
 ):
     """
     Elimina una moto.

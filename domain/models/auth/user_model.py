@@ -17,7 +17,7 @@ class UserModel(BaseSchema):
     cod_tipo_usu: Optional[int] = 1
     sub_id_usu: Optional[str] = None  # NULL hasta el primer login (se vincula ahí)
     cod_prf_usu: int
-    cod_rol_prf_usu: int
+    es_admin_usu: bool = False
     es_super_admin: bool = False
 
 class VwUsuariosPerfiles(BaseSchema):
@@ -28,8 +28,7 @@ class VwUsuariosPerfiles(BaseSchema):
     estado_usuario: str
     perfil: str
     descripcion_perfil: str
-    rol: str
-    descripcion_rol: str
+    es_admin_usu: bool
 
 
 

@@ -150,8 +150,8 @@ def _seed_taller(cur, cod_taller: int) -> TallerSeed:
     )
 
     cur.execute(
-        "INSERT INTO perfiles (cod_taller, cod_rol_prf, cod_est_prf, nombre_prf) "
-        "VALUES (%s, 1, 1, 'Admin de prueba') RETURNING cod_prf",
+        "INSERT INTO perfiles (cod_taller, es_admin, cod_est_prf, nombre_prf) "
+        "VALUES (%s, true, 1, 'Admin de prueba') RETURNING cod_prf",
         (cod_taller,),
     )
     cod_prf = cur.fetchone()[0]
@@ -159,8 +159,8 @@ def _seed_taller(cur, cod_taller: int) -> TallerSeed:
     cur.execute(
         "INSERT INTO usuarios (cod_taller, documento_usu, nombre_usu, apellido_1_usu, "
         "correo_usu, contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, "
-        "cod_prf_usu, cod_rol_prf_usu) "
-        "VALUES (%s, %s, 'Usuario', 'De Prueba', %s, 'test', 1, 1, %s, %s, 1)",
+        "cod_prf_usu, es_admin_usu) "
+        "VALUES (%s, %s, 'Usuario', 'De Prueba', %s, 'test', 1, 1, %s, %s, true)",
         (cod_taller, documento_usuario, f"user{cod_taller}@test.local", sub, cod_prf),
     )
 
@@ -306,8 +306,8 @@ def perfil_mecanico(db_conn, seed_talleres):
     with db_conn.cursor() as cur:
         cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(cod_taller),))
         cur.execute(
-            "INSERT INTO perfiles (cod_taller, cod_rol_prf, cod_est_prf, nombre_prf) "
-            "VALUES (%s, 2, 1, 'Mecanico F0-13 test') RETURNING cod_prf",
+            "INSERT INTO perfiles (cod_taller, es_admin, cod_est_prf, nombre_prf) "
+            "VALUES (%s, false, 1, 'Mecanico F0-13 test') RETURNING cod_prf",
             (cod_taller,),
         )
         cod_prf = cur.fetchone()[0]

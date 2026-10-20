@@ -17,12 +17,12 @@ MECANICO_TOKEN = "test-token-taller-a-mecanico"
 MECANICO_SUB = "test|taller-a-mecanico"
 MECANICO_DOCUMENTO = "900100199"
 
-# Mismo subconjunto que fn_seed_perfiles_taller le da al rol Mecánico (cod_rol_prf=2)
+# Mismo subconjunto que fn_seed_perfiles_taller le da al perfil Mecánico
 # en el esquema real -- no son permisos inventados para el test.
 PERMISOS_MECANICO = [
-    "leer:clientes", "leer:marcas", "leer:motos", "leer:productos",
-    "leer:ordenes-trabajo", "crear:ordenes-trabajo", "actualizar:ordenes-trabajo",
-    "leer:reclamos", "crear:reclamos", "actualizar:reclamos",
+    "ver:clientes", "ver:marcas", "ver:motos", "ver:productos",
+    "ver:ordenes-trabajo", "crear_editar:ordenes-trabajo",
+    "ver:tablero", "ver:reclamos", "crear_editar:reclamos",
 ]
 
 
@@ -35,8 +35,8 @@ def mecanico_headers(db_conn, seed_talleres):
     with db_conn.cursor() as cur:
         cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(cod_taller),))
         cur.execute(
-            "INSERT INTO perfiles (cod_taller, cod_rol_prf, cod_est_prf, nombre_prf) "
-            "VALUES (%s, 2, 1, 'Mecánico de prueba') RETURNING cod_prf",
+            "INSERT INTO perfiles (cod_taller, es_admin, cod_est_prf, nombre_prf) "
+            "VALUES (%s, false, 1, 'Mecánico de prueba') RETURNING cod_prf",
             (cod_taller,),
         )
         cod_prf = cur.fetchone()[0]
@@ -44,8 +44,8 @@ def mecanico_headers(db_conn, seed_talleres):
         cur.execute(
             "INSERT INTO usuarios (cod_taller, documento_usu, nombre_usu, apellido_1_usu, "
             "correo_usu, contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, "
-            "cod_prf_usu, cod_rol_prf_usu) "
-            "VALUES (%s, %s, 'Mecanico', 'De Prueba', %s, 'test', 1, 1, %s, %s, 2)",
+            "cod_prf_usu, es_admin_usu) "
+            "VALUES (%s, %s, 'Mecanico', 'De Prueba', %s, 'test', 1, 1, %s, %s, false)",
             (cod_taller, MECANICO_DOCUMENTO, "mecanico-f011@test.local", MECANICO_SUB, cod_prf),
         )
 
@@ -61,8 +61,8 @@ def mecanico_headers(db_conn, seed_talleres):
         for cod_prm in cods_prm:
             cur.execute(
                 "INSERT INTO perfiles_permisos "
-                "(cod_taller, cod_prm_pp, cod_prf_pp, cod_rol_prf_pp, cod_est_pp) "
-                "VALUES (%s, %s, %s, 2, 1)",
+                "(cod_taller, cod_prm_pp, cod_prf_pp, cod_est_pp) "
+                "VALUES (%s, %s, %s, 1)",
                 (cod_taller, cod_prm, cod_prf),
             )
 
@@ -136,7 +136,7 @@ class TestMecanicoNoPuedeAsignarsePermisos:
     def test_no_puede_asignarse_permisos(self, client, seed_talleres, mecanico_headers):
         resp = client.post(
             "/api/perfil-permiso/asignar",
-            json={"cod_prf": 1, "cod_rol": 2, "cod_prm": 1},
+            json={"cod_prf": 1, "cod_prm": 1},
             headers=mecanico_headers,
         )
         assert resp.status_code == 403
@@ -195,7 +195,7 @@ class TestMecanicoSiPuedeHacerLoQueSeLeAsigno:
 
 
 def test_admin_sigue_pudiendo_todo(client, seed_talleres, mock_auth0):
-    """Control: el Admin (seed_talleres ya lo crea con cod_rol_prf_usu=1) sigue
+    """Control: el Admin (seed_talleres ya lo crea con es_admin_usu=true) sigue
     pasando sin consultar perfiles_permisos -- no es una regresión para él."""
     seed = seed_talleres[TALLER_A]
     resp = client.get(f"/api/productos/{seed.cod_producto}", headers=auth_headers(TALLER_A))

@@ -35,7 +35,7 @@ async def obtener_cliente(documento_cli: str):
 @router.post("", response_model=ClienteResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_cliente(
     cliente: ClienteCreateContract,
-    _=Depends(require_permiso("crear:clientes")),
+    _=Depends(require_permiso("crear_editar:clientes")),
 ):
     """
     Crea un nuevo cliente.
@@ -56,7 +56,7 @@ async def crear_cliente(
 async def actualizar_cliente(
     documento_cli: str,
     cliente: ClienteUpdateContract,
-    _=Depends(require_permiso("actualizar:clientes")),
+    _=Depends(require_permiso("crear_editar:clientes")),
 ):
     """
     Actualiza un cliente existente.
@@ -78,7 +78,7 @@ async def actualizar_cliente(
 @router.delete("/{documento_cli}")
 async def eliminar_cliente(
     documento_cli: str,
-    _=Depends(require_permiso("eliminar:clientes")),
+    _=Depends(require_permiso("eliminar_o_anular:clientes")),
 ):
     """
     Elimina un cliente.

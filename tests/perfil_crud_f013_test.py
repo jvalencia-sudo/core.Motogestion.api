@@ -15,7 +15,7 @@ def _cod_prf_admin(db_conn, cod_taller: int) -> int:
     with db_conn.cursor() as cur:
         cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(cod_taller),))
         cur.execute(
-            "SELECT cod_prf FROM perfiles WHERE cod_taller=%s AND cod_rol_prf=1 LIMIT 1", (cod_taller,)
+            "SELECT cod_prf FROM perfiles WHERE cod_taller=%s AND es_admin=true LIMIT 1", (cod_taller,)
         )
         return cur.fetchone()[0]
 
@@ -42,8 +42,8 @@ class TestCrearPerfil:
         try:
             with db_conn.cursor() as cur:
                 cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_A),))
-                cur.execute("SELECT cod_rol_prf FROM perfiles WHERE cod_prf=%s", (cod_prf,))
-                assert cur.fetchone()[0] == 2
+                cur.execute("SELECT es_admin FROM perfiles WHERE cod_prf=%s", (cod_prf,))
+                assert cur.fetchone()[0] is False
                 cur.execute(
                     "SELECT COUNT(*) FROM perfiles_permisos WHERE cod_prf_pp=%s", (cod_prf,)
                 )
@@ -55,7 +55,7 @@ class TestCrearPerfil:
         with db_conn.cursor() as cur:
             cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_A),))
             cur.execute(
-                "SELECT cod_prm FROM permisos WHERE nombre_prm IN ('leer:clientes', 'crear:clientes')"
+                "SELECT cod_prm FROM permisos WHERE nombre_prm IN ('ver:clientes', 'crear_editar:clientes')"
             )
             cod_prm_list = {row[0] for row in cur.fetchall()}
         assert len(cod_prm_list) == 2
@@ -132,7 +132,7 @@ class TestCrearPerfil:
     def test_nuevo_perfil_nunca_es_administrador(self, client, db_conn, seed_talleres):
         resp = client.post(
             "/api/perfil",
-            json={"nombre_prf": "Casi admin", "descripcion_prf": "x", "cod_rol_prf": 1},
+            json={"nombre_prf": "Casi admin", "descripcion_prf": "x", "es_admin": True},
             headers=auth_headers(TALLER_A),
         )
         assert resp.status_code == 201, resp.text
@@ -140,8 +140,8 @@ class TestCrearPerfil:
         try:
             with db_conn.cursor() as cur:
                 cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_A),))
-                cur.execute("SELECT cod_rol_prf FROM perfiles WHERE cod_prf=%s", (cod_prf,))
-                assert cur.fetchone()[0] == 2
+                cur.execute("SELECT es_admin FROM perfiles WHERE cod_prf=%s", (cod_prf,))
+                assert cur.fetchone()[0] is False
         finally:
             _borrar_perfil(db_conn, TALLER_A, cod_prf)
 
@@ -149,8 +149,8 @@ class TestCrearPerfil:
         with db_conn.cursor() as cur:
             cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_B),))
             cur.execute(
-                "INSERT INTO perfiles (cod_taller, cod_rol_prf, cod_est_prf, nombre_prf) "
-                "VALUES (%s, 2, 1, 'Mecanico de B') RETURNING cod_prf",
+                "INSERT INTO perfiles (cod_taller, es_admin, cod_est_prf, nombre_prf) "
+                "VALUES (%s, false, 1, 'Mecanico de B') RETURNING cod_prf",
                 (TALLER_B,),
             )
             cod_prf_de_b = cur.fetchone()[0]
@@ -215,15 +215,15 @@ class TestActualizarPerfil:
                 "cod_prf": perfil_mecanico,
                 "nombre_prf": "Mecanico F0-13 test",
                 "descripcion_prf": "x",
-                "cod_rol_prf": 1,
+                "es_admin": True,
             },
             headers=auth_headers(TALLER_A),
         )
         assert resp.status_code == 200, resp.text
         with db_conn.cursor() as cur:
             cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_A),))
-            cur.execute("SELECT cod_rol_prf FROM perfiles WHERE cod_prf=%s", (perfil_mecanico,))
-            assert cur.fetchone()[0] == 2
+            cur.execute("SELECT es_admin FROM perfiles WHERE cod_prf=%s", (perfil_mecanico,))
+            assert cur.fetchone()[0] is False
 
 
 class TestEliminarPerfil:
@@ -251,8 +251,8 @@ class TestEliminarPerfil:
             cur.execute(
                 "INSERT INTO usuarios (cod_taller, documento_usu, nombre_usu, apellido_1_usu, "
                 "correo_usu, contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, "
-                "cod_prf_usu, cod_rol_prf_usu) "
-                "VALUES (%s, %s, 'Con', 'Perfil', %s, 'test', 1, 1, NULL, %s, 2)",
+                "cod_prf_usu, es_admin_usu) "
+                "VALUES (%s, %s, 'Con', 'Perfil', %s, 'test', 1, 1, NULL, %s, false)",
                 (TALLER_A, "900100300", "usuario-con-perfil-f013@test.local", perfil_mecanico),
             )
         try:
@@ -277,8 +277,8 @@ class TestEliminarPerfil:
         with db_conn.cursor() as cur:
             cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_B),))
             cur.execute(
-                "INSERT INTO perfiles (cod_taller, cod_rol_prf, cod_est_prf, nombre_prf) "
-                "VALUES (%s, 2, 1, 'Perfil de B') RETURNING cod_prf",
+                "INSERT INTO perfiles (cod_taller, es_admin, cod_est_prf, nombre_prf) "
+                "VALUES (%s, false, 1, 'Perfil de B') RETURNING cod_prf",
                 (TALLER_B,),
             )
             cod_prf_de_b = cur.fetchone()[0]

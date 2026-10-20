@@ -49,7 +49,7 @@ async def obtener_producto_por_id(cod_pro: int):
 @router.post("", response_model=ProductoResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_producto(
     producto: ProductoCreateContract,
-    _=Depends(require_permiso("crear:productos")),
+    _=Depends(require_permiso("crear_editar:productos")),
 ):
     """
     Crea un nuevo producto con sus impuestos.
@@ -71,7 +71,7 @@ async def crear_producto(
 async def actualizar_producto(
     cod_pro: int,
     producto: ProductoUpdateContract,
-    _=Depends(require_permiso("actualizar:productos")),
+    _=Depends(require_permiso("crear_editar:productos")),
 ):
     """
     Actualiza un producto existente.
@@ -93,7 +93,7 @@ async def actualizar_producto(
 @router.delete("/{cod_pro}", status_code=status.HTTP_200_OK)
 async def desactivar_producto(
     cod_pro: int,
-    _=Depends(require_permiso("eliminar:productos")),
+    _=Depends(require_permiso("eliminar_o_anular:productos")),
 ):
     """
     Desactiva un producto (soft delete).
@@ -109,7 +109,7 @@ async def desactivar_producto(
 @router.patch("/{cod_pro}/activars", status_code=status.HTTP_200_OK)
 async def activar_producto(
     cod_pro: int,
-    _=Depends(require_permiso("actualizar:productos")),
+    _=Depends(require_permiso("crear_editar:productos")),
 ):
     """
     Activa un producto previamente desactivado.

@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.status import HTTP_200_OK, HTTP_201_CREATED
 
 from domain.contracts.auth.perfil_permiso_contract import (
@@ -24,21 +24,15 @@ async def obtener_todos_perfiles_permisos():
 
 
 @router.get("/perfil/{cod_prf}", response_model=List[PermisoAsignadoContract])
-async def obtener_permisos_de_perfil(
-    cod_prf: int,
-    cod_rol: int = Query(..., description="Código del rol del perfil")
-):
+async def obtener_permisos_de_perfil(cod_prf: int):
     """Obtiene todos los permisos asignados a un perfil específico"""
-    return await PerfilPermisoServicio().obtener_permisos_por_perfil(cod_prf, cod_rol)
+    return await PerfilPermisoServicio().obtener_permisos_por_perfil(cod_prf)
 
 
 @router.get("/perfil/{cod_prf}/disponibles", response_model=List[PermisoDisponibleContract])
-async def obtener_permisos_disponibles(
-    cod_prf: int,
-    cod_rol: int = Query(..., description="Código del rol del perfil")
-):
+async def obtener_permisos_disponibles(cod_prf: int):
     """Obtiene permisos que NO están asignados al perfil y pueden ser agregados"""
-    return await PerfilPermisoServicio().obtener_permisos_disponibles(cod_prf, cod_rol)
+    return await PerfilPermisoServicio().obtener_permisos_disponibles(cod_prf)
 
 
 @router.post("/asignar", status_code=HTTP_201_CREATED)

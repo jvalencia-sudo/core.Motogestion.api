@@ -44,9 +44,9 @@ class PerfilRepositorio(BaseRepository):
         )
 
     async def obtener_cod_admin(self) -> Optional[int]:
-        """cod_prf del perfil con rol Admin (cod_rol_prf = 1) del taller actual."""
+        """cod_prf del perfil Administrador (es_admin = true) del taller actual."""
         row = await self.get_one(
-            "SELECT cod_prf FROM perfiles WHERE cod_rol_prf = 1 LIMIT 1", None
+            "SELECT cod_prf FROM perfiles WHERE es_admin = true LIMIT 1", None
         )
         return row.get("COD_PRF") if row else None
 
@@ -57,13 +57,14 @@ class PerfilRepositorio(BaseRepository):
         )
         return row.get("NOMBRE_PRF") if row else None
 
-    async def obtener_rol_por_perfil(self, cod_prf: int) -> Optional[int]:
-        """cod_rol_prf del perfil (RLS ya acota al taller del caller: si cod_prf
-        es de otro taller, no devuelve nada -- mismo patrón que get_nombre)."""
+    async def es_perfil_admin(self, cod_prf: int) -> Optional[bool]:
+        """es_admin del perfil, o None si no existe (RLS ya acota al taller
+        del caller: si cod_prf es de otro taller, no devuelve nada -- mismo
+        patrón que get_nombre)."""
         row = await self.get_one(
-            "SELECT cod_rol_prf FROM perfiles WHERE cod_prf = :1 LIMIT 1", (cod_prf,)
+            "SELECT es_admin FROM perfiles WHERE cod_prf = :1 LIMIT 1", (cod_prf,)
         )
-        return row.get("COD_ROL_PRF") if row else None
+        return bool(row.get("ES_ADMIN")) if row else None
 
     async def contar_usuarios_por_perfil(self) -> Dict[int, int]:
         """Usuarios activos por cod_prf_usu, para mostrar en las tarjetas de rol."""
@@ -107,26 +108,25 @@ class PerfilRepositorio(BaseRepository):
         self,
         nombre_prf: str,
         descripcion_prf: str,
-        cod_rol_prf: int,
         cod_prf_origen: int,
-        cod_rol_origen: int,
         usuario: str,
     ) -> int:
-        """Crea un perfil nuevo copiando los permisos de uno existente, en una
-        sola transacción (perfil + permisos + auditoría, o nada)."""
+        """Crea un perfil nuevo (siempre no-admin) copiando los permisos de
+        uno existente, en una sola transacción (perfil + permisos +
+        auditoría, o nada)."""
         nuevo = await self.get_one("SELECT nextval('seq_perfiles') AS cod_prf", None)
         cod_prf = nuevo["COD_PRF"]
         statements = [
             (
-                "INSERT INTO perfiles (cod_prf, nombre_prf, descripcion_prf, cod_est_prf, cod_rol_prf) "
-                "VALUES (:1, :2, :3, 1, :4)",
-                (cod_prf, nombre_prf, descripcion_prf, cod_rol_prf),
+                "INSERT INTO perfiles (cod_prf, nombre_prf, descripcion_prf, cod_est_prf, es_admin) "
+                "VALUES (:1, :2, :3, 1, false)",
+                (cod_prf, nombre_prf, descripcion_prf),
             ),
             (
-                "INSERT INTO perfiles_permisos (cod_prm_pp, cod_prf_pp, cod_rol_prf_pp, cod_est_pp) "
-                "SELECT cod_prm_pp, :1, :2, cod_est_pp FROM perfiles_permisos "
-                "WHERE cod_prf_pp = :3 AND cod_rol_prf_pp = :4",
-                (cod_prf, cod_rol_prf, cod_prf_origen, cod_rol_origen),
+                "INSERT INTO perfiles_permisos (cod_prm_pp, cod_prf_pp, cod_est_pp) "
+                "SELECT cod_prm_pp, :1, cod_est_pp FROM perfiles_permisos "
+                "WHERE cod_prf_pp = :2",
+                (cod_prf, cod_prf_origen),
             ),
             (
                 "INSERT INTO audit_log (cod_taller, usuario, tabla, evento, valor_nuevo) "
@@ -144,18 +144,18 @@ class PerfilRepositorio(BaseRepository):
         await self.execute_transaction(statements)
         return cod_prf
 
-    async def eliminar_perfil(self, cod_prf: int, cod_rol_prf: int, usuario: str) -> None:
+    async def eliminar_perfil(self, cod_prf: int, usuario: str) -> None:
         """Elimina un perfil y sus permisos en una sola transacción, con una
         entrada de auditoría. El caller ya validó que no tiene usuarios
         asignados y que no es el perfil Administrador."""
         statements = [
             (
-                "DELETE FROM perfiles_permisos WHERE cod_prf_pp = :1 AND cod_rol_prf_pp = :2",
-                (cod_prf, cod_rol_prf),
+                "DELETE FROM perfiles_permisos WHERE cod_prf_pp = :1",
+                (cod_prf,),
             ),
             (
-                "DELETE FROM perfiles WHERE cod_prf = :1 AND cod_rol_prf = :2",
-                (cod_prf, cod_rol_prf),
+                "DELETE FROM perfiles WHERE cod_prf = :1",
+                (cod_prf,),
             ),
             (
                 "INSERT INTO audit_log (cod_taller, usuario, tabla, evento, valor_anterior) "

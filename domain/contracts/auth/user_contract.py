@@ -18,7 +18,6 @@ class UserCreationContract(BaseSchema):
     apellido_1_usu: str
     apellido_2_usu: Optional[str] = None
     cod_prf_usu:int
-    cod_rol_prf_usu:int
 
     def split_name(self) -> tuple[str, str, str]:
         """Divide el name en nombre, apellido_1 y apellido_2"""
@@ -41,8 +40,8 @@ class InviteUsuarioContract(BaseSchema):
 
     Se pre-registra por correo (sin cuenta Auth0): la persona entra luego con ese
     correo y se le vincula el sub en el primer login. Solo se pide el perfil
-    (cod_prf); el servicio deriva el rol global del perfil elegido -- el caller
-    no elige un rol aparte (F0-13).
+    (cod_prf); el estado admin/no-admin se deriva del perfil elegido -- el
+    caller no elige eso aparte (F0-13).
     """
     correo: EmailStr
     nombre: str

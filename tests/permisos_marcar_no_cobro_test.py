@@ -19,7 +19,7 @@ MECANICO_SUB = "test|taller-a-mecanico-f106"
 MECANICO_DOCUMENTO = "900100299"
 
 PERMISOS_BASE_MECANICO = [
-    "leer:productos", "leer:ordenes-trabajo", "crear:ordenes-trabajo", "actualizar:ordenes-trabajo",
+    "ver:productos", "ver:ordenes-trabajo", "crear_editar:ordenes-trabajo",
 ]
 
 
@@ -31,8 +31,8 @@ def mecanico_headers(db_conn, seed_talleres):
     with db_conn.cursor() as cur:
         cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(cod_taller),))
         cur.execute(
-            "INSERT INTO perfiles (cod_taller, cod_rol_prf, cod_est_prf, nombre_prf) "
-            "VALUES (%s, 2, 1, 'Mecanico F1-06 test') RETURNING cod_prf",
+            "INSERT INTO perfiles (cod_taller, es_admin, cod_est_prf, nombre_prf) "
+            "VALUES (%s, false, 1, 'Mecanico F1-06 test') RETURNING cod_prf",
             (cod_taller,),
         )
         cod_prf = cur.fetchone()[0]
@@ -40,8 +40,8 @@ def mecanico_headers(db_conn, seed_talleres):
         cur.execute(
             "INSERT INTO usuarios (cod_taller, documento_usu, nombre_usu, apellido_1_usu, "
             "correo_usu, contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, "
-            "cod_prf_usu, cod_rol_prf_usu) "
-            "VALUES (%s, %s, 'Mecanico', 'F1-06', %s, 'test', 1, 1, %s, %s, 2)",
+            "cod_prf_usu, es_admin_usu) "
+            "VALUES (%s, %s, 'Mecanico', 'F1-06', %s, 'test', 1, 1, %s, %s, false)",
             (cod_taller, MECANICO_DOCUMENTO, "mecanico-f106@test.local", MECANICO_SUB, cod_prf),
         )
 
@@ -56,8 +56,8 @@ def mecanico_headers(db_conn, seed_talleres):
         for cod_prm in cods_prm:
             cur.execute(
                 "INSERT INTO perfiles_permisos "
-                "(cod_taller, cod_prm_pp, cod_prf_pp, cod_rol_prf_pp, cod_est_pp) "
-                "VALUES (%s, %s, %s, 2, 1)",
+                "(cod_taller, cod_prm_pp, cod_prf_pp, cod_est_pp) "
+                "VALUES (%s, %s, %s, 1)",
                 (cod_taller, cod_prm, cod_prf),
             )
 
@@ -202,8 +202,8 @@ def test_con_permiso_si_puede_marcar_cortesia(client, db_conn, seed_talleres, me
         )
         cod_prm = cur.fetchone()[0]
         cur.execute(
-            "INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_rol_prf_pp, cod_est_pp) "
-            "VALUES (%s, %s, %s, 2, 1)",
+            "INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_est_pp) "
+            "VALUES (%s, %s, %s, 1)",
             (cod_taller, cod_prm, cod_prf),
         )
 

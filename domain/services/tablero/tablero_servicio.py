@@ -3,15 +3,19 @@ from typing import Dict, Optional
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from domain.models.tablero.tablero_model import MecanicoItem, TableroItem, TableroResponse
+from infrastructure.dependencies.current_user import usuario_tiene_permiso
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.tablero.tablero_repositorio import TableroRepositorio
 from repository.admin.admin_user_repository import AdminUserRepository
 
-ROL_MECANICO = 2
-ROLES_GESTOR = (1, 3)  # Administrador, Recepcionista
-
-ESTADOS_VALIDOS = {1, 2, 3, 4, 5, 6}
-# Estados a los que un MECÁNICO puede llevar SUS OT (su flujo de trabajo)
+# F1-12: ya no hay códigos de rol fijos -- "ve todo" (antes Administrador o
+# Recepcionista) es ahora es_admin_usu o el permiso explícito ver_todo:tablero;
+# cualquier otro perfil se trata como "solo lo suyo" (antes, el único código
+# posible para eso era 2=Mecánico).
+# F1-05: se saca el 5 (Anulada) de los estados válidos -- solo se llega ahí
+# por PATCH /ordenes-trabajo/{id}/anular (con motivo y devolución de stock).
+ESTADOS_VALIDOS = {1, 2, 3, 4, 6}
+# Estados a los que un usuario SIN ver_todo:tablero puede llevar SUS OT (su flujo de trabajo)
 ESTADOS_MECANICO = {1, 2, 3}  # Pendiente, En Proceso, Completada
 
 
@@ -21,20 +25,23 @@ class TableroServicio:
         # Los mecánicos son usuarios: se leen por el repo dueño de esa tabla.
         self.usuario_repo = AdminUserRepository()
 
-    async def obtener(self, current: Optional[Dict], mecanico_param: Optional[str]) -> TableroResponse:
-        """Alcance por ROL (enforced en el backend, NO por permisos editables):
-        - Mecánico: SIEMPRE su propio tablero (ignora el parámetro).
-        - Admin/Recepcionista: ve todos o el mecánico que seleccione.
-        - Sin usuario identificado: tablero vacío (fail-closed)."""
-        rol = (current or {}).get("COD_ROL_PRF_USU")
-        es_gestor = rol in ROLES_GESTOR
+    async def _es_gestor(self, current: Optional[Dict]) -> bool:
+        if current is None:
+            return False
+        if current.get("ES_ADMIN_USU"):
+            return True
+        return await usuario_tiene_permiso(current, "ver_todo:tablero")
 
-        if rol == ROL_MECANICO:
-            documento = (current or {}).get("DOCUMENTO_USU")
-        elif es_gestor:
-            documento = mecanico_param or None  # None = todos
-        else:
+    async def obtener(self, current: Optional[Dict], mecanico_param: Optional[str]) -> TableroResponse:
+        """Alcance:
+        - Admin o con ver_todo:tablero: ve todos o el mecánico que seleccione.
+        - Cualquier otro perfil: SIEMPRE su propio tablero (ignora el parámetro).
+        - Sin usuario identificado: tablero vacío (fail-closed)."""
+        if current is None:
             return TableroResponse(es_gestor=False, mecanicos=[], items=[])
+
+        es_gestor = await self._es_gestor(current)
+        documento = mecanico_param or None if es_gestor else current.get("DOCUMENTO_USU")
 
         mecanicos = []
         if es_gestor:
@@ -49,9 +56,9 @@ class TableroServicio:
         return TableroResponse(es_gestor=es_gestor, mecanicos=mecanicos, items=items)
 
     async def cambiar_estado(self, current: Optional[Dict], consecutivo_ot: int, cod_estado: int) -> Dict:
-        """Cambia el estado de una OT desde el tablero, con reglas por rol:
-        - Mecánico: solo SUS OT y solo a Pendiente/En Proceso/Completada.
-        - Admin/Recepcionista: cualquier OT a cualquier estado.
+        """Cambia el estado de una OT desde el tablero, con reglas por alcance:
+        - Sin ver_todo:tablero (ni admin): solo SUS OT y solo a Pendiente/En Proceso/Completada.
+        - Admin o con ver_todo:tablero: cualquier OT a cualquier estado (salvo Anulada).
         El RLS ya acota al taller del usuario."""
         if current is None:
             raise DomainException("No autenticado", HTTP_403_FORBIDDEN)
@@ -62,14 +69,12 @@ class TableroServicio:
         if not ot:
             raise DomainException("Orden no encontrada", HTTP_404_NOT_FOUND)
 
-        rol = current.get("COD_ROL_PRF_USU")
-        if rol == ROL_MECANICO:
+        es_gestor = await self._es_gestor(current)
+        if not es_gestor:
             if ot.get("DOCUMENTO_USU_MC_OT") != current.get("DOCUMENTO_USU"):
                 raise DomainException("Solo puedes mover tus propias órdenes", HTTP_403_FORBIDDEN)
             if cod_estado not in ESTADOS_MECANICO:
                 raise DomainException("No puedes mover la orden a ese estado", HTTP_403_FORBIDDEN)
-        elif rol not in ROLES_GESTOR:
-            raise DomainException("Sin permisos para cambiar el estado", HTTP_403_FORBIDDEN)
 
         await self.repo.actualizar_estado(consecutivo_ot, cod_estado)
         return {"consecutivo_ot": consecutivo_ot, "cod_estado": cod_estado}

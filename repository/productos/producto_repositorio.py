@@ -60,6 +60,12 @@ class ProductoRepositorio(BaseRepository):
         )
         return row.get("STOCK_PRO") if row else None
 
+    @staticmethod
+    def statement_actualizar_stock(cod_pro: int, nuevo_stock):
+        """F1-05: igual que actualizar_stock, pero como (query, params) para
+        usar dentro de una transacción más grande (ver anular_orden)."""
+        return ("UPDATE productos SET stock_pro = :1 WHERE cod_pro = :2", (nuevo_stock, cod_pro))
+
     async def listar_bienes_con_stock(self) -> List[Dict]:
         """Productos tipo BIEN activos con su stock (para inventario: entrada / toma física)."""
         return await self.execute(

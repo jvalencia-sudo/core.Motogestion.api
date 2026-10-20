@@ -1,5 +1,5 @@
-from typing import Optional, List
-from datetime import date
+from typing import Optional, List, Dict, Any
+from datetime import date, datetime
 from pydantic import Field, field_validator
 from domain.contracts.base_contract import BaseContractSchema
 from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
@@ -32,6 +32,17 @@ class OrdenTrabajoCreateContract(BaseContractSchema):
             return None
         return v
 
+    @field_validator('cod_ot_est_ot')
+    @classmethod
+    def no_crear_directo_en_anulada(cls, v):
+        """F1-05: Anulada (5) solo se alcanza vía PATCH .../anular (motivo
+        obligatorio + devolución de stock) -- nunca directo al crear."""
+        if v == 5:
+            raise ValueError(
+                "No se puede crear una orden ya anulada. Usa el endpoint de anular una vez creada."
+            )
+        return v
+
 
 class OrdenTrabajoUpdateContract(BaseContractSchema):
     """Contrato para actualizar una orden de trabajo (todos los campos opcionales)"""
@@ -50,6 +61,17 @@ class OrdenTrabajoUpdateContract(BaseContractSchema):
             return None
         return v
 
+    @field_validator('cod_ot_est_ot')
+    @classmethod
+    def no_anular_via_update(cls, v):
+        """F1-05: Anulada (5) solo se alcanza vía PATCH .../anular (motivo
+        obligatorio + devolución de stock) -- nunca por este PUT genérico."""
+        if v == 5:
+            raise ValueError(
+                "No se puede anular una orden por esta vía. Usa el endpoint de anular."
+            )
+        return v
+
 
 class CambiarEstadoContract(BaseContractSchema):
     """Contrato para cambiar el estado de una orden de trabajo"""
@@ -59,6 +81,19 @@ class CambiarEstadoContract(BaseContractSchema):
 class EntregarOrdenContract(BaseContractSchema):
     """Contrato para marcar una orden como entregada"""
     kilometraje_salida_ot: Optional[int] = Field(None, gt=0, description="Kilometraje de salida")
+
+
+class AnularOrdenContract(BaseContractSchema):
+    """Contrato para anular una orden de trabajo completa (F1-05). El motivo
+    es obligatorio -- queda en ordenes_trabajo y en audit_log."""
+    motivo: str = Field(..., min_length=5, max_length=500, description="Motivo de la anulación")
+
+    @field_validator('motivo')
+    @classmethod
+    def no_solo_espacios(cls, v):
+        if not v.strip():
+            raise ValueError("El motivo no puede estar vacío")
+        return v.strip()
 
 
 class OrdenTrabajoResponseContract(BaseContractSchema):
@@ -71,6 +106,11 @@ class OrdenTrabajoResponseContract(BaseContractSchema):
     observacion_cli_ot: Optional[str] = None
     observacion_ot: Optional[str] = None
     fecha_fin_garantia_ot: Optional[date] = None
+
+    # Anulación (F1-05)
+    motivo_anulacion_ot: Optional[str] = None
+    fecha_anulacion_ot: Optional[datetime] = None
+    documento_usu_anulacion_ot: Optional[str] = None
 
     # Informacion de la moto
     placa_mot: str
@@ -125,3 +165,14 @@ class OtEstadoResponseContract(BaseContractSchema):
     """Contrato de respuesta para estados de OT"""
     cod_ot_est: int
     nombre_ot_est: str
+
+
+class HistorialEventoContract(BaseContractSchema):
+    """Un evento de audit_log relacionado con la orden (ella misma o su
+    detalle), para la pantalla 'Historial de cambios' (F1-05)."""
+    fecha: datetime
+    usuario: str
+    tabla: str
+    evento: str  # "Creado" | "Editado" | "Eliminado"
+    valor_anterior: Optional[Dict[str, Any]] = None
+    valor_nuevo: Optional[Dict[str, Any]] = None

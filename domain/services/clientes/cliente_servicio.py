@@ -171,8 +171,6 @@ class ClienteServicio(BaseService[ClienteModelo, ClienteRepositorio]):
                     HTTP_404_NOT_FOUND
                 )
 
-            # TODO: Validar que no tenga motos registradas antes de eliminar
-
             return await self.repository.delete(documento_cli)
         except DomainException:
             raise

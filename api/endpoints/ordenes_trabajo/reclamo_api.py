@@ -62,7 +62,7 @@ async def obtener_reclamo(cod_rec: int):
 @router.post("", response_model=ReclamoResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_reclamo(
     reclamo: ReclamoCreateContract,
-    _=Depends(require_permiso("crear:reclamos")),
+    _=Depends(require_permiso("crear_editar:reclamos")),
 ):
     """Crea un nuevo reclamo"""
     servicio = ReclamoServicio()
@@ -73,7 +73,7 @@ async def crear_reclamo(
 async def actualizar_reclamo(
     cod_rec: int,
     reclamo: ReclamoUpdateContract,
-    _=Depends(require_permiso("actualizar:reclamos")),
+    _=Depends(require_permiso("crear_editar:reclamos")),
 ):
     """Actualiza un reclamo existente"""
     servicio = ReclamoServicio()
@@ -83,7 +83,7 @@ async def actualizar_reclamo(
 @router.delete("/{cod_rec}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_reclamo(
     cod_rec: int,
-    _=Depends(require_permiso("eliminar:reclamos")),
+    _=Depends(require_permiso("eliminar_o_anular:reclamos")),
 ):
     """Elimina un reclamo"""
     servicio = ReclamoServicio()

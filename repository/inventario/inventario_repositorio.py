@@ -45,3 +45,23 @@ class InventarioRepositorio(BaseRepository):
             "VALUES (:1, :2, :3, :4, :5, :6, :7)",
             (cod_pro, tipo, cantidad, stock_ant, stock_nue, motivo, documento_usu),
         )
+
+    @staticmethod
+    def statement_insertar_movimiento(
+        cod_pro: int,
+        tipo: str,
+        cantidad: Cantidad,
+        stock_ant: Optional[int],
+        stock_nue: Optional[int],
+        motivo: Optional[str],
+        documento_usu: Optional[str],
+    ):
+        """F1-05: igual que insertar_movimiento, pero como (query, params) para
+        usar dentro de una transacción más grande (ver anular_orden)."""
+        return (
+            "INSERT INTO movimientos_inventario "
+            "(cod_pro_mov, tipo_mov, cantidad_mov, stock_ant_mov, stock_nue_mov, "
+            " motivo_mov, documento_usu_mov) "
+            "VALUES (:1, :2, :3, :4, :5, :6, :7)",
+            (cod_pro, tipo, cantidad, stock_ant, stock_nue, motivo, documento_usu),
+        )

@@ -29,8 +29,6 @@ from repository.auth.user_repository import UserRepository
 from repository.talleres.taller_repositorio import TallerRepositorio
 from repository.planes.plan_repositorio import PlanRepositorio
 
-ADMIN_ROL = 1
-
 
 async def get_current_usuario(request: Request) -> Optional[Dict]:
     """Resuelve el usuario de BD a partir del Bearer token. None si no se puede.
@@ -67,12 +65,12 @@ async def require_super_admin(request: Request) -> Dict:
 
 
 async def require_admin(request: Request) -> Dict:
-    """Exige que el usuario sea Admin (rol 1) de SU propio taller. Para acciones de
+    """Exige que el usuario sea Administrador de SU propio taller. Para acciones de
     gestión dentro del taller (p.ej. invitar miembros). Fail-closed: 401/403."""
     user = await get_current_usuario(request)
     if user is None:
         raise DomainException("No autenticado", HTTP_401_UNAUTHORIZED)
-    if user.get("COD_ROL_PRF_USU") != ADMIN_ROL:
+    if not user.get("ES_ADMIN_USU"):
         raise DomainException("Requiere permisos de administrador", HTTP_403_FORBIDDEN)
     return user
 
@@ -131,7 +129,7 @@ async def _permisos_del_usuario(user: Dict) -> Set[str]:
     if cache is not None:
         return cache
     filas = await PerfilPermisoRepositorio().obtener_permisos_por_perfil(
-        user.get("COD_PRF_USU"), user.get("COD_ROL_PRF_USU")
+        user.get("COD_PRF_USU")
     )
     permisos = {f.get("NOMBRE_PRM") for f in filas if f.get("ESTADO_PERMISO") == "Activo"}
     set_cached_permisos(permisos)
@@ -144,7 +142,7 @@ async def usuario_tiene_permiso(user: Optional[Dict], nombre_prm: str) -> bool:
     trae cobrar_deto=False en algún ítem, no cualquier POST/PATCH de la orden)."""
     if user is None:
         return False
-    if user.get("COD_ROL_PRF_USU") == ADMIN_ROL:
+    if user.get("ES_ADMIN_USU"):
         return True
     permisos = await _permisos_del_usuario(user)
     return nombre_prm in permisos
@@ -152,8 +150,8 @@ async def usuario_tiene_permiso(user: Optional[Dict], nombre_prm: str) -> bool:
 
 def require_permiso(nombre_prm: str) -> Callable:
     """Depends factory: exige el permiso `nombre_prm` (formato "accion:recurso",
-    ej. "eliminar:productos") asignado y activo en el perfil del usuario. El
-    Administrador (rol 1) siempre pasa, sin consultar perfiles_permisos. Fail-closed:
+    ej. "eliminar_o_anular:productos") asignado y activo en el perfil del usuario.
+    El Administrador siempre pasa, sin consultar perfiles_permisos. Fail-closed:
     401 sin token válido, 403 sin el permiso."""
 
     async def _dep(request: Request) -> Dict:
@@ -174,9 +172,9 @@ def assert_no_self_role_change(
 ) -> None:
     """Impide que un usuario cambie su PROPIO rol (evita auto-degradarse).
 
-    El rol global se deriva siempre del perfil (F0-13: cod_rol_prf es una columna
-    de `perfiles`, 1:1 por perfil), así que basta con comparar el perfil -- no
-    puede cambiar el rol sin cambiar el perfil. Solo aplica cuando se identifica
+    El estado admin/no-admin se deriva siempre del perfil (F1-12: es_admin es
+    una columna de `perfiles`, 1:1 por perfil), así que basta con comparar el
+    perfil -- no puede cambiar de admin sin cambiar el perfil. Solo aplica cuando se identifica
     al llamante y edita su propio documento. Permite guardar otros campos (nombre,
     correo) si no toca el perfil. Si no se pudo identificar al llamante, el guard
     no aplica (la seguridad real es el RLS).

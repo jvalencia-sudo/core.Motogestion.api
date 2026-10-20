@@ -27,23 +27,20 @@ async def listar_productos():
     return await InventarioServicio().listar_productos()
 
 
-# El catálogo de permisos no tiene un recurso "inventario" propio; ambas
-# operaciones mutan productos.stock_pro, así que reusan "actualizar:productos"
-# (F0-11) en vez de agregar permisos nuevos que requerirían una migración.
 @router.post("/entrada", status_code=HTTP_201_CREATED)
 async def registrar_entrada(
     contract: EntradaContract,
-    current: Dict = Depends(require_permiso("actualizar:productos")),
+    current: Dict = Depends(require_permiso("ajustar:inventario")),
 ):
-    """Registra una entrada de stock (reabastecimiento). Solo Admin/Recepcionista."""
+    """Registra una entrada de stock (reabastecimiento)."""
     return await InventarioServicio().entrada(current, contract)
 
 
 @router.post("/toma-fisica")
 async def toma_fisica(
     contract: TomaFisicaContract,
-    current: Dict = Depends(require_permiso("actualizar:productos")),
+    current: Dict = Depends(require_permiso("ajustar:inventario")),
 ):
     """Aplica una toma física: ajusta el stock a las cantidades contadas y registra
-    los movimientos AJUSTE. Solo Admin/Recepcionista."""
+    los movimientos AJUSTE."""
     return await InventarioServicio().toma_fisica(current, contract)
