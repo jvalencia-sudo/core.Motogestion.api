@@ -161,7 +161,7 @@ class ClienteServicio(BaseService[ClienteModelo, ClienteRepositorio]):
                 HTTP_400_BAD_REQUEST
             )
 
-    async def eliminar_cliente(self, documento_cli: str) -> bool:
+    async def eliminar_cliente(self, documento_cli: str) -> None:
         """Elimina cliente"""
         try:
             cliente_dict = await self.repository.get_by_id(documento_cli)

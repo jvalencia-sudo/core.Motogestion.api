@@ -6,6 +6,7 @@ from domain.contracts.motos.marca_contract import (
     MarcaUpdateContract,
     MarcaResponseContract
 )
+from domain.contracts.shared.respuesta_contract import MarcaEliminadaResponseContract
 from domain.services.marcas.marca_servicio import MarcaServicio
 from infrastructure.dependencies.current_user import require_permiso
 
@@ -72,7 +73,7 @@ async def actualizar_marca(
     return await servicio.actualizar_marca(cod_mar, marca)
 
 
-@router.delete("/{cod_mar}")
+@router.delete("/{cod_mar}", response_model=MarcaEliminadaResponseContract)
 async def eliminar_marca(
     cod_mar: int,
     _=Depends(require_permiso("eliminar_o_anular:marcas")),

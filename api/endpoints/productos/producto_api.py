@@ -6,6 +6,7 @@ from domain.contracts.productos.producto_contract import (
     ProductoUpdateContract,
     ProductoResponseContract
 )
+from domain.contracts.shared.respuesta_contract import ProductoEstadoResponseContract
 from domain.services.productos.producto_servicio import ProductoServicio
 from infrastructure.dependencies.current_user import require_permiso
 
@@ -90,7 +91,7 @@ async def actualizar_producto(
     return await servicio.actualizar_producto(cod_pro, producto)
 
 
-@router.delete("/{cod_pro}", status_code=status.HTTP_200_OK)
+@router.delete("/{cod_pro}", status_code=status.HTTP_200_OK, response_model=ProductoEstadoResponseContract)
 async def desactivar_producto(
     cod_pro: int,
     _=Depends(require_permiso("eliminar_o_anular:productos")),
@@ -106,7 +107,7 @@ async def desactivar_producto(
     return await servicio.desactivar_producto(cod_pro)
 
 
-@router.patch("/{cod_pro}/activars", status_code=status.HTTP_200_OK)
+@router.patch("/{cod_pro}/activars", status_code=status.HTTP_200_OK, response_model=ProductoEstadoResponseContract)
 async def activar_producto(
     cod_pro: int,
     _=Depends(require_permiso("crear_editar:productos")),
