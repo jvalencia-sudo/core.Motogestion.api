@@ -8,6 +8,10 @@ from domain.contracts.auth.perfil_contract import (
     CambiarEstadoPerfilContract,
     PerfilDetalleContract
 )
+from domain.contracts.shared.respuesta_contract import (
+    OperacionResponseContract,
+    PerfilCreadoResponseContract,
+)
 from domain.models.auth.perfil_modelo import PerfilModelo
 from domain.services.base_service import BaseService
 from infrastructure.exceptions.domain_exception import DomainException
@@ -33,7 +37,9 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
             registro["num_usuarios"] = conteos.get(registro.get("COD_PRF"), 0)
         return self.__parse_all_custom__(registros, PerfilDetalleContract)
 
-    async def crear_perfil(self, contract: CrearPerfilContract, usuario: str) -> dict:
+    async def crear_perfil(
+        self, contract: CrearPerfilContract, usuario: str
+    ) -> PerfilCreadoResponseContract:
         """Crea un nuevo perfil propio del taller (rol personalizado, F0-13
         ext): desde cero o duplicando los permisos de otro perfil existente.
         Siempre no-administrador -- jamás recibe trato de Administrador."""
@@ -75,13 +81,15 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
             )
             cod_prf = await self.repository.create(modelo)
 
-        return {
-            "success": True,
-            "message": "Perfil creado correctamente",
-            "cod_prf": cod_prf
-        }
+        return PerfilCreadoResponseContract(
+            success=True,
+            message="Perfil creado correctamente",
+            cod_prf=cod_prf,
+        )
 
-    async def actualizar_perfil(self, contract: ActualizarPerfilContract) -> dict:
+    async def actualizar_perfil(
+        self, contract: ActualizarPerfilContract
+    ) -> OperacionResponseContract:
         """Renombra/edita un perfil existente. es_admin nunca se toca por
         esta vía -- no se puede retargetear hacia/desde Administrador."""
         existe = await self.repository.verificar_perfil_existe(contract.cod_prf)
@@ -117,12 +125,13 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
 
         await self.repository.update(modelo)
 
-        return {
-            "success": True,
-            "message": "Perfil actualizado correctamente"
-        }
+        return OperacionResponseContract(
+            success=True, message="Perfil actualizado correctamente"
+        )
 
-    async def eliminar_perfil(self, cod_prf: int, usuario: str) -> dict:
+    async def eliminar_perfil(
+        self, cod_prf: int, usuario: str
+    ) -> OperacionResponseContract:
         """Elimina un perfil propio del taller: nunca el Administrador, y
         nunca si todavía tiene usuarios asignados (hay que reasignarlos antes)."""
         existe = await self.repository.verificar_perfil_existe(cod_prf)
@@ -147,27 +156,26 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
 
         await self.repository.eliminar_perfil(cod_prf, usuario)
 
-        return {
-            "success": True,
-            "message": "Perfil eliminado correctamente"
-        }
+        return OperacionResponseContract(
+            success=True, message="Perfil eliminado correctamente"
+        )
 
-    async def cambiar_estado_perfil(self, contract: CambiarEstadoPerfilContract) -> dict:
+    async def cambiar_estado_perfil(
+        self, contract: CambiarEstadoPerfilContract
+    ) -> OperacionResponseContract:
         """Activa o desactiva un perfil"""
         # Verificar que el perfil existe
         existe = await self.repository.verificar_perfil_existe(contract.cod_prf)
 
         if not existe:
-            return {
-                "success": False,
-                "message": "El perfil no existe"
-            }
+            return OperacionResponseContract(
+                success=False, message="El perfil no existe"
+            )
 
         await self.repository.actualizar_estado(contract.cod_prf, contract.cod_est_prf)
 
         estado_texto = "activado" if contract.cod_est_prf == 1 else "desactivado"
-        return {
-            "success": True,
-            "message": f"Perfil {estado_texto} correctamente"
-        }
+        return OperacionResponseContract(
+            success=True, message=f"Perfil {estado_texto} correctamente"
+        )
 

@@ -6,6 +6,7 @@ from domain.contracts.superadmin.accion_taller_contract import (
     PagoManualContract,
     SuspenderReactivarContract,
 )
+from domain.contracts.shared.respuesta_contract import OperacionResponseContract
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.pagos.pago_repositorio import PagoRepositorio
 from repository.superadmin.auditoria_repositorio import AuditoriaRepositorio
@@ -34,7 +35,9 @@ class AccionesTallerServicio:
             )
         return taller
 
-    async def extender_prueba(self, cod_taller: int, contract: ExtenderPruebaContract, usuario: str) -> dict:
+    async def extender_prueba(
+        self, cod_taller: int, contract: ExtenderPruebaContract, usuario: str
+    ) -> OperacionResponseContract:
         taller = await self._taller_o_404(cod_taller)
         if taller.get("ESTADO_TAL") != "prueba":
             raise DomainException(
@@ -50,9 +53,13 @@ class AccionesTallerServicio:
             ),
         ]
         await self.taller_repo.execute_transaction(statements)
-        return {"success": True, "message": f"Prueba extendida {contract.dias} días"}
+        return OperacionResponseContract(
+            success=True, message=f"Prueba extendida {contract.dias} días"
+        )
 
-    async def pago_manual(self, cod_taller: int, contract: PagoManualContract, usuario: str) -> dict:
+    async def pago_manual(
+        self, cod_taller: int, contract: PagoManualContract, usuario: str
+    ) -> OperacionResponseContract:
         taller = await self._taller_o_404(cod_taller)
         statements = [
             (
@@ -73,18 +80,24 @@ class AccionesTallerServicio:
             ),
         ]
         await self.taller_repo.execute_transaction(statements)
-        return {"success": True, "message": "Pago manual registrado y suscripción activada"}
+        return OperacionResponseContract(
+            success=True, message="Pago manual registrado y suscripción activada"
+        )
 
-    async def suspender(self, cod_taller: int, contract: SuspenderReactivarContract, usuario: str) -> dict:
+    async def suspender(
+        self, cod_taller: int, contract: SuspenderReactivarContract, usuario: str
+    ) -> OperacionResponseContract:
         return await self._cambiar_estado(cod_taller, "suspendido", "suspender", contract, usuario)
 
-    async def reactivar(self, cod_taller: int, contract: SuspenderReactivarContract, usuario: str) -> dict:
+    async def reactivar(
+        self, cod_taller: int, contract: SuspenderReactivarContract, usuario: str
+    ) -> OperacionResponseContract:
         return await self._cambiar_estado(cod_taller, "activo", "reactivar", contract, usuario)
 
     async def _cambiar_estado(
         self, cod_taller: int, estado_nuevo: str, accion: str,
         contract: SuspenderReactivarContract, usuario: str,
-    ) -> dict:
+    ) -> OperacionResponseContract:
         taller = await self._taller_o_404(cod_taller)
         statements = [
             self.taller_repo.statement_cambiar_estado(cod_taller, estado_nuevo),
@@ -95,9 +108,11 @@ class AccionesTallerServicio:
             ),
         ]
         await self.taller_repo.execute_transaction(statements)
-        return {"success": True, "message": f"Taller {estado_nuevo}"}
+        return OperacionResponseContract(success=True, message=f"Taller {estado_nuevo}")
 
-    async def ajustar_precio(self, cod_taller: int, contract: AjustarPrecioContract, usuario: str) -> dict:
+    async def ajustar_precio(
+        self, cod_taller: int, contract: AjustarPrecioContract, usuario: str
+    ) -> OperacionResponseContract:
         taller = await self._taller_o_404(cod_taller)
         statements = [
             self.taller_repo.statement_ajustar_precio(cod_taller, contract.precio_susc_tal),
@@ -108,4 +123,6 @@ class AccionesTallerServicio:
             ),
         ]
         await self.taller_repo.execute_transaction(statements)
-        return {"success": True, "message": "Precio pactado actualizado"}
+        return OperacionResponseContract(
+            success=True, message="Precio pactado actualizado"
+        )

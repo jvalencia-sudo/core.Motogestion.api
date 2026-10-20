@@ -65,7 +65,7 @@ async def test_pago_aprobado_activa_suscripcion_y_marca_el_pago():
     ):
         resultado = await servicio.procesar_webhook(PAYLOAD_BASE)
 
-    assert resultado["estado"] == "APPROVED"
+    assert resultado.estado == "APPROVED"
     servicio.pago_repo.marcar_estado.assert_awaited_once_with("MG-1-abc", "APPROVED", "tx-1")
     servicio.taller_repo.activar_suscripcion.assert_awaited_once_with(1, "Taller", 30)
     # Primer pago aprobado: congela el precio pagado en precio_susc_tal.
@@ -97,7 +97,7 @@ async def test_webhook_con_monto_distinto_al_esperado_no_activa_nada():
     ):
         resultado = await servicio.procesar_webhook(PAYLOAD_BASE)  # paga 49000, se esperaban 69000
 
-    assert resultado["estado"] == "MONTO_INVALIDO"
+    assert resultado.estado == "MONTO_INVALIDO"
     servicio.taller_repo.activar_suscripcion.assert_not_called()
     servicio.taller_repo.actualizar.assert_not_called()
     servicio.pago_repo.marcar_estado.assert_awaited_once_with("MG-1-abc", "DECLINED", "tx-1")
@@ -116,7 +116,7 @@ async def test_webhook_duplicado_no_activa_ni_cobra_dos_veces():
     ):
         resultado = await servicio.procesar_webhook(PAYLOAD_BASE)
 
-    assert resultado["ignored"] == "pago ya procesado"
+    assert resultado.ignored == "pago ya procesado"
     servicio.taller_repo.activar_suscripcion.assert_not_called()
     servicio.pago_repo.marcar_estado.assert_not_called()
 
@@ -129,7 +129,7 @@ async def test_referencia_desconocida_se_ignora_sin_lanzar():
     ):
         resultado = await servicio.procesar_webhook(PAYLOAD_BASE)
 
-    assert resultado["ignored"] == "referencia desconocida"
+    assert resultado.ignored == "referencia desconocida"
     servicio.taller_repo.activar_suscripcion.assert_not_called()
 
 
@@ -146,7 +146,7 @@ async def test_pago_rechazado_marca_declined_sin_activar_suscripcion():
     ):
         resultado = await servicio.procesar_webhook(payload_declined)
 
-    assert resultado["estado"] == "DECLINED"
+    assert resultado.estado == "DECLINED"
     servicio.pago_repo.marcar_estado.assert_awaited_once_with("MG-1-abc", "DECLINED", "tx-2")
     servicio.taller_repo.activar_suscripcion.assert_not_called()
 

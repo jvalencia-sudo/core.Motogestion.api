@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
+from domain.contracts.shared.respuesta_contract import CambioEstadoTableroResponseContract
 from domain.models.tablero.tablero_model import MecanicoItem, TableroItem, TableroResponse
 from domain.services.ordenes_trabajo.validaciones_entrega import validar_saldo_para_entrega
 from infrastructure.dependencies.current_user import usuario_tiene_permiso
@@ -64,7 +65,7 @@ class TableroServicio:
         consecutivo_ot: int,
         cod_estado: int,
         confirmar_credito: bool = False,
-    ) -> Dict:
+    ) -> CambioEstadoTableroResponseContract:
         """Cambia el estado de una OT desde el tablero, con reglas por alcance:
         - Sin ver_todo:tablero (ni admin): solo SUS OT y solo a Pendiente/En Proceso/Completada.
         - Admin o con ver_todo:tablero: cualquier OT a cualquier estado (salvo Anulada).
@@ -92,7 +93,9 @@ class TableroServicio:
             await validar_saldo_para_entrega(consecutivo_ot, confirmar_credito)
 
         await self.repo.actualizar_estado(consecutivo_ot, cod_estado)
-        return {"consecutivo_ot": consecutivo_ot, "cod_estado": cod_estado}
+        return CambioEstadoTableroResponseContract(
+            consecutivo_ot=consecutivo_ot, cod_estado=cod_estado
+        )
 
     @staticmethod
     def _map(f: Dict) -> TableroItem:

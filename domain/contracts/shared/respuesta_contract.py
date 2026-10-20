@@ -58,3 +58,10 @@ class WompiWebhookResponseContract(BaseModel):
     ok: bool
     ignored: Optional[str] = None
     estado: Optional[str] = None
+
+
+class MetricasTallerContract(BaseModel):
+    ordenes_7d: int = 0
+    ordenes_30d: int = 0
+    usuarios_activos: int = 0
+    ultima_actividad: Optional[str] = None

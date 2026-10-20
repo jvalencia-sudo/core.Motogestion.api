@@ -41,8 +41,8 @@ async def asignar_permiso(contract: AsignarPermisoContract):
     """Asigna un nuevo permiso a un perfil"""
     resultado = await PerfilPermisoServicio().asignar_permiso(contract)
 
-    if not resultado["success"]:
-        raise HTTPException(status_code=400, detail=resultado["message"])
+    if not resultado.success:
+        raise HTTPException(status_code=400, detail=resultado.message)
 
     return resultado
 
@@ -69,7 +69,7 @@ async def cambiar_estado_permiso(contract: CambiarEstadoPermisoContract):
     """Activa o desactiva un permiso de un perfil (no lo elimina, solo cambia el estado)"""
     resultado = await PerfilPermisoServicio().cambiar_estado_permiso(contract)
 
-    if not resultado["success"]:
-        raise HTTPException(status_code=400, detail=resultado["message"])
+    if not resultado.success:
+        raise HTTPException(status_code=400, detail=resultado.message)
 
     return resultado
