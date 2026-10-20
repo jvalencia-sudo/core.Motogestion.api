@@ -105,6 +105,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                 unidad_pro=producto_modelo.unidad_pro,
                 cod_est_pro=producto_modelo.cod_est_pro,
                 precio_pro=producto_modelo.precio_pro,
+                dias_garantia_pro=producto_modelo.dias_garantia_pro,
                 estado_producto=producto_modelo.estado_producto,
                 impuestos=impuestos_lista,
                 componentes=componentes_lista
@@ -152,6 +153,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
                 unidad_pro=producto_modelo.unidad_pro,
                 cod_est_pro=producto_modelo.cod_est_pro,
                 precio_pro=producto_modelo.precio_pro,
+                dias_garantia_pro=producto_modelo.dias_garantia_pro,
                 estado_producto=producto_modelo.estado_producto,
                 impuestos=impuestos_lista,
                 componentes=componentes_lista
@@ -200,6 +202,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
             unidad_pro=producto_modelo.unidad_pro,
             cod_est_pro=producto_modelo.cod_est_pro,
             precio_pro=producto_modelo.precio_pro,
+            dias_garantia_pro=producto_modelo.dias_garantia_pro,
             estado_producto=producto_modelo.estado_producto,
             impuestos=impuestos_lista,
             componentes=componentes_lista
@@ -239,6 +242,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
             unidad_pro=contract.unidad_pro,
             cod_est_pro=1,  # Activo
             precio_pro=contract.precio_pro,
+            dias_garantia_pro=contract.dias_garantia_pro,
             tipo_pro=contract.tipo_pro
         )
 
@@ -313,6 +317,10 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
             unidad_pro=contract.unidad_pro if contract.unidad_pro is not None else producto_actual_modelo.unidad_pro,
             cod_est_pro=producto_actual_modelo.cod_est_pro,
             precio_pro=contract.precio_pro if contract.precio_pro is not None else producto_actual_modelo.precio_pro,
+            dias_garantia_pro=(
+                contract.dias_garantia_pro if contract.dias_garantia_pro is not None
+                else producto_actual_modelo.dias_garantia_pro
+            ),
             tipo_pro=tipo_pro
         )
 

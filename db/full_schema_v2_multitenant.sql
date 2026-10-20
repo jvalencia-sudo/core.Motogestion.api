@@ -31,7 +31,6 @@ CREATE TABLE talleres (
     precio_susc_tal       INTEGER,                                   -- precio pactado (congelado) con este taller
     direccion_tal         VARCHAR(200),
     texto_pie_comprobante VARCHAR(300),
-    dias_garantia_pred    INTEGER       NOT NULL DEFAULT 30,
     CONSTRAINT pk_talleres PRIMARY KEY (cod_taller),
     CONSTRAINT chk_taller_modo_mo CHECK (modo_mano_obra IN ('HORAS', 'LIBRE'))
 );
@@ -234,6 +233,7 @@ CREATE TABLE productos (
     precio_pro      INTEGER,
     tipo_pro        VARCHAR(10) NOT NULL DEFAULT 'BIEN',            -- BIEN | SERVICIO | PAQUETE
     unidad_pro      VARCHAR(10) NOT NULL DEFAULT 'unidad',          -- unidad | litro | galon | metro
+    dias_garantia_pro INTEGER   NOT NULL DEFAULT 0,                 -- F1-04: 0 = sin garantía
     CONSTRAINT pk_productos PRIMARY KEY (cod_taller, cod_pro),
     CONSTRAINT fk_productos_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_productos_estado FOREIGN KEY (cod_est_pro) REFERENCES estados (cod_est),
@@ -585,33 +585,27 @@ CREATE TRIGGER tg_gen_consecutivo_ot
 BEFORE INSERT ON ordenes_trabajo
 FOR EACH ROW EXECUTE FUNCTION fn_gen_consecutivo_ot();
 
--- Fecha fin de garantía (dias_garantia_pred del taller desde la entrega, si
--- estado = 4). Solo se autocalcula cuando quien hizo el UPDATE/INSERT no trajo
--- ya un fecha_fin_garantia_ot propio (entregar_orden y
--- generar_comprobante_servicio_pos, en orden_trabajo_servicio.py, ya la
--- calculan con el dias_garantia_pred del taller actual) -- antes este trigger
--- la pisaba SIEMPRE con "entrega + 1 mes" fijo, sin importar qué hubiera
--- calculado la app, así que dias_garantia_pred configurado en "Mi taller" no
--- tenía ningún efecto real. talleres no tiene RLS, así que el SELECT de abajo
--- funciona sin depender de app.tenant_id.
+-- F1-04: la garantía de una orden la fijaba un trigger con el número de días
+-- configurado en "Mi taller" (dias_garantia_pred), igual para toda orden sin
+-- importar qué se hizo -- el campo manual del formulario (con su validación
+-- de "mínimo 30 días") nunca tenía efecto, porque el trigger la pisaba
+-- siempre al entregar. Ahora la garantía la da el servicio/producto más
+-- largo de la orden (MAX(dias_garantia_pro) de sus ítems); 0 = sin garantía.
 CREATE OR REPLACE FUNCTION fn_calc_fecha_garantia()
 RETURNS TRIGGER AS $$
 DECLARE
     v_dias_garantia INTEGER;
-    v_debe_calcular BOOLEAN;
 BEGIN
     IF NEW.cod_ot_est_ot = 4 THEN
-        IF TG_OP = 'INSERT' THEN
-            v_debe_calcular := NEW.fecha_fin_garantia_ot IS NULL;
-        ELSE
-            v_debe_calcular := NEW.fecha_fin_garantia_ot IS NOT DISTINCT FROM OLD.fecha_fin_garantia_ot;
-        END IF;
+        SELECT COALESCE(MAX(p.dias_garantia_pro), 0) INTO v_dias_garantia
+        FROM detalle_orden_trabajo d
+        JOIN productos p ON d.cod_pro_deto = p.cod_pro AND d.cod_taller = p.cod_taller
+        WHERE d.consecutivo_ot_deto = NEW.consecutivo_ot AND d.cod_taller = NEW.cod_taller;
 
-        IF v_debe_calcular AND NEW.fecha_entrega_ot IS NOT NULL THEN
-            SELECT dias_garantia_pred INTO v_dias_garantia
-            FROM talleres WHERE cod_taller = NEW.cod_taller;
-            NEW.fecha_fin_garantia_ot :=
-                NEW.fecha_entrega_ot + make_interval(days => COALESCE(v_dias_garantia, 30));
+        IF v_dias_garantia > 0 AND NEW.fecha_entrega_ot IS NOT NULL THEN
+            NEW.fecha_fin_garantia_ot := NEW.fecha_entrega_ot + make_interval(days => v_dias_garantia);
+        ELSE
+            NEW.fecha_fin_garantia_ot := NULL;
         END IF;
     ELSE
         NEW.fecha_fin_garantia_ot := NULL;
@@ -933,13 +927,13 @@ INNER JOIN ot_estados ote ON ot.cod_ot_est_ot = ote.cod_ot_est;
 CREATE OR REPLACE VIEW vw_productos WITH (security_invoker = on) AS
 SELECT p.cod_pro, p.nombre_pro, p.descripcion_pro, p.precio_pro,
        p.stock_pro, p.stock_pro_min, p.unidad_pro, p.cod_est_pro, e.nombre_est AS estado_producto,
-       p.tipo_pro
+       p.tipo_pro, p.dias_garantia_pro
 FROM productos p INNER JOIN estados e ON p.cod_est_pro = e.cod_est;
 
 CREATE OR REPLACE VIEW vw_productos_activos WITH (security_invoker = on) AS
 SELECT p.cod_pro, p.nombre_pro, p.descripcion_pro, p.precio_pro,
        p.stock_pro, p.stock_pro_min, p.unidad_pro, p.cod_est_pro, e.nombre_est AS estado_producto,
-       p.tipo_pro
+       p.tipo_pro, p.dias_garantia_pro
 FROM productos p INNER JOIN estados e ON p.cod_est_pro = e.cod_est
 WHERE p.cod_est_pro = 1;
 

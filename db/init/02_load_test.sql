@@ -23,5 +23,6 @@ INSERT INTO schema_migrations (version) VALUES
     ('005_busqueda_placa'),
     ('006_corregir_kilometraje_salida'),
     ('007_roles_simplificados'),
-    ('008_anulacion_auditoria')
+    ('008_anulacion_auditoria'),
+    ('009_garantia_por_producto')
 ON CONFLICT (version) DO NOTHING;

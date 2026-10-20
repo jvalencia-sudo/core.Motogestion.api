@@ -53,11 +53,11 @@ class TallerRepositorio(BaseRepository):
 
     async def obtener_config_comprobante(self, cod_taller: int) -> Optional[Dict]:
         """Datos del taller para imprimir en el comprobante de servicio:
-        nombre/dirección/teléfono reales del encabezado, texto de pie y días
-        de garantía por defecto. talleres no tiene RLS."""
+        nombre/dirección/teléfono reales del encabezado y texto de pie.
+        talleres no tiene RLS."""
         return await self.db.get_first(
-            "SELECT nombre_tal, direccion_tal, telefono_tal, texto_pie_comprobante, "
-            "dias_garantia_pred FROM talleres WHERE cod_taller = :1",
+            "SELECT nombre_tal, direccion_tal, telefono_tal, texto_pie_comprobante "
+            "FROM talleres WHERE cod_taller = :1",
             (cod_taller,),
         )
 

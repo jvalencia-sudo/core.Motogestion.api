@@ -15,3 +15,4 @@ class VwProductoModelo(BaseSchema):
     cod_est_pro: int
     estado_producto: Optional[str] = None
     tipo_pro: str = "BIEN"                 # BIEN | SERVICIO | PAQUETE
+    dias_garantia_pro: int = 0              # F1-04: 0 = sin garantía

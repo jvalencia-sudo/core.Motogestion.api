@@ -46,6 +46,10 @@ class ProductoCreateContract(BaseContractSchema):
     stock_pro_min: Optional[Decimal] = Field(None, ge=0, description="Stock mínimo (solo BIEN)")
     unidad_pro: UnidadMedida = Field("unidad", description="Unidad de medida del stock")
     precio_pro: int = Field(..., gt=0, description="Precio del producto (debe ser mayor a 0)")
+    # F1-04: días de garantía que aporta este producto/servicio a la orden que
+    # lo incluya (0 = sin garantía). La fecha fin de garantía de la orden es
+    # el MAX de este valor entre todos sus ítems.
+    dias_garantia_pro: int = Field(0, ge=0, le=3650, description="Días de garantía (0 = sin garantía)")
     impuestos: Optional[List[ImpuestoProductoContract]] = Field(default=[], description="Lista de impuestos a aplicar")
     # Componentes de la "receta" cuando tipo_pro == PAQUETE.
     componentes: Optional[List[ComponenteContract]] = Field(default=[], description="Componentes del paquete (solo PAQUETE)")
@@ -60,6 +64,7 @@ class ProductoUpdateContract(BaseContractSchema):
     stock_pro_min: Optional[Decimal] = Field(None, ge=0, description="Stock mínimo (solo BIEN)")
     unidad_pro: Optional[UnidadMedida] = Field(None, description="Unidad de medida del stock")
     precio_pro: Optional[int] = Field(None, gt=0, description="Precio del producto (debe ser mayor a 0)")
+    dias_garantia_pro: Optional[int] = Field(None, ge=0, le=3650, description="Días de garantía (0 = sin garantía)")
     impuestos: Optional[List[ImpuestoProductoContract]] = Field(None, description="Lista de impuestos a aplicar")
     componentes: Optional[List[ComponenteContract]] = Field(None, description="Componentes del paquete (solo PAQUETE, reemplaza los existentes)")
 
@@ -75,6 +80,7 @@ class ProductoResponseContract(BaseContractSchema):
     unidad_pro: str = "unidad"
     cod_est_pro: int
     precio_pro: int
+    dias_garantia_pro: int = 0
     estado_producto: Optional[str] = None
     impuestos: Optional[List[ImpuestoResponseContract]] = []
     componentes: Optional[List[ComponenteResponseContract]] = []

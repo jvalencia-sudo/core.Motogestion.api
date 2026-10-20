@@ -14,6 +14,7 @@ class ProductoModelo(BaseSchema):
     precio_pro: int
     tipo_pro: str = "BIEN"                 # BIEN | SERVICIO | PAQUETE
     unidad_pro: str = "unidad"              # unidad | litro | galon | metro
+    dias_garantia_pro: int = 0              # F1-04: 0 = sin garantía
 
 
 class VwProductosConImpuestos(BaseSchema):

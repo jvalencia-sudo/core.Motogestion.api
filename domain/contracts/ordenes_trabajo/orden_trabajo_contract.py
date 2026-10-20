@@ -20,11 +20,10 @@ class OrdenTrabajoCreateContract(BaseContractSchema):
     observacion_cli_ot: Optional[str] = Field(None, max_length=500, description="Observacion del cliente")
     observacion_ot: Optional[str] = Field(None, max_length=500, description="Observacion interna")
     fecha_entrega_ot: Optional[date] = Field(None, description="Fecha estimada de entrega")
-    fecha_fin_garantia_ot: Optional[date] = Field(None, description="Fecha fin de garantia")
     cod_ot_est_ot: Optional[int] = Field(default=1, ge=1, le=6, description="Estado de la orden (1=Pendiente, 2=En Proceso, 3=Finalizada, 4=Entregada, 6=Garantia)")
     detalles: List[DetalleOrdenTrabajoContract] = Field(default=[], description="Productos/servicios de la orden")
 
-    @field_validator('fecha_entrega_ot', 'fecha_fin_garantia_ot', mode='before')
+    @field_validator('fecha_entrega_ot', mode='before')
     @classmethod
     def empty_string_to_none(cls, v):
         """Convierte strings vacíos a None para campos de fecha"""
@@ -49,11 +48,10 @@ class OrdenTrabajoUpdateContract(BaseContractSchema):
     fecha_entrega_ot: Optional[date] = None
     observacion_ot: Optional[str] = Field(None, max_length=500)
     cod_ot_est_ot: Optional[int] = Field(None, ge=1, le=6)
-    fecha_fin_garantia_ot: Optional[date] = None
     documento_usu_rp_ot: Optional[str] = Field(None, min_length=8, max_length=11, description="Documento del recepcionista")
     documento_usu_mc_ot: Optional[str] = Field(None, min_length=8, max_length=11, description="Documento del mecanico")
 
-    @field_validator('fecha_entrega_ot', 'fecha_fin_garantia_ot', mode='before')
+    @field_validator('fecha_entrega_ot', mode='before')
     @classmethod
     def empty_string_to_none(cls, v):
         """Convierte strings vacíos a None para campos de fecha"""
