@@ -1,10 +1,7 @@
 {
     "version": "0.2",
     "ignorePaths": [
-        "./repository/sap/pending_orders.py", // Ignore SAP Pending Orders because the SAP names are weird
-        ".circleci",
-        "./requirements.txt",
-        ".idea",
+        "./repository/sap/pending_orders.py",
         "./Dockerfile",
         "**/appsettings.*.json",
         "**/appsettings.json",
