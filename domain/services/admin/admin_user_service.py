@@ -6,6 +6,10 @@ from domain.contracts.admin.admin_user_contract import (
     UserFilterContract,
     UpdateUserProfileContract
 )
+from domain.contracts.shared.respuesta_contract import (
+    MensajeResponseContract,
+    UsuariosPaginadosResponseContract,
+)
 from domain.models.auth.user_model import UserModel, VwUsuariosPerfiles
 from domain.services.base_service import BaseService
 from infrastructure.exceptions.domain_exception import DomainException
@@ -161,7 +165,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         updated_record = await self.repository.get_user_by_documento(documento_usu)
         return self.__parse__(updated_record)
 
-    async def deactivate_user(self, documento_usu: str) -> Dict[str, str]:
+    async def deactivate_user(self, documento_usu: str) -> MensajeResponseContract:
         """
         Desactiva un usuario (soft delete)
 
@@ -185,9 +189,9 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
 
         await self.repository.deactivate_user(documento_usu)
 
-        return {"message": f"Usuario {documento_usu} desactivado exitosamente"}
+        return MensajeResponseContract(message=f"Usuario {documento_usu} desactivado exitosamente")
 
-    async def activate_user(self, documento_usu: str) -> Dict[str, str]:
+    async def activate_user(self, documento_usu: str) -> MensajeResponseContract:
         """
         Activa un usuario previamente desactivado
 
@@ -208,9 +212,11 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
 
         await self.repository.activate_user(documento_usu)
 
-        return {"message": f"Usuario {documento_usu} activado exitosamente"}
+        return MensajeResponseContract(message=f"Usuario {documento_usu} activado exitosamente")
 
-    async def list_users_with_filters(self, filters: UserFilterContract) -> Dict:
+    async def list_users_with_filters(
+        self, filters: UserFilterContract
+    ) -> UsuariosPaginadosResponseContract:
         """
         Lista usuarios con filtros y paginación
 
@@ -235,17 +241,17 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         # Parsear los usuarios
         users = [self.__parse__(user) for user in result["data"]]
 
-        return {
-            "users": users,
-            "total": result["total"],
-            "limit": result["limit"],
-            "offset": result["offset"],
-            "total_pages": result["total_pages"],
-        }
+        return UsuariosPaginadosResponseContract(
+            users=users,
+            total=result["total"],
+            limit=result["limit"],
+            offset=result["offset"],
+            total_pages=result["total_pages"],
+        )
 
     async def reset_user_password(
         self, documento_usu: str, contract: ChangePasswordContract
-    ) -> Dict[str, str]:
+    ) -> MensajeResponseContract:
         """
         Resetea la contraseña de un usuario
 
@@ -270,7 +276,7 @@ class AdminUserService(BaseService[UserModel, AdminUserRepository]):
         if not success:
             raise DomainException("Error al resetear contraseña en Auth0")
 
-        return {"message": f"Contraseña actualizada exitosamente para usuario {documento_usu}"}
+        return MensajeResponseContract(message=f"Contraseña actualizada exitosamente para usuario {documento_usu}")
 
     async def update_user_profile(
         self, documento_usu: str, contract: UpdateUserProfileContract

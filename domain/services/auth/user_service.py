@@ -6,6 +6,7 @@ from typing import Dict, Optional
 
 from domain.contracts.auth.login_contract import LoginContract
 from domain.contracts.auth.user_contract import (
+    InviteUsuarioContract,
     UserCreationContract,
     UserUpdateContract,
 )
@@ -13,6 +14,7 @@ from domain.models.auth.user_model import (
     UserModel,
     UserWithPermissionsModel,
 )
+from domain.contracts.shared.respuesta_contract import InvitacionResponseContract
 from domain.models.providers.auth0_user import Auth0UserModel
 from domain.services.auth.permiso_servicio import PermisoServicio
 from domain.services.base_service import BaseService
@@ -153,7 +155,7 @@ class UserService(BaseService[UserModel, UserRepository]):
             perfil=perfil,
         )
 
-    async def invitar(self, contract) -> Dict:
+    async def invitar(self, contract: InviteUsuarioContract) -> InvitacionResponseContract:
         """Crea un miembro del equipo en el taller actual (pre-registrado por correo).
         El taller sale del contexto de la petición (resolve_tenant). El estado
         admin/no-admin se deriva del perfil elegido -- no se recibe aparte (F0-13);
@@ -170,7 +172,9 @@ class UserService(BaseService[UserModel, UserRepository]):
         await self.repository.crear_pre_registrado(
             documento, nombre, apellido_1, contract.correo, contract.cod_prf, es_admin
         )
-        return {"correo": contract.correo, "documento_usu": documento, "es_admin": es_admin}
+        return InvitacionResponseContract(
+            correo=contract.correo, documento_usu=documento, es_admin=es_admin
+        )
 
     def _map_user_from_db(self, db_user: Dict, sub_id: str, request: LoginContract) -> UserModel:
         """Maps database user record to UserModel"""

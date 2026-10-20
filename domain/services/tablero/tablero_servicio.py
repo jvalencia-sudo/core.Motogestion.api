@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
+from domain.contracts.shared.respuesta_contract import CambioEstadoTableroResponseContract
 from domain.models.tablero.tablero_model import MecanicoItem, TableroItem, TableroResponse
 from infrastructure.dependencies.current_user import usuario_tiene_permiso
 from infrastructure.exceptions.domain_exception import DomainException
@@ -55,7 +56,9 @@ class TableroServicio:
         items = [self._map(f) for f in filas]
         return TableroResponse(es_gestor=es_gestor, mecanicos=mecanicos, items=items)
 
-    async def cambiar_estado(self, current: Optional[Dict], consecutivo_ot: int, cod_estado: int) -> Dict:
+    async def cambiar_estado(
+        self, current: Optional[Dict], consecutivo_ot: int, cod_estado: int
+    ) -> CambioEstadoTableroResponseContract:
         """Cambia el estado de una OT desde el tablero, con reglas por alcance:
         - Sin ver_todo:tablero (ni admin): solo SUS OT y solo a Pendiente/En Proceso/Completada.
         - Admin o con ver_todo:tablero: cualquier OT a cualquier estado (salvo Anulada).
@@ -77,7 +80,9 @@ class TableroServicio:
                 raise DomainException("No puedes mover la orden a ese estado", HTTP_403_FORBIDDEN)
 
         await self.repo.actualizar_estado(consecutivo_ot, cod_estado)
-        return {"consecutivo_ot": consecutivo_ot, "cod_estado": cod_estado}
+        return CambioEstadoTableroResponseContract(
+            consecutivo_ot=consecutivo_ot, cod_estado=cod_estado
+        )
 
     @staticmethod
     def _map(f: Dict) -> TableroItem:

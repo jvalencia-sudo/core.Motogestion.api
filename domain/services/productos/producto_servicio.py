@@ -8,6 +8,7 @@ from domain.contracts.productos.producto_contract import (
     ImpuestoResponseContract,
     ComponenteResponseContract,
 )
+from domain.contracts.shared.respuesta_contract import ProductoEstadoResponseContract
 from domain.models.productos.producto_modelo import ProductoModelo
 from domain.models.productos.producto_impuesto_modelo import ProductoImpuestoModelo
 from domain.models.productos.paquete_componente_modelo import PaqueteComponenteModelo
@@ -340,7 +341,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
         # Retornar el producto actualizado
         return await self.obtener_producto_por_id(cod_pro)
 
-    async def desactivar_producto(self, cod_pro: int) -> dict:
+    async def desactivar_producto(self, cod_pro: int) -> ProductoEstadoResponseContract:
         """Desactiva un producto (soft delete) mapeando a modelo Pydantic"""
         # Verificar que el producto existe
         producto_dict = await self.repository.obtener_producto_con_impuestos(cod_pro)
@@ -362,12 +363,12 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
 
         await self.repository.desactivar_producto(cod_pro)
 
-        return {
-            "message": f"Producto {producto_modelo.nombre_pro} desactivado exitosamente",
-            "cod_pro": cod_pro
-        }
+        return ProductoEstadoResponseContract(
+            message=f"Producto {producto_modelo.nombre_pro} desactivado exitosamente",
+            cod_pro=cod_pro,
+        )
 
-    async def activar_producto(self, cod_pro: int) -> dict:
+    async def activar_producto(self, cod_pro: int) -> ProductoEstadoResponseContract:
         """Activa un producto mapeando a modelo Pydantic"""
         # Verificar que el producto existe
         producto_dict = await self.repository.obtener_producto_con_impuestos(cod_pro)
@@ -389,7 +390,7 @@ class ProductoServicio(BaseService[ProductoModelo, ProductoRepositorio]):
 
         await self.repository.activar_producto(cod_pro)
 
-        return {
-            "message": f"Producto {producto_modelo.nombre_pro} activado exitosamente",
-            "cod_pro": cod_pro
-        }
+        return ProductoEstadoResponseContract(
+            message=f"Producto {producto_modelo.nombre_pro} activado exitosamente",
+            cod_pro=cod_pro,
+        )

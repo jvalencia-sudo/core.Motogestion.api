@@ -9,6 +9,7 @@ from starlette.status import (
 )
 
 from config import settings
+from domain.contracts.shared.respuesta_contract import WompiWebhookResponseContract
 from domain.contracts.suscripciones.suscripcion_contract import (
     CheckoutResponseContract,
     PagoContract,
@@ -80,7 +81,9 @@ class SuscripcionServicio:
             return PRECIO_FUNDADOR
         return precio_plan
 
-    async def crear_checkout(self, cod_taller: int, nombre_plan: str) -> Dict:
+    async def crear_checkout(
+        self, cod_taller: int, nombre_plan: str
+    ) -> CheckoutResponseContract:
         cfg = settings.wompi_config
         if not cfg.configurado:
             raise DomainException(
@@ -108,7 +111,7 @@ class SuscripcionServicio:
             signature=firma,
         )
 
-    async def procesar_webhook(self, payload: Dict) -> Dict:
+    async def procesar_webhook(self, payload: Dict) -> WompiWebhookResponseContract:
         """Verifica la firma del evento de Wompi y, si el pago fue APROBADO, activa
         la suscripción del taller (prueba/vencido -> activo, +30 días)."""
         cfg = settings.wompi_config
@@ -117,14 +120,14 @@ class SuscripcionServicio:
 
         tx = wompi_provider.leer_transaccion(payload)
         if not tx:
-            return {"ok": True, "ignored": "sin transacción"}
+            return WompiWebhookResponseContract(ok=True, ignored="sin transacción")
         referencia, estado_tx, txid, monto_centavos = tx
 
         pago = await self.pago_repo.get_por_referencia(referencia)
         if not pago:
-            return {"ok": True, "ignored": "referencia desconocida"}
+            return WompiWebhookResponseContract(ok=True, ignored="referencia desconocida")
         if pago.get("ESTADO") != "PENDING":
-            return {"ok": True, "ignored": "pago ya procesado"}
+            return WompiWebhookResponseContract(ok=True, ignored="pago ya procesado")
 
         if estado_tx == "APPROVED":
             monto_esperado = pago.get("MONTO") or 0
@@ -139,7 +142,7 @@ class SuscripcionServicio:
                     "esperado_centavos=%s recibido_centavos=%s",
                     referencia, monto_esperado * 100, monto_centavos,
                 )
-                return {"ok": True, "estado": "MONTO_INVALIDO"}
+                return WompiWebhookResponseContract(ok=True, estado="MONTO_INVALIDO")
 
             await self.pago_repo.marcar_estado(referencia, "APPROVED", txid)
             cod_taller = pago.get("COD_TALLER")
@@ -151,11 +154,11 @@ class SuscripcionServicio:
             await self.taller_repo.activar_suscripcion(
                 cod_taller, pago.get("NOMBRE_PLAN"), DIAS_PLAN
             )
-            return {"ok": True, "estado": "APPROVED"}
+            return WompiWebhookResponseContract(ok=True, estado="APPROVED")
         if estado_tx in ("DECLINED", "VOIDED", "ERROR"):
             await self.pago_repo.marcar_estado(referencia, "DECLINED", txid)
-            return {"ok": True, "estado": "DECLINED"}
-        return {"ok": True, "estado": estado_tx}
+            return WompiWebhookResponseContract(ok=True, estado="DECLINED")
+        return WompiWebhookResponseContract(ok=True, estado=estado_tx)
 
     async def listar_pagos(self, cod_taller: int) -> List[PagoContract]:
         pagos = await self.pago_repo.listar_por_taller(cod_taller)

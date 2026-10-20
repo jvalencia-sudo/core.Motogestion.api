@@ -6,6 +6,7 @@ from domain.contracts.motos.marca_contract import (
     MarcaUpdateContract,
     MarcaResponseContract
 )
+from domain.contracts.shared.respuesta_contract import MarcaEliminadaResponseContract
 from domain.models.motos.marca_modelo import MarcaModelo
 from domain.models.motos.vw_marca_estadistica_modelo import VwMarcaResumenModelo
 from domain.services.base_service import BaseService
@@ -94,7 +95,7 @@ class MarcaServicio(BaseService[MarcaModelo, MarcaRepositorio]):
         await self.repository.update(marca_modelo)
         return MarcaResponseContract(cod_mar=marca_modelo.cod_mar, nombre_mar=marca_modelo.nombre_mar)
 
-    async def eliminar_marca(self, cod_mar: int) -> dict:
+    async def eliminar_marca(self, cod_mar: int) -> MarcaEliminadaResponseContract:
         """Elimina una marca. Rechaza si hay motos que la usan (integridad referencial)."""
         marca_dict = await self.repository.get_by_id(cod_mar)
         if not marca_dict:
@@ -113,4 +114,6 @@ class MarcaServicio(BaseService[MarcaModelo, MarcaRepositorio]):
                     HTTP_400_BAD_REQUEST,
                 )
             raise DomainException(f"Error al eliminar la marca: {error_msg}", HTTP_400_BAD_REQUEST)
-        return {"message": f"Marca {cod_mar} eliminada exitosamente", "cod_mar": cod_mar}
+        return MarcaEliminadaResponseContract(
+            message=f"Marca {cod_mar} eliminada exitosamente", cod_mar=cod_mar
+        )
