@@ -34,9 +34,11 @@ class TestEntregarConKilometrajeDeSalida:
         self, client, orden_finalizada
     ):
         # El seed usa kilometraje_ingreso_ot = 15000 (ver tests/conftest.py).
+        # confirmarCredito=true: la orden sembrada no tiene pagos (F1-07 exige
+        # confirmar explícitamente si queda saldo pendiente al entregar).
         resp = client.patch(
             f"/api/ordenes-trabajo/{orden_finalizada.consecutivo_ot}/entregar",
-            json={"kilometrajeSalidaOt": 15500},
+            json={"kilometrajeSalidaOt": 15500, "confirmarCredito": True},
             headers=auth_headers(TALLER_A),
         )
         assert resp.status_code == 200
@@ -76,7 +78,7 @@ class TestEntregarConKilometrajeDeSalida:
         sin romper órdenes que se entregan sin ese dato."""
         resp = client.patch(
             f"/api/ordenes-trabajo/{orden_finalizada.consecutivo_ot}/entregar",
-            json={},
+            json={"confirmarCredito": True},
             headers=auth_headers(TALLER_A),
         )
         assert resp.status_code == 200

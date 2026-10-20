@@ -30,3 +30,6 @@ class TableroResponse(BaseSchema):
 
 class CambiarEstadoContract(BaseSchema):
     cod_estado: int
+    # F1-07: si la orden queda a Entregada (4) con saldo pendiente, el
+    # backend lo rechaza salvo que el front confirme "entregar a crédito".
+    confirmar_credito: bool = False

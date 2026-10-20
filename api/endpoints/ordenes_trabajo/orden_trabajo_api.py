@@ -17,8 +17,14 @@ from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
     DetalleOrdenTrabajoContract,
     DetalleOrdenUpdateContract
 )
+from domain.contracts.ordenes_trabajo.pago_orden_contract import (
+    PagoOrdenCreateContract,
+    PagoOrdenResponseContract,
+    AnularPagoContract,
+)
 from domain.services.ordenes_trabajo.orden_trabajo_servicio import OrdenTrabajoServicio
 from domain.services.ordenes_trabajo.historial_ot_servicio import HistorialOtServicio
+from domain.services.ordenes_trabajo.pago_orden_servicio import PagoOrdenServicio
 from infrastructure.dependencies.current_user import (
     get_current_usuario,
     require_admin,
@@ -279,3 +285,48 @@ async def eliminar_producto_de_orden(
     """Elimina un producto/servicio de una orden de trabajo"""
     servicio = OrdenTrabajoServicio()
     return await servicio.eliminar_producto(consecutivo_ot, cod_pro)
+
+
+# ---- F1-07: pagos/abonos de una orden ----
+
+@router.get("/{consecutivo_ot}/pagos", response_model=List[PagoOrdenResponseContract])
+async def listar_pagos_orden(
+    consecutivo_ot: int,
+    _=Depends(require_permiso("ver:pagos-orden")),
+):
+    """Lista los abonos/pagos registrados a una orden (incluye anulados, con
+    su marca anulado_pago, para que quede visible el historial completo)."""
+    return await PagoOrdenServicio().listar_pagos_por_orden(consecutivo_ot)
+
+
+@router.post(
+    "/{consecutivo_ot}/pagos",
+    response_model=PagoOrdenResponseContract,
+    status_code=status.HTTP_201_CREATED,
+)
+async def registrar_pago_orden(
+    consecutivo_ot: int,
+    pago: PagoOrdenCreateContract,
+    _=Depends(require_permiso("crear_editar:pagos-orden")),
+    current: Optional[Dict] = Depends(get_current_usuario),
+):
+    """Registra un abono/pago a una orden."""
+    documento_usuario = current and str(current.get("DOCUMENTO_USU"))
+    if not documento_usuario:
+        raise DomainException("No se pudo identificar al usuario autenticado", status.HTTP_401_UNAUTHORIZED)
+    return await PagoOrdenServicio().registrar_pago(consecutivo_ot, pago, documento_usuario)
+
+
+@router.patch("/{consecutivo_ot}/pagos/{cod_pago_orden}/anular", response_model=PagoOrdenResponseContract)
+async def anular_pago_orden(
+    consecutivo_ot: int,
+    cod_pago_orden: int,
+    anulacion: AnularPagoContract,
+    _=Depends(require_permiso("eliminar_o_anular:pagos-orden")),
+    current: Optional[Dict] = Depends(get_current_usuario),
+):
+    """Los pagos no se editan ni se borran -- se anulan con motivo obligatorio."""
+    documento_usuario = current and str(current.get("DOCUMENTO_USU"))
+    if not documento_usuario:
+        raise DomainException("No se pudo identificar al usuario autenticado", status.HTTP_401_UNAUTHORIZED)
+    return await PagoOrdenServicio().anular_pago(cod_pago_orden, anulacion.motivo, documento_usuario)

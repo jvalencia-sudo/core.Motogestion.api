@@ -74,11 +74,18 @@ class OrdenTrabajoUpdateContract(BaseContractSchema):
 class CambiarEstadoContract(BaseContractSchema):
     """Contrato para cambiar el estado de una orden de trabajo"""
     cod_ot_est_ot: int = Field(..., ge=1, le=4, description="Codigo del nuevo estado (1=Pendiente, 2=En Proceso, 3=Finalizada, 4=Entregada)")
+    # F1-07: el tablero (arrastrar y soltar) usa este endpoint para mover una
+    # orden a Entregada -- si queda saldo pendiente, el backend lo rechaza
+    # salvo que el front confirme explícitamente "entregar a crédito".
+    confirmar_credito: bool = Field(False, description="Confirma entregar con saldo pendiente (a crédito)")
 
 
 class EntregarOrdenContract(BaseContractSchema):
     """Contrato para marcar una orden como entregada"""
     kilometraje_salida_ot: Optional[int] = Field(None, gt=0, description="Kilometraje de salida")
+    # F1-07: si queda saldo pendiente, el backend rechaza la entrega salvo
+    # que el front confirme explícitamente "entregar a crédito".
+    confirmar_credito: bool = Field(False, description="Confirma entregar con saldo pendiente (a crédito)")
 
 
 class AnularOrdenContract(BaseContractSchema):
@@ -140,6 +147,9 @@ class OrdenTrabajoResponseContract(BaseContractSchema):
     subtotal_productos: Optional[float] = 0.0
     total_impuestos: Optional[float] = 0.0
     total_ot: Optional[float] = 0.0
+    # F1-07: pagado/saldo (excluye ítems no cobrados y pagos anulados)
+    total_pagado: Optional[float] = 0.0
+    saldo_ot: Optional[float] = 0.0
 
 
 class OrdenTrabajoResumenContract(BaseContractSchema):
@@ -157,6 +167,8 @@ class OrdenTrabajoResumenContract(BaseContractSchema):
     kilometraje_ingreso_ot: int
     trabajos: Optional[str] = None
     total_ot: Optional[float] = 0.0
+    # F1-07: para la columna/filtro "con saldo pendiente" del listado.
+    saldo_ot: Optional[float] = 0.0
 
 
 class OtEstadoResponseContract(BaseContractSchema):

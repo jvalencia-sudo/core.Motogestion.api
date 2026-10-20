@@ -27,4 +27,6 @@ async def cambiar_estado(
 ):
     """Cambia el estado de una OT (arrastrar en el tablero). Reglas por rol:
     mecánico solo sus OT y a Pendiente/En Proceso/Completada; admin/recep cualquiera."""
-    return await TableroServicio().cambiar_estado(current, consecutivo_ot, contract.cod_estado)
+    return await TableroServicio().cambiar_estado(
+        current, consecutivo_ot, contract.cod_estado, contract.confirmar_credito
+    )

@@ -37,6 +37,7 @@ from repository.talleres.taller_repositorio import TallerRepositorio
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.fecha_bogota import hoy_bogota
 from infrastructure.utils.tenant_context import get_tenant
+from domain.services.ordenes_trabajo.validaciones_entrega import validar_saldo_para_entrega
 
 logger = logging.getLogger(__name__)
 
@@ -193,9 +194,11 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             # Obtener resumen financiero si existe
             resumen_dict = await self.repository.obtener_resumen_financiero(orden.consecutivo_ot)
             total_ot = 0.0
+            saldo_ot = 0.0
             if resumen_dict:
                 resumen_modelo = self.__parse_custom__(resumen_dict, VwResumenFinancieroOt)
                 total_ot = float(resumen_modelo.total_ot or 0.0)
+                saldo_ot = float(resumen_modelo.saldo_ot or 0.0)
 
             resultado.append(OrdenTrabajoResumenContract(
                 consecutivo_ot=orden.consecutivo_ot,
@@ -209,7 +212,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 mecanico=orden.mecanico,
                 kilometraje_ingreso_ot=orden.kilometraje_ingreso_ot,
                 trabajos=orden.trabajos,
-                total_ot=total_ot
+                total_ot=total_ot,
+                saldo_ot=saldo_ot
             ))
 
         return resultado
@@ -270,6 +274,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         subtotal_productos = 0.0
         total_impuestos = 0.0
         total_ot = 0.0
+        total_pagado = 0.0
+        saldo_ot = 0.0
 
         if resumen_dict:
             resumen_modelo = self.__parse_custom__(resumen_dict, VwResumenFinancieroOt)
@@ -277,6 +283,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             subtotal_productos = float(resumen_modelo.subtotal_productos or 0.0)
             total_impuestos = float(resumen_modelo.total_impuestos or 0.0)
             total_ot = float(resumen_modelo.total_ot or 0.0)
+            total_pagado = float(resumen_modelo.total_pagado or 0.0)
+            saldo_ot = float(resumen_modelo.saldo_ot or 0.0)
 
         return OrdenTrabajoResponseContract(
             consecutivo_ot=orden_modelo.consecutivo_ot,
@@ -310,7 +318,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             total_items=total_items,
             subtotal_productos=subtotal_productos,
             total_impuestos=total_impuestos,
-            total_ot=total_ot
+            total_ot=total_ot,
+            total_pagado=total_pagado,
+            saldo_ot=saldo_ot
         )
 
     async def crear_orden_trabajo(
@@ -522,6 +532,13 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         # F1-01: no se puede pasar a Completada/Entregada sin ítems.
         await self._validar_items_para_estado(consecutivo_ot, contract.cod_ot_est_ot)
 
+        # F1-07: si la orden queda con saldo pendiente, exige confirmar
+        # "entregar a crédito" -- ver validaciones_entrega.py (compartida con
+        # TableroServicio.cambiar_estado, que es hoy el único camino que la UI
+        # real usa para mover una orden a Entregada).
+        if contract.cod_ot_est_ot == 4:
+            await validar_saldo_para_entrega(consecutivo_ot, contract.confirmar_credito)
+
         # Actualizar estado
         await self.repository.actualizar_estado(consecutivo_ot, contract.cod_ot_est_ot)
 
@@ -560,6 +577,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 f"menor al de ingreso ({orden_modelo.kilometraje_ingreso_ot})",
                 HTTP_400_BAD_REQUEST
             )
+
+        await validar_saldo_para_entrega(consecutivo_ot, contract.confirmar_credito)
 
         # F1-04: fecha_fin_garantia_ot ya no se calcula acá -- el trigger
         # fn_calc_fecha_garantia la fija con el MAX(dias_garantia_pro) de los
@@ -758,9 +777,11 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         for orden in ordenes_modelos:
             resumen_dict = await self.repository.obtener_resumen_financiero(orden.consecutivo_ot)
             total_ot = 0.0
+            saldo_ot = 0.0
             if resumen_dict:
                 resumen_modelo = self.__parse_custom__(resumen_dict, VwResumenFinancieroOt)
                 total_ot = float(resumen_modelo.total_ot or 0.0)
+                saldo_ot = float(resumen_modelo.saldo_ot or 0.0)
 
             resultado.append(OrdenTrabajoResumenContract(
                 consecutivo_ot=orden.consecutivo_ot,
@@ -774,7 +795,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 mecanico=orden.mecanico,
                 kilometraje_ingreso_ot=orden.kilometraje_ingreso_ot,
                 trabajos=orden.trabajos,
-                total_ot=total_ot
+                total_ot=total_ot,
+                saldo_ot=saldo_ot
             ))
 
         return resultado
@@ -789,9 +811,11 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         for orden in ordenes_modelos:
             resumen_dict = await self.repository.obtener_resumen_financiero(orden.consecutivo_ot)
             total_ot = 0.0
+            saldo_ot = 0.0
             if resumen_dict:
                 resumen_modelo = self.__parse_custom__(resumen_dict, VwResumenFinancieroOt)
                 total_ot = float(resumen_modelo.total_ot or 0.0)
+                saldo_ot = float(resumen_modelo.saldo_ot or 0.0)
 
             resultado.append(OrdenTrabajoResumenContract(
                 consecutivo_ot=orden.consecutivo_ot,
@@ -805,7 +829,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 mecanico=orden.mecanico,
                 kilometraje_ingreso_ot=orden.kilometraje_ingreso_ot,
                 trabajos=orden.trabajos,
-                total_ot=total_ot
+                total_ot=total_ot,
+                saldo_ot=saldo_ot
             ))
 
         return resultado

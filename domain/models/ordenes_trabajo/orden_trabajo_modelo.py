@@ -58,6 +58,9 @@ class VwResumenFinancieroOt(BaseSchema):
     subtotal_productos: float
     total_impuestos: float
     total_ot: float
+    # F1-07
+    total_pagado: float
+    saldo_ot: float
 
 
 class VwOtPendientes(BaseSchema):
