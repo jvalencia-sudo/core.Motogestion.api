@@ -9,6 +9,7 @@ from domain.contracts.auth.perfil_permiso_contract import (
     PermisoAsignadoContract,
     ReemplazarPermisosContract,
 )
+from domain.contracts.shared.respuesta_contract import OperacionResponseContract
 from domain.models.auth.perfil_permiso_modelo import PerfilPermisoModelo, VwPerfilesPermisosDetalle
 from domain.services.base_service import BaseService
 from infrastructure.exceptions.domain_exception import DomainException
@@ -47,7 +48,9 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         disponibles.sort(key=lambda p: (p.get("NOMBRE_PRM") or ""))
         return self.__parse_all_custom__(disponibles, PermisoDisponibleContract)
 
-    async def asignar_permiso(self, contract: AsignarPermisoContract) -> dict:
+    async def asignar_permiso(
+        self, contract: AsignarPermisoContract
+    ) -> OperacionResponseContract:
         """Asigna un nuevo permiso a un perfil"""
         # Verificar si el permiso ya existe
         existe = await self.repository.verificar_permiso_existe(
@@ -56,10 +59,9 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         )
 
         if existe:
-            return {
-                "success": False,
-                "message": "El permiso ya está asignado a este perfil"
-            }
+            return OperacionResponseContract(
+                success=False, message="El permiso ya está asignado a este perfil"
+            )
 
         # Crear el modelo para insertar
         modelo = PerfilPermisoModelo(
@@ -70,14 +72,13 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
 
         await self.repository.create(modelo)
 
-        return {
-            "success": True,
-            "message": "Permiso asignado correctamente"
-        }
+        return OperacionResponseContract(
+            success=True, message="Permiso asignado correctamente"
+        )
 
     async def reemplazar_permisos(
         self, cod_prf: int, contract: ReemplazarPermisosContract, usuario: str
-    ) -> dict:
+    ) -> OperacionResponseContract:
         """Reemplaza de una vez todos los permisos de un perfil (matriz de F0-13).
         Rechaza el perfil Administrador (ya tiene acceso a todo, no se edita) y
         perfiles de otro taller (RLS: verificar_perfil_existe no los ve)."""
@@ -97,9 +98,13 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         await self.repository.reemplazar_permisos(
             cod_prf, contract.cod_prm_list, usuario
         )
-        return {"success": True, "message": "Permisos actualizados correctamente"}
+        return OperacionResponseContract(
+            success=True, message="Permisos actualizados correctamente"
+        )
 
-    async def cambiar_estado_permiso(self, contract: CambiarEstadoPermisoContract) -> dict:
+    async def cambiar_estado_permiso(
+        self, contract: CambiarEstadoPermisoContract
+    ) -> OperacionResponseContract:
         """Activa o desactiva un permiso de un perfil"""
         # Verificar que el permiso exista
         existe = await self.repository.verificar_permiso_existe(
@@ -108,10 +113,9 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         )
 
         if not existe:
-            return {
-                "success": False,
-                "message": "El permiso no está asignado a este perfil"
-            }
+            return OperacionResponseContract(
+                success=False, message="El permiso no está asignado a este perfil"
+            )
 
         await self.repository.actualizar_estado_permiso(
             contract.cod_prf,
@@ -120,7 +124,6 @@ class PerfilPermisoServicio(BaseService[PerfilPermisoModelo, PerfilPermisoReposi
         )
 
         estado_texto = "activado" if contract.cod_est == 1 else "desactivado"
-        return {
-            "success": True,
-            "message": f"Permiso {estado_texto} correctamente"
-        }
+        return OperacionResponseContract(
+            success=True, message=f"Permiso {estado_texto} correctamente"
+        )

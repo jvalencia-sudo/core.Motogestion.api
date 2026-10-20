@@ -49,8 +49,8 @@ async def cambiar_estado_perfil(contract: CambiarEstadoPerfilContract):
     """Activa o desactiva un perfil (no lo elimina, solo cambia el estado)"""
     resultado = await PerfilServicio().cambiar_estado_perfil(contract)
 
-    if not resultado["success"]:
-        raise HTTPException(status_code=404, detail=resultado["message"])
+    if not resultado.success:
+        raise HTTPException(status_code=404, detail=resultado.message)
 
     return resultado
 

@@ -1,5 +1,6 @@
 from typing import Dict
 
+from domain.contracts.shared.respuesta_contract import MetricasTallerContract
 from infrastructure.utils.tenant_context import reset_tenant, set_tenant
 from repository.superadmin.metricas_repositorio import MetricasRepositorio
 from repository.talleres.taller_repositorio import TallerRepositorio
@@ -21,22 +22,22 @@ class MetricasServicio:
         self.taller_repo = TallerRepositorio()
         self.metricas_repo = MetricasRepositorio()
 
-    async def metricas_de_todos_los_talleres(self) -> Dict[int, Dict]:
+    async def metricas_de_todos_los_talleres(self) -> Dict[int, MetricasTallerContract]:
         talleres = await self.taller_repo.get_all()
-        resultado: Dict[int, Dict] = {}
+        resultado: Dict[int, MetricasTallerContract] = {}
         for t in talleres:
             cod_taller = t.get("COD_TALLER")
             resultado[cod_taller] = await self.metricas_de_un_taller(cod_taller)
         return resultado
 
-    async def metricas_de_un_taller(self, cod_taller: int) -> Dict:
+    async def metricas_de_un_taller(self, cod_taller: int) -> MetricasTallerContract:
         token = set_tenant(cod_taller)
         try:
-            return {
-                "ordenes_7d": await self.metricas_repo.contar_ordenes_periodo(7),
-                "ordenes_30d": await self.metricas_repo.contar_ordenes_periodo(30),
-                "usuarios_activos": await self.metricas_repo.contar_usuarios_activos(),
-                "ultima_actividad": await self.metricas_repo.fecha_ultima_actividad(),
-            }
+            return MetricasTallerContract(
+                ordenes_7d=await self.metricas_repo.contar_ordenes_periodo(7),
+                ordenes_30d=await self.metricas_repo.contar_ordenes_periodo(30),
+                usuarios_activos=await self.metricas_repo.contar_usuarios_activos(),
+                ultima_actividad=await self.metricas_repo.fecha_ultima_actividad(),
+            )
         finally:
             reset_tenant(token)

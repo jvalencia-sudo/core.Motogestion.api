@@ -10,6 +10,7 @@ from domain.contracts.superadmin.taller_superadmin_contract import (
     TallerListadoContract,
     UsuarioTallerContract,
 )
+from domain.contracts.shared.respuesta_contract import MetricasTallerContract
 from domain.contracts.talleres.taller_contract import TallerRegistroContract, TallerRegistroResponse
 from domain.services.suscripciones.suscripcion_servicio import PRECIO_FUNDADOR
 from domain.services.superadmin.metricas_servicio import MetricasServicio
@@ -41,7 +42,9 @@ class TalleresSuperAdminServicio:
             return None
         return (fecha_fin - hoy_bogota()).days
 
-    def _a_contrato_listado(self, fila: dict, metricas: dict) -> TallerListadoContract:
+    def _a_contrato_listado(
+        self, fila: dict, metricas: MetricasTallerContract
+    ) -> TallerListadoContract:
         return TallerListadoContract(
             cod_taller=fila.get("COD_TALLER"),
             nombre_tal=fila.get("NOMBRE_TAL"),
@@ -54,17 +57,19 @@ class TalleresSuperAdminServicio:
             precio_susc_tal=fila.get("PRECIO_SUSC_TAL"),
             es_fundador=fila.get("PRECIO_SUSC_TAL") == PRECIO_FUNDADOR,
             ultimo_pago_fecha=str(fila.get("ULTIMO_PAGO_FECHA")) if fila.get("ULTIMO_PAGO_FECHA") else None,
-            ordenes_ultimos_7_dias=metricas.get("ordenes_7d", 0),
-            ordenes_ultimos_30_dias=metricas.get("ordenes_30d", 0),
-            usuarios_activos=metricas.get("usuarios_activos", 0),
-            ultima_actividad=metricas.get("ultima_actividad"),
+            ordenes_ultimos_7_dias=metricas.ordenes_7d,
+            ordenes_ultimos_30_dias=metricas.ordenes_30d,
+            usuarios_activos=metricas.usuarios_activos,
+            ultima_actividad=metricas.ultima_actividad,
         )
 
     async def listar(self, estado: Optional[str] = None) -> List[TallerListadoContract]:
         filas = await self.taller_repo.listar_con_filtro(estado)
         todas_metricas = await self.metricas_servicio.metricas_de_todos_los_talleres()
         return [
-            self._a_contrato_listado(f, todas_metricas.get(f.get("COD_TALLER"), {}))
+            self._a_contrato_listado(
+                f, todas_metricas.get(f.get("COD_TALLER"), MetricasTallerContract())
+            )
             for f in filas
         ]
 

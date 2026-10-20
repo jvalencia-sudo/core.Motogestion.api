@@ -2,6 +2,10 @@ from typing import Dict, List, Optional
 
 from starlette.status import HTTP_404_NOT_FOUND
 
+from domain.contracts.shared.respuesta_contract import (
+    EntradaInventarioResponseContract,
+    TomaFisicaResponseContract,
+)
 from domain.models.inventario.inventario_model import (
     EntradaContract,
     MovimientoItem,
@@ -39,7 +43,9 @@ class InventarioServicio:
             for f in filas
         ]
 
-    async def entrada(self, current: Optional[Dict], contract: EntradaContract) -> Dict:
+    async def entrada(
+        self, current: Optional[Dict], contract: EntradaContract
+    ) -> EntradaInventarioResponseContract:
         documento = (current or {}).get("DOCUMENTO_USU")
         stock = await self.producto_repo.obtener_stock(contract.cod_pro)
         if stock is None:
@@ -51,9 +57,13 @@ class InventarioServicio:
             contract.cod_pro, "ENTRADA", contract.cantidad, stock, nuevo,
             contract.motivo or "Reabastecimiento", documento,
         )
-        return {"cod_pro": contract.cod_pro, "stock_nuevo": nuevo}
+        return EntradaInventarioResponseContract(
+            cod_pro=contract.cod_pro, stock_nuevo=nuevo
+        )
 
-    async def toma_fisica(self, current: Optional[Dict], contract: TomaFisicaContract) -> Dict:
+    async def toma_fisica(
+        self, current: Optional[Dict], contract: TomaFisicaContract
+    ) -> TomaFisicaResponseContract:
         documento = (current or {}).get("DOCUMENTO_USU")
         motivo = contract.motivo or "Toma física"
         ajustados = 0
@@ -67,7 +77,7 @@ class InventarioServicio:
                 item.cod_pro, "AJUSTE", diff, stock, item.cantidad_fisica, motivo, documento,
             )
             ajustados += 1
-        return {"ajustados": ajustados}
+        return TomaFisicaResponseContract(ajustados=ajustados)
 
     @staticmethod
     def _map(f: Dict) -> MovimientoItem:
