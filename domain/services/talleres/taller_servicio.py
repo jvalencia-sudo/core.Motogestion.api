@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 from starlette.status import HTTP_400_BAD_REQUEST
 
+
 from domain.contracts.talleres.taller_contract import (
     TallerConfigContract,
     TallerConfigResponse,
@@ -12,13 +13,17 @@ from domain.contracts.talleres.taller_contract import (
     TallerRegistroResponse,
     TallerSuscripcionContract,
     TallerUpdateContract,
+    VistaPreviaOrdenContract,
 )
 from domain.models.talleres.taller_model import TallerModel
 from domain.services.base_service import BaseService
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.fecha_bogota import hoy_bogota
+from infrastructure.utils.imagen import LOGO_MAX_BYTES, TIPOS_LOGO_PERMITIDOS, redimensionar_logo
+from infrastructure.utils.marca_taller import ConfigMarcaTaller
 from infrastructure.utils.tenant_context import set_tenant
 from repository.talleres.taller_repositorio import TallerRepositorio
+from repository.talleres.taller_logo_repositorio import TallerLogoRepositorio
 from repository.auth.perfil_repositorio import PerfilRepositorio
 from repository.admin.admin_user_repository import AdminUserRepository
 from repository.marcas.marca_repositorio import MarcaRepositorio
@@ -40,6 +45,7 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         self.usuario_repo = AdminUserRepository()
         self.marca_repo = MarcaRepositorio()
         self.impuesto_repo = ImpuestoRepositorio()
+        self.logo_repo = TallerLogoRepositorio()
 
     def __parse__(self, record: Dict) -> TallerModel:
         return TallerModel.model_validate(self.__normalize_keys__(record))
@@ -74,9 +80,23 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
             telefono_tal=taller.telefono_tal,
             direccion_tal=taller.direccion_tal,
             texto_pie_comprobante=taller.texto_pie_comprobante,
+            nombre_comercial_tal=taller.nombre_comercial_tal,
+            whatsapp_tal=taller.whatsapp_tal,
+            color_principal_tal=taller.color_principal_tal or "#00B06E",
+            texto_condiciones_tal=taller.texto_condiciones_tal,
+            texto_pie_tal=taller.texto_pie_tal,
+            mostrar_precios_unitarios_tal=(
+                taller.mostrar_precios_unitarios_tal
+                if taller.mostrar_precios_unitarios_tal is not None else True
+            ),
+            mostrar_mecanico_tal=(
+                taller.mostrar_mecanico_tal if taller.mostrar_mecanico_tal is not None else True
+            ),
+            mostrar_firma_cliente_tal=bool(taller.mostrar_firma_cliente_tal),
             nombre_tal=taller.nombre_tal,
             nit_tal=taller.nit_tal,
             correo_tal=taller.correo_tal,
+            tiene_logo=await self.logo_repo.existe(cod_taller),
         )
 
     async def actualizar_config(
@@ -89,6 +109,67 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
             )
         await self.repository.actualizar(cod_taller, contract.model_dump())
         return await self.obtener_config(cod_taller)
+
+    # ---- Logo del taller (F1-09) ----
+
+    async def subir_logo(self, cod_taller: int, contenido: bytes, content_type: str) -> None:
+        if content_type not in TIPOS_LOGO_PERMITIDOS:
+            raise DomainException(
+                "Formato no soportado. Usa PNG, JPG o WebP.", HTTP_400_BAD_REQUEST
+            )
+        if len(contenido) > LOGO_MAX_BYTES:
+            raise DomainException(
+                "El archivo supera el máximo de 2MB.", HTTP_400_BAD_REQUEST
+            )
+        try:
+            logo_png = redimensionar_logo(contenido)
+        except ValueError as exc:
+            raise DomainException(str(exc), HTTP_400_BAD_REQUEST) from exc
+        await self.logo_repo.guardar(cod_taller, logo_png, "image/png")
+
+    async def obtener_logo(self, cod_taller: int) -> Optional[Dict]:
+        return await self.logo_repo.obtener(cod_taller)
+
+    # ---- Personalización de la orden / vista previa (F1-09) ----
+
+    async def config_marca(self, cod_taller: int) -> ConfigMarcaTaller:
+        """Config de personalización (ya guardada) + logo, lista para pasarle
+        a los generadores de PDF."""
+        config = await self.repository.obtener_config_marca(cod_taller) or {}
+        logo = await self.logo_repo.obtener(cod_taller)
+        return ConfigMarcaTaller(
+            nombre_comercial=config.get("NOMBRE_COMERCIAL_TAL"),
+            logo_bytes=logo.get("LOGO") if logo else None,
+            color_principal=config.get("COLOR_PRINCIPAL_TAL") or "#00B06E",
+            texto_condiciones=config.get("TEXTO_CONDICIONES_TAL"),
+            texto_pie=config.get("TEXTO_PIE_TAL"),
+            mostrar_precios_unitarios=bool(config.get("MOSTRAR_PRECIOS_UNITARIOS_TAL", True)),
+            mostrar_mecanico=bool(config.get("MOSTRAR_MECANICO_TAL", True)),
+            mostrar_firma_cliente=bool(config.get("MOSTRAR_FIRMA_CLIENTE_TAL", False)),
+        )
+
+    async def vista_previa_pdf(
+        self, cod_taller: int, contract: VistaPreviaOrdenContract
+    ) -> bytes:
+        """Genera el PDF de una orden de EJEMPLO con la configuración del
+        formulario, SIN guardar nada -- ni en `talleres` ni en una orden
+        real. El logo que se usa es el ya guardado (el logo se sube aparte,
+        de inmediato)."""
+        from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
+        from infrastructure.utils.orden_ejemplo import orden_de_ejemplo
+
+        logo = await self.logo_repo.obtener(cod_taller)
+        marca = ConfigMarcaTaller(
+            nombre_comercial=contract.nombre_comercial_tal,
+            logo_bytes=logo.get("LOGO") if logo else None,
+            color_principal=contract.color_principal_tal,
+            texto_condiciones=contract.texto_condiciones_tal,
+            texto_pie=contract.texto_pie_tal,
+            mostrar_precios_unitarios=contract.mostrar_precios_unitarios_tal,
+            mostrar_mecanico=contract.mostrar_mecanico_tal,
+            mostrar_firma_cliente=contract.mostrar_firma_cliente_tal,
+        )
+        return OrdenTrabajoPDFGenerator(marca).generar_pdf(orden_de_ejemplo())
 
     # ---- Suscripción (estado del plan/trial para el front) ----
 

@@ -32,7 +32,6 @@ from infrastructure.dependencies.current_user import (
     usuario_tiene_permiso,
 )
 from infrastructure.exceptions.domain_exception import DomainException
-from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -98,15 +97,11 @@ async def generar_pdf_orden_trabajo(consecutivo_ot: int):
     """Genera un PDF con la informacion completa de la orden de trabajo"""
     servicio = OrdenTrabajoServicio()
 
-    # La validación de negocio (existencia, estado válido, tiene ítems) vive en el servicio.
-    orden = await servicio.obtener_orden_para_documento(consecutivo_ot)
-
-    # Generar el PDF (en memoria, nunca se escribe a disco: ver nota de
-    # seguridad en OrdenTrabajoPDFGenerator.generar_pdf)
+    # La validación de negocio (existencia, estado válido, tiene ítems) y la
+    # personalización visual del taller (F1-09) viven en el servicio.
     try:
-        pdf_generator = OrdenTrabajoPDFGenerator()
         nombre_archivo = f"orden_trabajo_{consecutivo_ot}.pdf"
-        pdf_bytes = pdf_generator.generar_pdf(orden)
+        pdf_bytes = await servicio.generar_pdf_orden(consecutivo_ot)
 
         return Response(
             content=pdf_bytes,
