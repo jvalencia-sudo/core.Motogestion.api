@@ -89,6 +89,7 @@ CREATE SEQUENCE seq_productos_impuestos  START WITH 1 INCREMENT BY 1 CACHE 1 NO 
 CREATE SEQUENCE seq_reclamos             START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 CREATE SEQUENCE seq_movimientos_inventario START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 CREATE SEQUENCE seq_paquete_componentes  START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
+CREATE SEQUENCE seq_pagos_orden          START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 
 -- ============================================================
 -- 2. TABLAS GLOBALES (compartidas por todos los talleres)
@@ -309,6 +310,43 @@ CREATE TABLE reclamos (
     CONSTRAINT fk_reclamos_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_reclamos_orden  FOREIGN KEY (cod_taller, consecutivo_ot_rec) REFERENCES ordenes_trabajo (cod_taller, consecutivo_ot)
 );
+
+-- F1-07: pagos/abonos del CLIENTE del taller por una orden. Distinta a
+-- propósito de `pagos` (billing de la plataforma vía Wompi, sin RLS -- ver
+-- EXCEPCIONES_RLS): esta sí tiene cod_taller y RLS como el resto de tablas
+-- del taller. No se edita ni se borra, solo se anula con motivo.
+CREATE TABLE pagos_orden (
+    cod_taller                    INTEGER NOT NULL DEFAULT current_setting('app.tenant_id')::integer,
+    cod_pago_orden                INTEGER NOT NULL DEFAULT nextval('seq_pagos_orden'),
+    consecutivo_ot_pago           INTEGER NOT NULL,
+    valor_pago                    NUMERIC(14, 2) NOT NULL,
+    metodo_pago                   VARCHAR(20) NOT NULL,
+    fecha_pago                    TIMESTAMP NOT NULL DEFAULT now(),
+    documento_usu_pago            VARCHAR(11) NOT NULL,
+    referencia_pago                VARCHAR(80),
+    anulado_pago                  BOOLEAN NOT NULL DEFAULT false,
+    motivo_anulacion_pago         VARCHAR(500),
+    fecha_anulacion_pago          TIMESTAMP,
+    documento_usu_anulacion_pago  VARCHAR(11),
+    CONSTRAINT pk_pagos_orden PRIMARY KEY (cod_taller, cod_pago_orden),
+    CONSTRAINT fk_po_taller    FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
+    CONSTRAINT fk_po_orden     FOREIGN KEY (cod_taller, consecutivo_ot_pago) REFERENCES ordenes_trabajo (cod_taller, consecutivo_ot),
+    CONSTRAINT fk_po_usuario   FOREIGN KEY (cod_taller, documento_usu_pago) REFERENCES usuarios (cod_taller, documento_usu),
+    CONSTRAINT fk_po_usuario_anulacion FOREIGN KEY (cod_taller, documento_usu_anulacion_pago) REFERENCES usuarios (cod_taller, documento_usu),
+    CONSTRAINT chk_po_valor_positivo CHECK (valor_pago > 0),
+    CONSTRAINT chk_po_metodo CHECK (metodo_pago IN ('EFECTIVO', 'TRANSFERENCIA', 'NEQUI', 'DAVIPLATA', 'TARJETA', 'OTRO')),
+    CONSTRAINT chk_po_anulacion_consistente CHECK (
+        (NOT anulado_pago AND motivo_anulacion_pago IS NULL AND fecha_anulacion_pago IS NULL)
+        OR (anulado_pago AND motivo_anulacion_pago IS NOT NULL AND fecha_anulacion_pago IS NOT NULL)
+    )
+);
+
+ALTER TABLE pagos_orden ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pagos_orden FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_pagos_orden ON pagos_orden
+    USING (cod_taller = current_setting('app.tenant_id', true)::integer)
+    WITH CHECK (cod_taller = current_setting('app.tenant_id', true)::integer);
 
 -- Inventario: kardex de movimientos de stock (ENTRADA/SALIDA/AJUSTE).
 CREATE TABLE movimientos_inventario (
@@ -672,6 +710,8 @@ CREATE TRIGGER tg_audit_detalle_orden_trabajo AFTER INSERT OR UPDATE OR DELETE O
 FOR EACH ROW EXECUTE FUNCTION fn_audit();
 CREATE TRIGGER tg_audit_usuarios AFTER INSERT OR UPDATE OR DELETE ON usuarios
 FOR EACH ROW EXECUTE FUNCTION fn_audit();
+CREATE TRIGGER tg_audit_pagos_orden AFTER INSERT OR UPDATE OR DELETE ON pagos_orden
+FOR EACH ROW EXECUTE FUNCTION fn_audit();
 
 -- ============================================================
 -- 5b. IDENTIDAD (sub Auth0 -> taller). SIN RLS: permite al backend resolver
@@ -812,6 +852,10 @@ INNER JOIN productos p ON dot.cod_pro_deto = p.cod_pro AND dot.cod_taller = p.co
 INNER JOIN usuarios u  ON dot.documento_usu_deto = u.documento_usu AND dot.cod_taller = u.cod_taller
 INNER JOIN estados e   ON p.cod_est_pro = e.cod_est;
 
+-- F1-07: total_pagado/saldo_ot al final (no se puede reordenar una vista
+-- existente con CREATE OR REPLACE, solo añadir al final). Excluye pagos
+-- anulados; saldo_ot puede ser negativo si se sobrepagó (no hay bloqueo de
+-- sobrepago -- no es un criterio de este ticket).
 CREATE OR REPLACE VIEW vw_resumen_financiero_ot WITH (security_invoker = on) AS
 SELECT
     ot.consecutivo_ot, ot.fecha_elaboracion_ot,
@@ -819,12 +863,31 @@ SELECT
     COUNT(CASE WHEN dot.cobrar_deto THEN dot.cod_pro_deto END) AS total_items,
     SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS subtotal_productos,
     0 AS total_impuestos,
-    SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS total_ot
+    SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS total_ot,
+    COALESCE(pg.total_pagado, 0) AS total_pagado,
+    SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) - COALESCE(pg.total_pagado, 0) AS saldo_ot
 FROM ordenes_trabajo ot
 INNER JOIN detalle_orden_trabajo dot ON ot.consecutivo_ot = dot.consecutivo_ot_deto AND ot.cod_taller = dot.cod_taller
 INNER JOIN motos m    ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller
 INNER JOIN clientes c ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller
-GROUP BY ot.consecutivo_ot, ot.fecha_elaboracion_ot, c.nombre_cli, c.apellido_1_cli, m.placa_mot;
+LEFT JOIN (
+    SELECT cod_taller, consecutivo_ot_pago, SUM(valor_pago) AS total_pagado
+    FROM pagos_orden
+    WHERE NOT anulado_pago
+    GROUP BY cod_taller, consecutivo_ot_pago
+) pg ON pg.cod_taller = ot.cod_taller AND pg.consecutivo_ot_pago = ot.consecutivo_ot
+GROUP BY ot.consecutivo_ot, ot.fecha_elaboracion_ot, c.nombre_cli, c.apellido_1_cli, m.placa_mot, pg.total_pagado;
+
+-- F1-07: lista de abonos de una orden, con el nombre de quien registró/anuló.
+CREATE OR REPLACE VIEW vw_pagos_orden WITH (security_invoker = on) AS
+SELECT
+    po.cod_pago_orden, po.consecutivo_ot_pago, po.valor_pago, po.metodo_pago,
+    po.fecha_pago, po.documento_usu_pago,
+    u.nombre_usu || ' ' || u.apellido_1_usu AS usuario_pago,
+    po.referencia_pago, po.anulado_pago,
+    po.motivo_anulacion_pago, po.fecha_anulacion_pago, po.documento_usu_anulacion_pago
+FROM pagos_orden po
+INNER JOIN usuarios u ON po.cod_taller = u.cod_taller AND po.documento_usu_pago = u.documento_usu;
 
 -- Vistas de dominio para que los repos de inventario/paquetes no consulten `productos`.
 CREATE OR REPLACE VIEW vw_movimientos_inventario WITH (security_invoker = on) AS
@@ -1104,7 +1167,8 @@ BEGIN
         'ver:motos','crear_editar:motos','ver:productos',
         'ver:ordenes-trabajo','crear_editar:ordenes-trabajo',
         'ver:tablero','ver_todo:tablero','ver:inventario','ajustar:inventario',
-        'ver:reclamos','crear_editar:reclamos'
+        'ver:reclamos','crear_editar:reclamos',
+        'ver:pagos-orden','crear_editar:pagos-orden'
     );
 
     RETURN v_admin;
@@ -1165,6 +1229,12 @@ INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm) VALUES
 (nextval('seq_permisos'),'crear_editar:impuestos','Permite crear y editar impuestos'),
 (nextval('seq_permisos'),'eliminar_o_anular:impuestos','Permite eliminar impuestos'),
 (nextval('seq_permisos'),'ver_costos:productos','Permite ver costos y márgenes de productos');
+
+-- F1-07: catálogo de permisos del módulo de pagos/abonos.
+INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm) VALUES
+(nextval('seq_permisos'),'ver:pagos-orden','Permite ver los pagos/abonos de una orden'),
+(nextval('seq_permisos'),'crear_editar:pagos-orden','Permite registrar pagos/abonos a una orden'),
+(nextval('seq_permisos'),'eliminar_o_anular:pagos-orden','Permite anular un pago/abono (con motivo obligatorio)');
 
 -- Fin de los catálogos GLOBALES (reales, necesarios en cualquier ambiente,
 -- incluida producción). El seed de DEMO (taller, usuarios y datos de ejemplo)

@@ -3,10 +3,13 @@ from typing import Dict, Optional
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from domain.models.tablero.tablero_model import MecanicoItem, TableroItem, TableroResponse
+from domain.services.ordenes_trabajo.validaciones_entrega import validar_saldo_para_entrega
 from infrastructure.dependencies.current_user import usuario_tiene_permiso
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.tablero.tablero_repositorio import TableroRepositorio
 from repository.admin.admin_user_repository import AdminUserRepository
+
+ESTADO_ENTREGADA = 4
 
 # F1-12: ya no hay códigos de rol fijos -- "ve todo" (antes Administrador o
 # Recepcionista) es ahora es_admin_usu o el permiso explícito ver_todo:tablero;
@@ -55,7 +58,13 @@ class TableroServicio:
         items = [self._map(f) for f in filas]
         return TableroResponse(es_gestor=es_gestor, mecanicos=mecanicos, items=items)
 
-    async def cambiar_estado(self, current: Optional[Dict], consecutivo_ot: int, cod_estado: int) -> Dict:
+    async def cambiar_estado(
+        self,
+        current: Optional[Dict],
+        consecutivo_ot: int,
+        cod_estado: int,
+        confirmar_credito: bool = False,
+    ) -> Dict:
         """Cambia el estado de una OT desde el tablero, con reglas por alcance:
         - Sin ver_todo:tablero (ni admin): solo SUS OT y solo a Pendiente/En Proceso/Completada.
         - Admin o con ver_todo:tablero: cualquier OT a cualquier estado (salvo Anulada).
@@ -75,6 +84,12 @@ class TableroServicio:
                 raise DomainException("Solo puedes mover tus propias órdenes", HTTP_403_FORBIDDEN)
             if cod_estado not in ESTADOS_MECANICO:
                 raise DomainException("No puedes mover la orden a ese estado", HTTP_403_FORBIDDEN)
+
+        # F1-07: arrastrar y soltar en el tablero es hoy el único camino que
+        # la UI real usa para mover una orden a Entregada -- si queda con
+        # saldo pendiente, exige confirmar "entregar a crédito".
+        if cod_estado == ESTADO_ENTREGADA:
+            await validar_saldo_para_entrega(consecutivo_ot, confirmar_credito)
 
         await self.repo.actualizar_estado(consecutivo_ot, cod_estado)
         return {"consecutivo_ot": consecutivo_ot, "cod_estado": cod_estado}
