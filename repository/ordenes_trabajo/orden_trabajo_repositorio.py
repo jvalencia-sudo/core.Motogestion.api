@@ -67,20 +67,21 @@ class OrdenTrabajoRepositorio(BaseRepository):
         consecutivo_ot: int,
         fecha_entrega,
         km_salida: Optional[int],
-        fecha_fin_garantia
     ) -> bool:
-        """Registra la entrega de una orden de trabajo"""
+        """Registra la entrega de una orden de trabajo. fecha_fin_garantia_ot
+        no se fija acá -- F1-04: el trigger fn_calc_fecha_garantia la calcula
+        a partir del MAX(dias_garantia_pro) de los ítems de la orden en cuanto
+        este UPDATE deja cod_ot_est_ot = 4."""
         query = """
             UPDATE ordenes_trabajo
             SET fecha_entrega_ot = :1,
                 kilometraje_salida_ot = :2,
-                cod_ot_est_ot = 4,
-                fecha_fin_garantia_ot = :3
-            WHERE consecutivo_ot = :4
+                cod_ot_est_ot = 4
+            WHERE consecutivo_ot = :3
         """
         # Mismo motivo que actualizar_estado: UPDATE sin RETURNING necesita
         # execute_non_query (execute() es solo para SELECT y no confirma).
-        await self.execute_non_query(query, (fecha_entrega, km_salida, fecha_fin_garantia, consecutivo_ot))
+        await self.execute_non_query(query, (fecha_entrega, km_salida, consecutivo_ot))
         return True
 
     @staticmethod

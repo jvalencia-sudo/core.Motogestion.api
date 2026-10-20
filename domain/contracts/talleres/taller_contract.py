@@ -50,15 +50,12 @@ class TallerConfigContract(BaseSchema):
       define el valor en cada orden).
     - texto_pie_comprobante: línea libre que se imprime al final del
       comprobante de servicio (ej. política de garantía, horario de atención).
-    - dias_garantia_pred: días de garantía por defecto cuando una orden se
-      entrega sin fecha de garantía explícita.
     """
     modo_mano_obra: Literal["HORAS", "LIBRE"]
     tarifa_hora_pred: int = Field(0, ge=0, description="Tarifa por hora por defecto (modo HORAS)")
     telefono_tal: Optional[str] = Field(None, max_length=20)
     direccion_tal: Optional[str] = Field(None, max_length=200)
     texto_pie_comprobante: Optional[str] = Field(None, max_length=300)
-    dias_garantia_pred: int = Field(30, ge=0, le=365)
 
 
 class TallerConfigResponse(TallerConfigContract):

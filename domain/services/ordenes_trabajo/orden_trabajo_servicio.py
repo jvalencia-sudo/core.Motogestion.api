@@ -1,6 +1,5 @@
 import logging
 from typing import Dict, List
-from datetime import timedelta
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 from domain.models.ordenes_trabajo.orden_trabajo_modelo import (
@@ -41,8 +40,6 @@ from infrastructure.utils.tenant_context import get_tenant
 
 logger = logging.getLogger(__name__)
 
-DIAS_GARANTIA_DEFECTO = 30  # fallback si el taller no tiene dias_garantia_pred (no debería: NOT NULL)
-
 
 class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositorio]):
     def __init__(self):
@@ -56,9 +53,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         self.taller_repository = TallerRepositorio()
 
     async def _config_comprobante_taller(self) -> dict:
-        """nombre/dirección/teléfono, texto_pie_comprobante y dias_garantia_pred
-        del taller actual (tabla talleres no tiene RLS -- el tenant se toma del
-        contexto de la petición)."""
+        """nombre/dirección/teléfono y texto_pie_comprobante del taller actual
+        (tabla talleres no tiene RLS -- el tenant se toma del contexto de la
+        petición)."""
         cod_taller = get_tenant()
         config = await self.taller_repository.obtener_config_comprobante(cod_taller) if cod_taller else None
         return config or {}
@@ -390,7 +387,6 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             documento_usu_mc_ot=contract.documento_usu_mc_ot,
             observacion_cli_ot=contract.observacion_cli_ot,
             observacion_ot=contract.observacion_ot,
-            fecha_fin_garantia_ot=contract.fecha_fin_garantia_ot,
             cod_ot_est_ot=estado_inicial
         )
 
@@ -474,8 +470,6 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             datos_actualizacion['OBSERVACION_OT'] = contract.observacion_ot
         if contract.cod_ot_est_ot is not None:
             datos_actualizacion['COD_OT_EST_OT'] = contract.cod_ot_est_ot
-        if contract.fecha_fin_garantia_ot is not None:
-            datos_actualizacion['FECHA_FIN_GARANTIA_OT'] = contract.fecha_fin_garantia_ot
         if contract.documento_usu_rp_ot is not None:
             datos_actualizacion['DOCUMENTO_USU_RP_OT'] = contract.documento_usu_rp_ot
         if contract.documento_usu_mc_ot is not None:
@@ -567,19 +561,16 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 HTTP_400_BAD_REQUEST
             )
 
-        # Calcular fecha fin de garantía (dias_garantia_pred del taller despues de la entrega)
-        config_taller = await self._config_comprobante_taller()
-        dias_pred = config_taller.get("DIAS_GARANTIA_PRED")
-        dias_garantia = dias_pred if dias_pred is not None else DIAS_GARANTIA_DEFECTO
+        # F1-04: fecha_fin_garantia_ot ya no se calcula acá -- el trigger
+        # fn_calc_fecha_garantia la fija con el MAX(dias_garantia_pro) de los
+        # ítems de la orden en cuanto este UPDATE deja cod_ot_est_ot = 4.
         fecha_entrega = hoy_bogota()
-        fecha_fin_garantia = fecha_entrega + timedelta(days=dias_garantia)
 
         # Registrar entrega
         await self.repository.registrar_entrega(
             consecutivo_ot=consecutivo_ot,
             fecha_entrega=fecha_entrega,
             km_salida=contract.kilometraje_salida_ot,
-            fecha_fin_garantia=fecha_fin_garantia
         )
 
         return await self.obtener_orden_por_id(consecutivo_ot)
@@ -844,20 +835,15 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 HTTP_400_BAD_REQUEST
             )
 
-        # Actualizar fechas si están vacías
+        # Actualizar fecha de entrega si está vacía (fecha_fin_garantia_ot ya
+        # no se backfillea acá -- F1-04: NULL es una respuesta válida y final,
+        # no un dato que falte, cuando ningún ítem de la orden da garantía).
         config_taller = await self._config_comprobante_taller()
         hoy = hoy_bogota()
         update_dict = {}
 
-        # Si fecha_entrega_ot está vacía, usar hoy
         if not orden.fecha_entrega_ot:
             update_dict['fecha_entrega_ot'] = hoy
-
-        # Si fecha_fin_garantia_ot está vacía, calcular como hoy + dias_garantia_pred del taller
-        if not orden.fecha_fin_garantia_ot:
-            dias_pred = config_taller.get("DIAS_GARANTIA_PRED")
-            dias_garantia = dias_pred if dias_pred is not None else DIAS_GARANTIA_DEFECTO
-            update_dict['fecha_fin_garantia_ot'] = hoy + timedelta(days=dias_garantia)
 
         # Actualizar la orden si es necesario
         if update_dict:

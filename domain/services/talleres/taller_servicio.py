@@ -31,9 +31,6 @@ IMPUESTOS_INICIALES = [("IVA", 19.00), ("IVA Reducido", 5.00), ("Excluido", 0.00
 # Política de prueba gratis (días). Anti-abuso: 1 correo = 1 taller (índice único).
 DIAS_PRUEBA = 30
 
-# Fallback si dias_garantia_pred llegara nulo (no debería: la columna es NOT NULL).
-DIAS_GARANTIA_DEFECTO = 30
-
 
 class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
     def __init__(self):
@@ -77,10 +74,6 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
             telefono_tal=taller.telefono_tal,
             direccion_tal=taller.direccion_tal,
             texto_pie_comprobante=taller.texto_pie_comprobante,
-            dias_garantia_pred=(
-                taller.dias_garantia_pred if taller.dias_garantia_pred is not None
-                else DIAS_GARANTIA_DEFECTO
-            ),
             nombre_tal=taller.nombre_tal,
             nit_tal=taller.nit_tal,
             correo_tal=taller.correo_tal,
