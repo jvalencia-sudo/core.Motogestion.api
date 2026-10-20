@@ -21,5 +21,7 @@ INSERT INTO schema_migrations (version) VALUES
     ('003_orden_rapida_mecanico_opcional'),
     ('004_cortesias_y_stock_decimal'),
     ('005_busqueda_placa'),
-    ('006_corregir_kilometraje_salida')
+    ('006_corregir_kilometraje_salida'),
+    ('007_roles_simplificados'),
+    ('008_anulacion_auditoria')
 ON CONFLICT (version) DO NOTHING;

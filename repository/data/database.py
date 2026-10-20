@@ -5,6 +5,7 @@ from typing import Optional, Tuple, Any, List, Dict, NoReturn
 import pandas as pd
 
 from config import settings
+from infrastructure.utils.audit_user_context import get_audit_user
 from infrastructure.utils.tenant_context import get_tenant
 from repository.data.db_pool import get_pool
 
@@ -17,14 +18,22 @@ _BIND_RE = re.compile(r":\d+")
 
 
 async def _apply_tenant(cursor) -> None:
-    """Fija app.tenant_id en la transacción actual (lo usa el RLS de Postgres).
+    """Fija app.tenant_id y app.usuario en la transacción actual (los usan el
+    RLS y fn_audit() de Postgres, respectivamente).
 
     Si no hay taller en el contexto, usa '-1' (un taller inexistente) para que el
-    RLS no devuelva nada en vez de fallar: aislamiento seguro por defecto.
+    RLS no devuelva nada en vez de fallar: aislamiento seguro por defecto. Si no
+    hay usuario en el contexto (ej. scripts/psql directo), fn_audit() cae a
+    session_user -- acá basta con mandar '' (current_setting(..., true) la
+    trata como ausente para strings vacíos, ver fn_audit).
     """
     tenant = get_tenant()
     value = str(tenant) if tenant is not None else "-1"
-    await cursor.execute("SELECT set_config('app.tenant_id', %s, true)", (value,))
+    usuario = get_audit_user() or ""
+    await cursor.execute(
+        "SELECT set_config('app.tenant_id', %s, true), set_config('app.usuario', %s, true)",
+        (value, usuario),
+    )
 
 
 def _translate(query: str) -> str:

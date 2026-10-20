@@ -9,14 +9,22 @@ from domain.contracts.ordenes_trabajo.orden_trabajo_contract import (
     OrdenTrabajoResumenContract,
     CambiarEstadoContract,
     EntregarOrdenContract,
-    OtEstadoResponseContract
+    AnularOrdenContract,
+    OtEstadoResponseContract,
+    HistorialEventoContract
 )
 from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
     DetalleOrdenTrabajoContract,
     DetalleOrdenUpdateContract
 )
 from domain.services.ordenes_trabajo.orden_trabajo_servicio import OrdenTrabajoServicio
-from infrastructure.dependencies.current_user import get_current_usuario, require_permiso, usuario_tiene_permiso
+from domain.services.ordenes_trabajo.historial_ot_servicio import HistorialOtServicio
+from infrastructure.dependencies.current_user import (
+    get_current_usuario,
+    require_admin,
+    require_permiso,
+    usuario_tiene_permiso,
+)
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
 
@@ -148,7 +156,7 @@ async def obtener_orden_trabajo(consecutivo_ot: int):
 @router.post("", response_model=OrdenTrabajoResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_orden_trabajo(
     orden: OrdenTrabajoCreateContract,
-    _=Depends(require_permiso("crear:ordenes-trabajo")),
+    _=Depends(require_permiso("crear_editar:ordenes-trabajo")),
     current: Optional[Dict] = Depends(get_current_usuario),
 ):
     """Crea una nueva orden de trabajo con sus productos/servicios.
@@ -167,7 +175,7 @@ async def crear_orden_trabajo(
 async def actualizar_orden_trabajo(
     consecutivo_ot: int,
     orden: OrdenTrabajoUpdateContract,
-    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
+    _=Depends(require_permiso("crear_editar:ordenes-trabajo")),
 ):
     """Actualiza una orden de trabajo existente"""
     servicio = OrdenTrabajoServicio()
@@ -178,7 +186,7 @@ async def actualizar_orden_trabajo(
 async def cambiar_estado_orden(
     consecutivo_ot: int,
     estado: CambiarEstadoContract,
-    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
+    _=Depends(require_permiso("crear_editar:ordenes-trabajo")),
 ):
     """Cambia el estado de una orden de trabajo"""
     servicio = OrdenTrabajoServicio()
@@ -189,18 +197,49 @@ async def cambiar_estado_orden(
 async def entregar_orden_trabajo(
     consecutivo_ot: int,
     entrega: EntregarOrdenContract,
-    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
+    _=Depends(require_permiso("crear_editar:ordenes-trabajo")),
 ):
     """Marca una orden de trabajo como entregada"""
     servicio = OrdenTrabajoServicio()
     return await servicio.entregar_orden(consecutivo_ot, entrega)
 
 
+@router.patch("/{consecutivo_ot}/anular", response_model=OrdenTrabajoResponseContract)
+async def anular_orden_trabajo(
+    consecutivo_ot: int,
+    anulacion: AnularOrdenContract,
+    _=Depends(require_permiso("anular:ordenes-trabajo")),
+    current: Optional[Dict] = Depends(get_current_usuario),
+):
+    """F1-05: anula una orden completa (motivo obligatorio), devuelve al
+    inventario los bienes de la orden y deja constancia de quién/cuándo."""
+    servicio = OrdenTrabajoServicio()
+    documento_usuario = current and str(current.get("DOCUMENTO_USU"))
+    if not documento_usuario:
+        raise DomainException("No se pudo identificar al usuario autenticado", status.HTTP_401_UNAUTHORIZED)
+    return await servicio.anular_orden(consecutivo_ot, anulacion.motivo, documento_usuario)
+
+
+@router.get("/{consecutivo_ot}/historial", response_model=List[HistorialEventoContract])
+async def obtener_historial_orden(
+    consecutivo_ot: int,
+    _=Depends(require_admin),
+):
+    """F1-05: historial de cambios de una orden (orden + su detalle), leído
+    de audit_log. Solo el Admin del taller puede verlo."""
+    if not await OrdenTrabajoServicio().repository.existe_orden(consecutivo_ot):
+        raise DomainException(
+            f"Orden de trabajo con consecutivo {consecutivo_ot} no encontrada",
+            status.HTTP_404_NOT_FOUND
+        )
+    return await HistorialOtServicio().obtener_historial(consecutivo_ot)
+
+
 @router.post("/{consecutivo_ot}/productos", response_model=OrdenTrabajoResponseContract)
 async def agregar_producto_a_orden(
     consecutivo_ot: int,
     detalle: DetalleOrdenTrabajoContract,
-    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
+    _=Depends(require_permiso("crear_editar:ordenes-trabajo")),
     current: Optional[Dict] = Depends(get_current_usuario),
 ):
     """Agrega un producto/servicio a una orden de trabajo existente"""
@@ -219,7 +258,7 @@ async def actualizar_cantidad_producto(
     consecutivo_ot: int,
     cod_pro: int,
     detalle: DetalleOrdenUpdateContract,
-    _=Depends(require_permiso("actualizar:ordenes-trabajo")),
+    _=Depends(require_permiso("crear_editar:ordenes-trabajo")),
     current: Optional[Dict] = Depends(get_current_usuario),
 ):
     """
@@ -235,7 +274,7 @@ async def actualizar_cantidad_producto(
 async def eliminar_producto_de_orden(
     consecutivo_ot: int,
     cod_pro: int,
-    _=Depends(require_permiso("eliminar:ordenes-trabajo")),
+    _=Depends(require_permiso("eliminar_o_anular:ordenes-trabajo")),
 ):
     """Elimina un producto/servicio de una orden de trabajo"""
     servicio = OrdenTrabajoServicio()

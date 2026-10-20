@@ -6,8 +6,8 @@ from domain.models.base_model import BaseSchema
 class AdminUserCreationContract(BaseSchema):
     """Contrato para crear un usuario desde el panel de administrador.
 
-    Solo se pide el perfil (cod_prf_usu); el servicio deriva el rol global del
-    perfil elegido -- no se recibe aparte (F0-13)."""
+    Solo se pide el perfil (cod_prf_usu); el servicio deriva si es admin o no
+    del perfil elegido -- no se recibe aparte (F0-13)."""
     documento_usu: str = Field(..., description="Documento de identidad del usuario")
     nombre_usu: str = Field(..., description="Nombre del usuario")
     apellido_1_usu: str = Field(..., description="Primer apellido")
@@ -22,7 +22,7 @@ class AdminUserCreationContract(BaseSchema):
 class AdminUserUpdateContract(BaseSchema):
     """Contrato para actualizar un usuario desde el panel de administrador.
 
-    Solo se pide el perfil (cod_prf_usu); el servicio deriva el rol (F0-13)."""
+    Solo se pide el perfil (cod_prf_usu); el servicio deriva si es admin o no (F0-13)."""
     documento_usu: Optional[str] = Field(None, description="Documento de identidad del usuario")
     nombre_usu: Optional[str] = Field(None, description="Nombre del usuario")
     apellido_1_usu: Optional[str] = Field(None, description="Primer apellido")
@@ -44,7 +44,7 @@ class UserFilterContract(BaseSchema):
     correo: Optional[str] = Field(None, description="Buscar por correo electrónico")
     cod_est_usu: Optional[int] = Field(None, description="Filtrar por estado (1=activo, 0=inactivo)")
     cod_prf_usu: Optional[int] = Field(None, description="Filtrar por perfil")
-    cod_rol_prf_usu: Optional[int] = Field(None, description="Filtrar por rol")
+    es_admin_usu: Optional[bool] = Field(None, description="Filtrar por administradores")
     cod_tipo_usu: Optional[int] = Field(None, description="Filtrar por tipo de usuario")
     documento_usu: Optional[str] = Field(None, description="Buscar por documento")
     limit: Optional[int] = Field(50, description="Límite de resultados", ge=1, le=500)
@@ -54,5 +54,5 @@ class UserFilterContract(BaseSchema):
 class UpdateUserProfileContract(BaseSchema):
     """Contrato para actualizar el rol (perfil) de un usuario.
 
-    Solo se pide el perfil; el servicio deriva el rol global (F0-13)."""
+    Solo se pide el perfil; el servicio deriva si es admin o no (F0-13)."""
     cod_prf_usu: int = Field(..., description="Código del perfil")

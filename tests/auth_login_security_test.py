@@ -150,9 +150,9 @@ def test_primer_ingreso_legitimo_vincula_correctamente(client, db_conn, seed_tal
         cur.execute(
             "INSERT INTO usuarios (cod_taller, documento_usu, nombre_usu, apellido_1_usu, "
             "correo_usu, contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, "
-            "cod_prf_usu, cod_rol_prf_usu) "
+            "cod_prf_usu, es_admin_usu) "
             "VALUES (%s, %s, 'Pre', 'Registrado', %s, 'auth0_managed', 1, 1, NULL, "
-            "(SELECT cod_prf FROM perfiles WHERE cod_taller=%s AND cod_rol_prf=1 LIMIT 1), 1)",
+            "(SELECT cod_prf FROM perfiles WHERE cod_taller=%s AND es_admin=true LIMIT 1), true)",
             (cod_taller, documento, correo, cod_taller),
         )
     try:

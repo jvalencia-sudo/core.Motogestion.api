@@ -13,6 +13,9 @@
 --   - .github/workflows/ci.yml (BD de desarrollo y de test en CI)
 -- db/init-prod/00_init.sh NO lo carga -- debe seguir así.
 --
+-- Trae DOS talleres: "MotoGestión Demo" (datos genéricos) y "Zona Motriz"
+-- (taller fijo para pruebas manuales locales, ver el bloque al final).
+--
 -- tests/superadmin_test.py reutiliza a este admin demo (sub-1000000001) como
 -- fixture de super-admin: si se deja de cargar en test, ese archivo falla.
 
@@ -105,16 +108,16 @@ INSERT INTO motos (placa_mot, modelo_mot, color_mot, cilindraje_mot, documento_c
 ('TUV678',2020,'Negro Mate',200,'1234567890',4);
 
 -- Usuarios
-INSERT INTO usuarios (documento_usu, nombre_usu, apellido_1_usu, apellido_2_usu, correo_usu, contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, cod_rol_prf_usu) VALUES
-('1000000001','Admin','Sistema',NULL,'admin@motogestion.com','admin123',1,1,'sub-1000000001',1,1),
-('1000000002','Sofia','Martínez','Restrepo','sofia.martinez@motogestion.com','recep123',2,1,'sub-1000000002',3,3),
-('1000000003','Valentina','López','García','valentina.lopez@motogestion.com','recep123',2,1,'sub-1000000003',3,3),
-('1000000004','Camila','Rodríguez','Pérez','camila.rodriguez@motogestion.com','recep123',2,1,'sub-1000000004',3,3),
-('1000000005','Isabella','Gómez','Moreno','isabella.gomez@motogestion.com','recep123',2,1,'sub-1000000005',3,3),
-('1000000006','Miguel','Hernández','Torres','miguel.hernandez@motogestion.com','meca123',2,1,'sub-1000000006',2,2),
-('1000000007','Andrés','Ramírez','Castro','andres.ramirez@motogestion.com','meca123',2,1,'sub-1000000007',2,2),
-('1000000008','Santiago','Vargas','Muñoz','santiago.vargas@motogestion.com','meca123',2,1,'sub-1000000008',2,2),
-('1000000009','Sebastián','Jiménez','Ruiz','sebastian.jimenez@motogestion.com','meca123',2,1,'sub-1000000009',2,2);
+INSERT INTO usuarios (documento_usu, nombre_usu, apellido_1_usu, apellido_2_usu, correo_usu, contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, es_admin_usu) VALUES
+('1000000001','Admin','Sistema',NULL,'admin@motogestion.com','admin123',1,1,'sub-1000000001',1,true),
+('1000000002','Sofia','Martínez','Restrepo','sofia.martinez@motogestion.com','recep123',2,1,'sub-1000000002',3,false),
+('1000000003','Valentina','López','García','valentina.lopez@motogestion.com','recep123',2,1,'sub-1000000003',3,false),
+('1000000004','Camila','Rodríguez','Pérez','camila.rodriguez@motogestion.com','recep123',2,1,'sub-1000000004',3,false),
+('1000000005','Isabella','Gómez','Moreno','isabella.gomez@motogestion.com','recep123',2,1,'sub-1000000005',3,false),
+('1000000006','Miguel','Hernández','Torres','miguel.hernandez@motogestion.com','meca123',2,1,'sub-1000000006',2,false),
+('1000000007','Andrés','Ramírez','Castro','andres.ramirez@motogestion.com','meca123',2,1,'sub-1000000007',2,false),
+('1000000008','Santiago','Vargas','Muñoz','santiago.vargas@motogestion.com','meca123',2,1,'sub-1000000008',2,false),
+('1000000009','Sebastián','Jiménez','Ruiz','sebastian.jimenez@motogestion.com','meca123',2,1,'sub-1000000009',2,false);
 
 -- F0-14: el admin demo es el super-admin de plataforma (seed/CI/local).
 UPDATE usuarios SET es_super_admin = true WHERE documento_usu = '1000000001';
@@ -160,3 +163,198 @@ SELECT setval('seq_marcas',    (SELECT MAX(cod_mar) FROM marcas));
 SELECT setval('seq_productos', (SELECT MAX(cod_pro) FROM productos));
 SELECT setval('seq_impuestos', (SELECT MAX(cod_imp) FROM impuestos));
 SELECT setval('seq_productos_impuestos', (SELECT MAX(cod_pro_imp) FROM productos_impuestos));
+
+-- ============================================================
+-- TALLER #2 "Zona Motriz" -- taller fijo para pruebas manuales en local
+-- ============================================================
+-- A diferencia del taller #1 (datos genéricos), este existe para poder
+-- iniciar sesión con un correo real (Auth0/Google) y probar flujos
+-- completos (F1-05 anular, F1-12 permisos, etc.) sin tener que registrarse
+-- de nuevo cada vez que se reconstruye la BD local. El usuario Admin queda
+-- con sub_id_usu NULL -- como cualquier pre-registrado real -- así que el
+-- primer login real por Auth0 lo vincula solo (mismo mecanismo de "login
+-- cerrado por correo" que usa el registro público).
+--
+-- Trae 5 órdenes de trabajo cubriendo Pendiente/En Proceso/Completada/
+-- Entregada/lista-para-anular, con ítems reales (BIEN con stock, SERVICIO,
+-- PAQUETE y una cortesía) para poder probar la devolución de stock al
+-- anular y el bloqueo de edición en una orden ya Entregada. Ninguna queda
+-- pre-anulada a propósito -- esa se prueba en vivo.
+--
+-- Idempotente a propósito: si el taller ya existe (p.ej. porque el dueño ya
+-- se registró de verdad con este correo antes de correr este seed), lo
+-- reutiliza y solo completa lo que le falte -- no lo recrea ni duplica nada.
+DO $$
+DECLARE
+    v_taller       INTEGER;
+    v_admin_prf    INTEGER;
+    v_meca_prf     INTEGER;
+    v_recep_prf    INTEGER;
+    v_mar_yamaha   INTEGER;
+    v_mar_honda    INTEGER;
+    v_mar_akt      INTEGER;
+    v_pro_aceite   INTEGER;
+    v_pro_filtro   INTEGER;
+    v_pro_pastilla INTEGER;
+    v_pro_bateria  INTEGER;
+    v_pro_mo       INTEGER;
+    v_pro_kit      INTEGER; -- PAQUETE: aceite + filtro + mano de obra
+    v_imp_iva      INTEGER;
+BEGIN
+    SELECT cod_taller INTO v_taller FROM talleres
+     WHERE lower(correo_tal) = lower('juan_valencia23212@elpoli.edu.co');
+
+    IF v_taller IS NULL THEN
+        INSERT INTO talleres (nombre_tal, nit_tal, correo_tal, estado_tal, plan_tal)
+        VALUES ('Zona Motriz', '900555666-1', 'juan_valencia23212@elpoli.edu.co', 'activo', 'Taller')
+        RETURNING cod_taller INTO v_taller;
+    END IF;
+
+    PERFORM set_config('app.tenant_id', v_taller::text, false);
+
+    -- Perfiles (Admin/Mecánico/Recepcionista) -- misma función que usa el
+    -- registro público. Si el taller ya existía (registro real previo), ya
+    -- los tiene -- fn_seed_perfiles_taller no se vuelve a llamar dos veces.
+    IF NOT EXISTS (SELECT 1 FROM perfiles WHERE cod_taller = v_taller) THEN
+        PERFORM fn_seed_perfiles_taller(v_taller);
+    END IF;
+    SELECT cod_prf INTO v_admin_prf FROM perfiles WHERE cod_taller = v_taller AND nombre_prf = 'Administrador';
+    SELECT cod_prf INTO v_meca_prf  FROM perfiles WHERE cod_taller = v_taller AND nombre_prf = 'Mecánico';
+    SELECT cod_prf INTO v_recep_prf FROM perfiles WHERE cod_taller = v_taller AND nombre_prf = 'Recepcionista';
+
+    -- Impuestos (solo si el taller no trae ya los suyos)
+    IF NOT EXISTS (SELECT 1 FROM impuestos WHERE cod_taller = v_taller) THEN
+        INSERT INTO impuestos (nombre_imp, porcentaje_imp) VALUES ('IVA', 19.00) RETURNING cod_imp INTO v_imp_iva;
+        INSERT INTO impuestos (nombre_imp, porcentaje_imp) VALUES ('Excluido', 0.00);
+    ELSE
+        SELECT cod_imp INTO v_imp_iva FROM impuestos WHERE cod_taller = v_taller AND nombre_imp = 'IVA' LIMIT 1;
+    END IF;
+
+    -- Marcas (solo si hacen falta -- el registro público ya siembra algunas)
+    SELECT cod_mar INTO v_mar_yamaha FROM marcas WHERE cod_taller = v_taller AND nombre_mar = 'Yamaha';
+    IF v_mar_yamaha IS NULL THEN
+        INSERT INTO marcas (nombre_mar) VALUES ('Yamaha') RETURNING cod_mar INTO v_mar_yamaha;
+    END IF;
+    SELECT cod_mar INTO v_mar_honda FROM marcas WHERE cod_taller = v_taller AND nombre_mar = 'Honda';
+    IF v_mar_honda IS NULL THEN
+        INSERT INTO marcas (nombre_mar) VALUES ('Honda') RETURNING cod_mar INTO v_mar_honda;
+    END IF;
+    SELECT cod_mar INTO v_mar_akt FROM marcas WHERE cod_taller = v_taller AND nombre_mar = 'AKT';
+    IF v_mar_akt IS NULL THEN
+        INSERT INTO marcas (nombre_mar) VALUES ('AKT') RETURNING cod_mar INTO v_mar_akt;
+    END IF;
+
+    -- A partir de aquí (productos/clientes/motos/usuarios/órdenes), nada de
+    -- esto lo siembra el registro público -- si el taller ya tenía
+    -- productos, asumimos que esta parte ya corrió antes y no se repite.
+    IF EXISTS (SELECT 1 FROM productos WHERE cod_taller = v_taller) THEN
+        RETURN;
+    END IF;
+
+    -- Productos
+    INSERT INTO productos (nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro, tipo_pro)
+    VALUES ('Aceite Motor 4T 20W50', 'Aceite lubricante sintético, 1 litro', 40, 10, 1, 35000, 'BIEN')
+    RETURNING cod_pro INTO v_pro_aceite;
+    INSERT INTO productos (nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro, tipo_pro)
+    VALUES ('Filtro de Aceite Universal', 'Filtro 125cc-200cc', 60, 15, 1, 18000, 'BIEN')
+    RETURNING cod_pro INTO v_pro_filtro;
+    INSERT INTO productos (nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro, tipo_pro)
+    VALUES ('Pastillas de Freno Delanteras', 'Juego de pastillas para disco delantero', 30, 8, 1, 45000, 'BIEN')
+    RETURNING cod_pro INTO v_pro_pastilla;
+    INSERT INTO productos (nombre_pro, descripcion_pro, stock_pro, stock_pro_min, cod_est_pro, precio_pro, tipo_pro)
+    VALUES ('Batería 12V 7Ah', 'Batería sellada gel', 15, 5, 1, 95000, 'BIEN')
+    RETURNING cod_pro INTO v_pro_bateria;
+    INSERT INTO productos (nombre_pro, descripcion_pro, cod_est_pro, precio_pro, tipo_pro)
+    VALUES ('Mano de Obra - Mantenimiento General', 'Servicio de mantenimiento general', 1, 80000, 'SERVICIO')
+    RETURNING cod_pro INTO v_pro_mo;
+    INSERT INTO productos (nombre_pro, descripcion_pro, cod_est_pro, precio_pro, tipo_pro)
+    VALUES ('Kit Cambio de Aceite', 'Aceite + filtro + mano de obra', 1, 120000, 'PAQUETE')
+    RETURNING cod_pro INTO v_pro_kit;
+
+    INSERT INTO paquete_componentes (cod_pro_paq, cod_pro_comp, cantidad_comp) VALUES
+        (v_pro_kit, v_pro_aceite, 1),
+        (v_pro_kit, v_pro_filtro, 1),
+        (v_pro_kit, v_pro_mo, 1);
+
+    -- Productos-Impuestos (la mano de obra y el kit quedan excluidos de IVA)
+    INSERT INTO productos_impuestos (cod_imp_pro_imp, cod_pro_pro_imp, porcentaje_pro_imp) VALUES
+        (v_imp_iva, v_pro_aceite, 19.00),
+        (v_imp_iva, v_pro_filtro, 19.00),
+        (v_imp_iva, v_pro_pastilla, 19.00),
+        (v_imp_iva, v_pro_bateria, 19.00);
+
+    -- Clientes y motos
+    INSERT INTO clientes (documento_cli, nombre_cli, apellido_1_cli, telefono_cli, correo_cli, direccion_cli) VALUES
+        ('1010101010', 'Mariana', 'Restrepo', '3001112233', 'mariana.restrepo@email.com', 'Calle 10 #20-30, Medellín'),
+        ('2020202020', 'Esteban', 'Zapata',   '3002223344', 'esteban.zapata@email.com',   'Carrera 45 #12-10, Envigado'),
+        ('3030303030', 'Daniela', 'Correa',   '3003334455', 'daniela.correa@email.com',   'Calle 30 #40-50, Itagüí');
+
+    INSERT INTO motos (placa_mot, modelo_mot, color_mot, cilindraje_mot, documento_cli_mot, cod_marca_mot) VALUES
+        ('ZMA111', 2021, 'Negro', 150, '1010101010', v_mar_yamaha),
+        ('ZMB222', 2019, 'Rojo',  125, '2020202020', v_mar_honda),
+        ('ZMC333', 2022, 'Azul',  200, '3030303030', v_mar_akt);
+
+    -- Usuarios: el Admin es el dueño real -- correo real, sub NULL (se
+    -- vincula solo en el primer login de verdad). Si el taller ya existía
+    -- (registro real previo), el dueño ya está -- no se vuelve a insertar.
+    -- Mecánico/Recepcionista llevan sub falso: no están pensados para
+    -- iniciar sesión, solo para aparecer en los selectores de usuario
+    -- responsable/mecánico asignado.
+    IF NOT EXISTS (SELECT 1 FROM usuarios WHERE cod_taller = v_taller AND es_admin_usu = true) THEN
+        INSERT INTO usuarios (documento_usu, nombre_usu, apellido_1_usu, correo_usu, contrasena_usu,
+                               cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, es_admin_usu)
+        VALUES ('1010100001', 'Juan', 'Valencia', 'juan_valencia23212@elpoli.edu.co', 'auth0_managed',
+                1, 1, NULL, v_admin_prf, true);
+    END IF;
+    INSERT INTO usuarios (documento_usu, nombre_usu, apellido_1_usu, correo_usu, contrasena_usu,
+                           cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, es_admin_usu)
+    VALUES ('1010100002', 'Camilo', 'Ortiz', 'camilo.ortiz@zonamotriz.test', 'meca123',
+            2, 1, 'sub-zonamotriz-meca-1', v_meca_prf, false);
+    INSERT INTO usuarios (documento_usu, nombre_usu, apellido_1_usu, correo_usu, contrasena_usu,
+                           cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, es_admin_usu)
+    VALUES ('1010100003', 'Natalia', 'Giraldo', 'natalia.giraldo@zonamotriz.test', 'recep123',
+            2, 1, 'sub-zonamotriz-recep-1', v_recep_prf, false);
+
+    -- Órdenes de trabajo: una por estado relevante.
+    INSERT INTO ordenes_trabajo (consecutivo_ot, fecha_elaboracion_ot, placa_mot_ot, kilometraje_ingreso_ot,
+                                  documento_usu_rp_ot, documento_usu_mc_ot, observacion_cli_ot, observacion_ot, cod_ot_est_ot)
+    VALUES (1, CURRENT_DATE, 'ZMA111', 12000, '1010100003', '1010100002', 'Ruido al frenar', 'Revisar pastillas', 1);
+
+    INSERT INTO ordenes_trabajo (consecutivo_ot, fecha_elaboracion_ot, placa_mot_ot, kilometraje_ingreso_ot,
+                                  documento_usu_rp_ot, documento_usu_mc_ot, observacion_cli_ot, observacion_ot, cod_ot_est_ot)
+    VALUES (2, CURRENT_DATE - 1, 'ZMB222', 30000, '1010100003', '1010100002', 'Mantenimiento 30.000 km', 'En proceso', 2);
+
+    INSERT INTO ordenes_trabajo (consecutivo_ot, fecha_elaboracion_ot, placa_mot_ot, kilometraje_ingreso_ot,
+                                  documento_usu_rp_ot, documento_usu_mc_ot, observacion_cli_ot, observacion_ot, cod_ot_est_ot)
+    VALUES (3, CURRENT_DATE - 2, 'ZMC333', 18000, '1010100003', '1010100002', 'Cambio de batería', 'Lista para entrega', 3);
+
+    INSERT INTO ordenes_trabajo (consecutivo_ot, fecha_elaboracion_ot, fecha_entrega_ot, placa_mot_ot, kilometraje_ingreso_ot,
+                                  documento_usu_rp_ot, documento_usu_mc_ot, observacion_cli_ot, observacion_ot,
+                                  fecha_fin_garantia_ot, cod_ot_est_ot)
+    VALUES (4, CURRENT_DATE - 5, CURRENT_DATE - 3, 'ZMA111', 11500, '1010100003', '1010100002',
+            'Revisión general', 'Entregada -- para probar el bloqueo de edición de ítems',
+            CURRENT_DATE + 27, 4);
+
+    INSERT INTO ordenes_trabajo (consecutivo_ot, fecha_elaboracion_ot, placa_mot_ot, kilometraje_ingreso_ot,
+                                  documento_usu_rp_ot, documento_usu_mc_ot, observacion_cli_ot, observacion_ot, cod_ot_est_ot)
+    VALUES (5, CURRENT_DATE, 'ZMB222', 30200, '1010100003', '1010100002',
+            'Se desistió del servicio', 'Lista para probar anular', 1);
+
+    -- Detalles (consumen stock de verdad vía trigger -- sirve para ver la
+    -- devolución al anular).
+    INSERT INTO detalle_orden_trabajo (consecutivo_ot_deto, cod_pro_deto, cantidad_deto, valor_unitario_deto,
+                                        documento_usu_deto, fecha_confirmacion_deto) VALUES
+        (1, v_pro_pastilla, 1, 45000, '1010100002', CURRENT_DATE),
+        (1, v_pro_mo,       1, 80000, '1010100002', CURRENT_DATE),
+        (2, v_pro_kit,      1, 120000, '1010100002', CURRENT_DATE - 1),
+        (3, v_pro_bateria,  1, 95000, '1010100002', CURRENT_DATE - 2),
+        (3, v_pro_mo,       1, 80000, '1010100002', CURRENT_DATE - 2),
+        (4, v_pro_aceite,   2, 35000, '1010100002', CURRENT_DATE - 5),
+        (4, v_pro_mo,       1, 80000, '1010100002', CURRENT_DATE - 5),
+        (5, v_pro_filtro,   1, 18000, '1010100002', CURRENT_DATE);
+
+    -- Una cortesía de ejemplo (F1-06: cantidad siempre positiva, cobrar_deto=false + motivo).
+    INSERT INTO detalle_orden_trabajo (consecutivo_ot_deto, cod_pro_deto, cantidad_deto, valor_unitario_deto,
+                                        documento_usu_deto, fecha_confirmacion_deto, cobrar_deto, motivo_no_cobro_deto)
+    VALUES (1, v_pro_filtro, 1, 18000, '1010100002', CURRENT_DATE, false, 'Cliente frecuente');
+END $$;

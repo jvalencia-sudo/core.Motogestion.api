@@ -83,6 +83,17 @@ class OrdenTrabajoRepositorio(BaseRepository):
         await self.execute_non_query(query, (fecha_entrega, km_salida, fecha_fin_garantia, consecutivo_ot))
         return True
 
+    @staticmethod
+    def statement_anular(consecutivo_ot: int, motivo: str, documento_usu: str):
+        """F1-05: parte de una transacción más grande (junto con la devolución
+        de stock) -- no ejecuta nada por sí sola, ver OrdenTrabajoServicio.anular_orden."""
+        return (
+            "UPDATE ordenes_trabajo SET cod_ot_est_ot = 5, motivo_anulacion_ot = :1, "
+            "fecha_anulacion_ot = now(), documento_usu_anulacion_ot = :2 "
+            "WHERE consecutivo_ot = :3",
+            (motivo, documento_usu, consecutivo_ot),
+        )
+
     async def existe_orden(self, consecutivo_ot: int) -> bool:
         """Verifica si existe una orden de trabajo"""
         query = "SELECT COUNT(*) AS count FROM ordenes_trabajo WHERE consecutivo_ot = :1"

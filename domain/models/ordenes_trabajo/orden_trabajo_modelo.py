@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from domain.models.base_model import BaseSchema
 
@@ -44,6 +44,9 @@ class VwOrdenesTrabajoCompleta(BaseSchema):
     estado_ot: str
     cod_ot_est_ot: int
     trabajos: Optional[str] = None
+    motivo_anulacion_ot: Optional[str] = None
+    fecha_anulacion_ot: Optional[datetime] = None
+    documento_usu_anulacion_ot: Optional[str] = None
 
 
 class VwResumenFinancieroOt(BaseSchema):

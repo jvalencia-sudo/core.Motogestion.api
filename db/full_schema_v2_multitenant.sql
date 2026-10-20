@@ -90,7 +90,6 @@ CREATE SEQUENCE seq_productos_impuestos  START WITH 1 INCREMENT BY 1 CACHE 1 NO 
 CREATE SEQUENCE seq_reclamos             START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 CREATE SEQUENCE seq_movimientos_inventario START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 CREATE SEQUENCE seq_paquete_componentes  START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
-CREATE SEQUENCE seq_roles                START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
 
 -- ============================================================
 -- 2. TABLAS GLOBALES (compartidas por todos los talleres)
@@ -107,32 +106,20 @@ CREATE TABLE ot_estados (
     CONSTRAINT pk_ot_estados PRIMARY KEY (cod_ot_est)
 );
 
-CREATE TABLE roles (
-    cod_rol         INTEGER NOT NULL DEFAULT nextval('seq_roles'),
-    nombre_rol      VARCHAR(250),
-    descripcion_rol VARCHAR(500),
-    CONSTRAINT pk_roles PRIMARY KEY (cod_rol)
-);
-
-CREATE TABLE vistas (
-    ruta_vis   VARCHAR(500) NOT NULL,
-    nombre_vis VARCHAR(50),
-    CONSTRAINT pk_vistas PRIMARY KEY (ruta_vis)
-);
-
 CREATE TABLE permisos (
     cod_prm         INTEGER NOT NULL DEFAULT nextval('seq_permisos'),
     nombre_prm      VARCHAR(250),
     descripcion_prm VARCHAR(500),
-    ruta_vis_prm    VARCHAR(500),
-    CONSTRAINT pk_permisos PRIMARY KEY (cod_prm),
-    CONSTRAINT fk_permisos_vista FOREIGN KEY (ruta_vis_prm) REFERENCES vistas (ruta_vis)
+    CONSTRAINT pk_permisos PRIMARY KEY (cod_prm)
 );
 
 -- ============================================================
 -- 2b. PERFILES Y SUS PERMISOS — POR TALLER (cod_taller + RLS)
 --    Cada taller personaliza sus propios perfiles sin afectar a otros.
---    roles/vistas/permisos siguen siendo el catálogo GLOBAL compartido.
+--    permisos sigue siendo el catálogo GLOBAL compartido. F1-12: perfil y
+--    rol se fusionaron -- un perfil es admin o no (es_admin), sin tabla
+--    global de roles ni "vistas" (ninguna de las dos aportaba enforcement
+--    real, eran metadata decorativa para la UI).
 -- ============================================================
 CREATE TABLE perfiles (
     cod_taller      INTEGER NOT NULL DEFAULT current_setting('app.tenant_id')::integer,
@@ -140,11 +127,10 @@ CREATE TABLE perfiles (
     nombre_prf      VARCHAR(250),
     descripcion_prf VARCHAR(500),
     cod_est_prf     INTEGER,
-    cod_rol_prf     INTEGER NOT NULL,
-    CONSTRAINT pk_perfiles PRIMARY KEY (cod_taller, cod_prf, cod_rol_prf),
+    es_admin        BOOLEAN NOT NULL DEFAULT false,
+    CONSTRAINT pk_perfiles PRIMARY KEY (cod_taller, cod_prf),
     CONSTRAINT fk_perfiles_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
-    CONSTRAINT fk_perfiles_estado FOREIGN KEY (cod_est_prf) REFERENCES estados (cod_est),
-    CONSTRAINT fk_perfiles_rol    FOREIGN KEY (cod_rol_prf) REFERENCES roles (cod_rol)
+    CONSTRAINT fk_perfiles_estado FOREIGN KEY (cod_est_prf) REFERENCES estados (cod_est)
 );
 -- cod_prf es único globalmente (seq) pero el PK incluye cod_taller para el aislamiento.
 
@@ -152,12 +138,11 @@ CREATE TABLE perfiles_permisos (
     cod_taller     INTEGER NOT NULL DEFAULT current_setting('app.tenant_id')::integer,
     cod_prm_pp     INTEGER NOT NULL,
     cod_prf_pp     INTEGER NOT NULL,
-    cod_rol_prf_pp INTEGER NOT NULL,
     cod_est_pp     INTEGER,
-    CONSTRAINT pk_perfiles_permisos PRIMARY KEY (cod_taller, cod_prm_pp, cod_prf_pp, cod_rol_prf_pp),
+    CONSTRAINT pk_perfiles_permisos PRIMARY KEY (cod_taller, cod_prm_pp, cod_prf_pp),
     CONSTRAINT fk_pp_taller  FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_pp_permiso FOREIGN KEY (cod_prm_pp) REFERENCES permisos (cod_prm),
-    CONSTRAINT fk_pp_perfil  FOREIGN KEY (cod_taller, cod_prf_pp, cod_rol_prf_pp) REFERENCES perfiles (cod_taller, cod_prf, cod_rol_prf),
+    CONSTRAINT fk_pp_perfil  FOREIGN KEY (cod_taller, cod_prf_pp) REFERENCES perfiles (cod_taller, cod_prf),
     CONSTRAINT fk_pp_estado  FOREIGN KEY (cod_est_pp) REFERENCES estados (cod_est)
 );
 
@@ -178,13 +163,13 @@ CREATE TABLE usuarios (
     cod_est_usu     INTEGER,
     sub_id_usu      VARCHAR(250),
     cod_prf_usu     INTEGER,
-    cod_rol_prf_usu INTEGER,
+    es_admin_usu    BOOLEAN NOT NULL DEFAULT false,  -- F1-12: denormalizado desde el perfil (fusión perfil+rol)
     es_super_admin  BOOLEAN NOT NULL DEFAULT false,  -- F0-14: super-admin de plataforma, independiente de taller/rol
     ultimo_ingreso_usu TIMESTAMP,                    -- F0-14: se actualiza en cada login, para el panel de super-admin
     CONSTRAINT pk_usuarios PRIMARY KEY (cod_taller, documento_usu),
     CONSTRAINT fk_usuarios_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_usuarios_estado FOREIGN KEY (cod_est_usu) REFERENCES estados (cod_est),
-    CONSTRAINT fk_usuarios_perfil FOREIGN KEY (cod_taller, cod_prf_usu, cod_rol_prf_usu) REFERENCES perfiles (cod_taller, cod_prf, cod_rol_prf)
+    CONSTRAINT fk_usuarios_perfil FOREIGN KEY (cod_taller, cod_prf_usu) REFERENCES perfiles (cod_taller, cod_prf)
 );
 -- sub_id_usu identifica al usuario en Auth0; debe ser único globalmente para el login.
 CREATE UNIQUE INDEX ux_usuarios_sub_id ON usuarios (sub_id_usu) WHERE sub_id_usu IS NOT NULL;
@@ -277,12 +262,16 @@ CREATE TABLE ordenes_trabajo (
     cod_ot_est_ot          INTEGER,
     fecha_fin_garantia_ot  DATE,
     kilometraje_salida_ot  INTEGER,
+    motivo_anulacion_ot        VARCHAR(500),
+    fecha_anulacion_ot         TIMESTAMP,
+    documento_usu_anulacion_ot VARCHAR(11),
     CONSTRAINT pk_ordenes_trabajo PRIMARY KEY (cod_taller, consecutivo_ot),
     CONSTRAINT fk_ot_taller   FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_ot_moto     FOREIGN KEY (cod_taller, placa_mot_ot)        REFERENCES motos (cod_taller, placa_mot),
     CONSTRAINT fk_ot_recep    FOREIGN KEY (cod_taller, documento_usu_rp_ot) REFERENCES usuarios (cod_taller, documento_usu),
     CONSTRAINT fk_ot_mecanico FOREIGN KEY (cod_taller, documento_usu_mc_ot) REFERENCES usuarios (cod_taller, documento_usu),
     CONSTRAINT fk_ot_estado   FOREIGN KEY (cod_ot_est_ot)                   REFERENCES ot_estados (cod_ot_est),
+    CONSTRAINT fk_ot_anulacion FOREIGN KEY (cod_taller, documento_usu_anulacion_ot) REFERENCES usuarios (cod_taller, documento_usu),
     CONSTRAINT chk_ot_km_salida CHECK (kilometraje_salida_ot IS NULL OR kilometraje_salida_ot >= kilometraje_ingreso_ot)
 );
 
@@ -647,22 +636,28 @@ CREATE TABLE audit_log (
 CREATE OR REPLACE FUNCTION fn_audit()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_taller INTEGER;
+    v_taller  INTEGER;
+    v_usuario VARCHAR(100);
 BEGIN
+    v_usuario := current_setting('app.usuario', true);
+    IF v_usuario IS NULL OR v_usuario = '' THEN
+        v_usuario := session_user;
+    END IF;
+
     IF TG_OP = 'DELETE' THEN
         v_taller := OLD.cod_taller;
-        INSERT INTO audit_log (cod_taller, tabla, evento, valor_anterior)
-        VALUES (v_taller, TG_TABLE_NAME, 'D', to_jsonb(OLD));
+        INSERT INTO audit_log (cod_taller, usuario, tabla, evento, valor_anterior)
+        VALUES (v_taller, v_usuario, TG_TABLE_NAME, 'D', to_jsonb(OLD));
         RETURN OLD;
     ELSIF TG_OP = 'UPDATE' THEN
         v_taller := NEW.cod_taller;
-        INSERT INTO audit_log (cod_taller, tabla, evento, valor_anterior, valor_nuevo)
-        VALUES (v_taller, TG_TABLE_NAME, 'U', to_jsonb(OLD), to_jsonb(NEW));
+        INSERT INTO audit_log (cod_taller, usuario, tabla, evento, valor_anterior, valor_nuevo)
+        VALUES (v_taller, v_usuario, TG_TABLE_NAME, 'U', to_jsonb(OLD), to_jsonb(NEW));
         RETURN NEW;
     ELSE
         v_taller := NEW.cod_taller;
-        INSERT INTO audit_log (cod_taller, tabla, evento, valor_nuevo)
-        VALUES (v_taller, TG_TABLE_NAME, 'I', to_jsonb(NEW));
+        INSERT INTO audit_log (cod_taller, usuario, tabla, evento, valor_nuevo)
+        VALUES (v_taller, v_usuario, TG_TABLE_NAME, 'I', to_jsonb(NEW));
         RETURN NEW;
     END IF;
 END;
@@ -794,7 +789,8 @@ SELECT
        JOIN productos p ON dot.cod_pro_deto = p.cod_pro AND dot.cod_taller = p.cod_taller
       WHERE dot.consecutivo_ot_deto = ot.consecutivo_ot AND dot.cod_taller = ot.cod_taller
     ) AS trabajos,
-    ot.kilometraje_salida_ot
+    ot.kilometraje_salida_ot,
+    ot.motivo_anulacion_ot, ot.fecha_anulacion_ot, ot.documento_usu_anulacion_ot
 FROM ordenes_trabajo ot
 INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller
 INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller
@@ -866,7 +862,7 @@ GROUP BY e.cod_ot_est, e.nombre_ot_est;
 CREATE OR REPLACE VIEW vw_mecanicos WITH (security_invoker = on) AS
 SELECT documento_usu, nombre_usu || ' ' || COALESCE(apellido_1_usu, '') AS nombre
 FROM usuarios
-WHERE cod_rol_prf_usu = 2 AND cod_est_usu = 1;
+WHERE NOT es_admin_usu AND cod_est_usu = 1;
 
 CREATE OR REPLACE VIEW vw_ot_pendientes WITH (security_invoker = on) AS
 SELECT
@@ -1035,42 +1031,32 @@ SELECT u.documento_usu,
        u.nombre_usu || ' ' || u.apellido_1_usu || ' ' || COALESCE(u.apellido_2_usu, '') AS nombre_completo,
        u.correo_usu, u.cod_tipo_usu, e.nombre_est AS estado_usuario,
        p.nombre_prf AS perfil, p.descripcion_prf AS descripcion_perfil,
-       r.nombre_rol AS rol, r.descripcion_rol AS descripcion_rol,
-       u.ultimo_ingreso_usu
+       u.es_admin_usu, u.ultimo_ingreso_usu
 FROM usuarios u
 INNER JOIN estados e  ON u.cod_est_usu = e.cod_est
-INNER JOIN perfiles p ON u.cod_taller = p.cod_taller AND u.cod_prf_usu = p.cod_prf AND u.cod_rol_prf_usu = p.cod_rol_prf
-INNER JOIN roles r    ON p.cod_rol_prf = r.cod_rol;
+INNER JOIN perfiles p ON u.cod_taller = p.cod_taller AND u.cod_prf_usu = p.cod_prf;
 
 CREATE OR REPLACE VIEW vw_perfiles WITH (security_invoker = on) AS
-SELECT p.cod_prf, p.nombre_prf, p.descripcion_prf,
-       p.cod_rol_prf, p.cod_est_prf,
-       e.nombre_est AS nombre_est_prf, r.nombre_rol AS nombre_rol_prf
+SELECT p.cod_prf, p.nombre_prf, p.descripcion_prf, p.es_admin, p.cod_est_prf,
+       e.nombre_est AS nombre_est_prf
 FROM perfiles p
 INNER JOIN estados e ON p.cod_est_prf = e.cod_est
-INNER JOIN roles r   ON p.cod_rol_prf = r.cod_rol
 ORDER BY p.cod_prf;
 
 CREATE OR REPLACE VIEW vw_perfiles_permisos_detalle WITH (security_invoker = on) AS
-SELECT pf.cod_prf, pf.nombre_prf, r.nombre_rol,
+SELECT pf.cod_prf, pf.nombre_prf, pf.es_admin,
        pm.cod_prm, pm.nombre_prm, pm.descripcion_prm,
-       v.nombre_vis, v.ruta_vis, e.nombre_est AS estado_permiso,
-       r.cod_rol
+       e.nombre_est AS estado_permiso
 FROM perfiles_permisos pp
-INNER JOIN perfiles pf ON pp.cod_taller = pf.cod_taller AND pp.cod_prf_pp = pf.cod_prf AND pp.cod_rol_prf_pp = pf.cod_rol_prf
-INNER JOIN roles r     ON pf.cod_rol_prf = r.cod_rol
+INNER JOIN perfiles pf ON pp.cod_taller = pf.cod_taller AND pp.cod_prf_pp = pf.cod_prf
 INNER JOIN permisos pm ON pp.cod_prm_pp = pm.cod_prm
-INNER JOIN vistas v    ON pm.ruta_vis_prm = v.ruta_vis
 INNER JOIN estados e   ON pp.cod_est_pp = e.cod_est;
 
 CREATE OR REPLACE VIEW vw_permisos WITH (security_invoker = on) AS
-SELECT p.cod_prm, p.nombre_prm, p.descripcion_prm, p.ruta_vis_prm,
-       NULL::INTEGER AS cod_rol_prm
-FROM permisos p;
+SELECT p.cod_prm, p.nombre_prm, p.descripcion_prm FROM permisos p;
 
 CREATE OR REPLACE VIEW vw_permisos_por_perfil WITH (security_invoker = on) AS
-SELECT p.cod_prm, p.nombre_prm, p.descripcion_prm, p.ruta_vis_prm,
-       pp.cod_prf_pp, pp.cod_rol_prf_pp, pp.cod_est_pp
+SELECT p.cod_prm, p.nombre_prm, p.descripcion_prm, pp.cod_prf_pp, pp.cod_est_pp
 FROM permisos p
 INNER JOIN perfiles_permisos pp ON p.cod_prm = pp.cod_prm_pp;
 
@@ -1091,39 +1077,42 @@ BEGIN
     -- Asegura el contexto de tenant para que el RLS permita los INSERT.
     PERFORM set_config('app.tenant_id', p_taller::text, true);
 
-    INSERT INTO perfiles (cod_taller, cod_prf, nombre_prf, descripcion_prf, cod_est_prf, cod_rol_prf)
-    VALUES (p_taller, nextval('seq_perfiles'), 'Administrador', 'Acceso total al taller', 1, 1)
+    INSERT INTO perfiles (cod_taller, cod_prf, nombre_prf, descripcion_prf, cod_est_prf, es_admin)
+    VALUES (p_taller, nextval('seq_perfiles'), 'Administrador', 'Acceso total al taller', 1, true)
     RETURNING cod_prf INTO v_admin;
 
-    INSERT INTO perfiles (cod_taller, cod_prf, nombre_prf, descripcion_prf, cod_est_prf, cod_rol_prf)
-    VALUES (p_taller, nextval('seq_perfiles'), 'Mecánico', 'Gestión de órdenes de trabajo', 1, 2)
+    INSERT INTO perfiles (cod_taller, cod_prf, nombre_prf, descripcion_prf, cod_est_prf, es_admin)
+    VALUES (p_taller, nextval('seq_perfiles'), 'Mecánico', 'Gestión de órdenes de trabajo', 1, false)
     RETURNING cod_prf INTO v_meca;
 
-    INSERT INTO perfiles (cod_taller, cod_prf, nombre_prf, descripcion_prf, cod_est_prf, cod_rol_prf)
-    VALUES (p_taller, nextval('seq_perfiles'), 'Recepcionista', 'Gestión de clientes, motos y órdenes', 1, 3)
+    INSERT INTO perfiles (cod_taller, cod_prf, nombre_prf, descripcion_prf, cod_est_prf, es_admin)
+    VALUES (p_taller, nextval('seq_perfiles'), 'Recepcionista', 'Gestión de clientes, motos y órdenes', 1, false)
     RETURNING cod_prf INTO v_recep;
 
-    -- Admin: TODOS los permisos del catálogo
-    INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_rol_prf_pp, cod_est_pp)
-    SELECT p_taller, cod_prm, v_admin, 1, 1 FROM permisos;
+    -- Admin: SIN asignación explícita (F1-12: acceso total es un bypass
+    -- por es_admin_usu, no depende de ninguna fila de perfiles_permisos --
+    -- así un permiso nuevo queda disponible para el Admin sin migrar nada).
 
     -- Mecánico
-    INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_rol_prf_pp, cod_est_pp)
-    SELECT p_taller, cod_prm, v_meca, 2, 1 FROM permisos
+    INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_est_pp)
+    SELECT p_taller, cod_prm, v_meca, 1 FROM permisos
     WHERE nombre_prm IN (
-        'leer:clientes','leer:marcas','leer:motos','leer:productos',
-        'leer:ordenes-trabajo','crear:ordenes-trabajo','actualizar:ordenes-trabajo',
-        'leer:reclamos','crear:reclamos','actualizar:reclamos'
+        'ver:clientes','ver:marcas','ver:motos','ver:productos',
+        'ver:ordenes-trabajo','crear_editar:ordenes-trabajo',
+        'ver:tablero','ver:reclamos','crear_editar:reclamos'
     );
 
-    -- Recepcionista
-    INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_rol_prf_pp, cod_est_pp)
-    SELECT p_taller, cod_prm, v_recep, 3, 1 FROM permisos
+    -- Recepcionista (incluye ver_todo:tablero/ajustar:inventario -- antes
+    -- esto lo daba un código de rol fijo comparado en tablero_servicio.py/
+    -- inventario_servicio.py, ahora es un permiso explícito del catálogo).
+    INSERT INTO perfiles_permisos (cod_taller, cod_prm_pp, cod_prf_pp, cod_est_pp)
+    SELECT p_taller, cod_prm, v_recep, 1 FROM permisos
     WHERE nombre_prm IN (
-        'leer:clientes','crear:clientes','actualizar:clientes','leer:marcas',
-        'leer:motos','crear:motos','actualizar:motos','leer:productos',
-        'leer:ordenes-trabajo','crear:ordenes-trabajo','actualizar:ordenes-trabajo',
-        'leer:reclamos','crear:reclamos','actualizar:reclamos'
+        'ver:clientes','crear_editar:clientes','ver:marcas',
+        'ver:motos','crear_editar:motos','ver:productos',
+        'ver:ordenes-trabajo','crear_editar:ordenes-trabajo',
+        'ver:tablero','ver_todo:tablero','ver:inventario','ajustar:inventario',
+        'ver:reclamos','crear_editar:reclamos'
     );
 
     RETURN v_admin;
@@ -1138,68 +1127,52 @@ $$ LANGUAGE plpgsql;
 INSERT INTO estados (cod_est, nombre_est) VALUES (1,'Activo'),(2,'Inactivo');
 
 INSERT INTO ot_estados (cod_ot_est, nombre_ot_est) VALUES
-(1,'Pendiente'),(2,'En Proceso'),(3,'Completada'),(4,'Entregada'),(5,'Cancelada'),(6,'Garantía');
+(1,'Pendiente'),(2,'En Proceso'),(3,'Completada'),(4,'Entregada'),(5,'Anulada'),(6,'Garantía');
 
-INSERT INTO roles (cod_rol, nombre_rol, descripcion_rol) VALUES
-(nextval('seq_roles'),'Administrador','Acceso total al sistema'),
-(nextval('seq_roles'),'Mecánico','Gestión de órdenes de trabajo'),
-(nextval('seq_roles'),'Recepcionista','Gestión de clientes, motos y órdenes');
-
-INSERT INTO vistas (ruta_vis, nombre_vis) VALUES
-('/admin','Administración'),('/ordenes','Órdenes de Trabajo'),('/productos','Inventario de Productos'),
-('/marcas','Marcas'),('/clientes','Clientes'),('/motos','Motos'),('/reclamos','Reclamos');
-
--- Permisos (48) en el mismo orden que la versión single-tenant
-INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm, ruta_vis_prm) VALUES
-(nextval('seq_permisos'),'leer:clientes','Permite ver clientes','/clientes'),
-(nextval('seq_permisos'),'crear:clientes','Permite crear clientes','/clientes'),
-(nextval('seq_permisos'),'actualizar:clientes','Permite actualizar clientes','/clientes'),
-(nextval('seq_permisos'),'eliminar:clientes','Permite eliminar - desactivar clientes','/clientes'),
-(nextval('seq_permisos'),'leer:marcas','Permite ver marcas','/marcas'),
-(nextval('seq_permisos'),'crear:marcas','Permite crear marcas','/marcas'),
-(nextval('seq_permisos'),'actualizar:marcas','Permite actualizar marcas','/marcas'),
-(nextval('seq_permisos'),'eliminar:marcas','Permite eliminar - desactivar marcas','/marcas'),
-(nextval('seq_permisos'),'leer:motos','Permite ver motos','/motos'),
-(nextval('seq_permisos'),'crear:motos','Permite crear motos','/motos'),
-(nextval('seq_permisos'),'actualizar:motos','Permite actualizar motos','/motos'),
-(nextval('seq_permisos'),'eliminar:motos','Permite eliminar - desactivar motos','/motos'),
-(nextval('seq_permisos'),'leer:operations','Permite ver operaciones','/admin'),
-(nextval('seq_permisos'),'crear:operations','Permite crear operaciones','/admin'),
-(nextval('seq_permisos'),'actualizar:operations','Permite actualizar operaciones','/admin'),
-(nextval('seq_permisos'),'eliminar:operations','Permite eliminar - desactivar operaciones','/admin'),
-(nextval('seq_permisos'),'leer:ordenes-trabajo','Permite ver órdenes de trabajo','/ordenes'),
-(nextval('seq_permisos'),'crear:ordenes-trabajo','Permite crear órdenes de trabajo','/ordenes'),
-(nextval('seq_permisos'),'actualizar:ordenes-trabajo','Permite actualizar órdenes de trabajo','/ordenes'),
-(nextval('seq_permisos'),'eliminar:ordenes-trabajo','Permite eliminar - desactivar órdenes de trabajo','/ordenes'),
-(nextval('seq_permisos'),'marcar_no_cobro:ordenes-trabajo','Permite marcar un ítem de una orden como "no se cobra" (cortesía)','/ordenes'),
-(nextval('seq_permisos'),'leer:orders','Permite ver pedidos','/productos'),
-(nextval('seq_permisos'),'crear:orders','Permite crear pedidos','/productos'),
-(nextval('seq_permisos'),'actualizar:orders','Permite actualizar pedidos','/productos'),
-(nextval('seq_permisos'),'eliminar:orders','Permite eliminar - desactivar pedidos','/productos'),
-(nextval('seq_permisos'),'leer:perfiles-permisos','Permite ver perfiles de permisos','/admin'),
-(nextval('seq_permisos'),'crear:perfiles-permisos','Permite crear perfiles de permisos','/admin'),
-(nextval('seq_permisos'),'actualizar:perfiles-permisos','Permite actualizar perfiles de permisos','/admin'),
-(nextval('seq_permisos'),'eliminar:perfiles-permisos','Permite eliminar - desactivar perfiles de permisos','/admin'),
-(nextval('seq_permisos'),'leer:productos','Permite ver productos','/productos'),
-(nextval('seq_permisos'),'crear:productos','Permite crear productos','/productos'),
-(nextval('seq_permisos'),'actualizar:productos','Permite actualizar productos','/productos'),
-(nextval('seq_permisos'),'eliminar:productos','Permite eliminar - desactivar productos','/productos'),
-(nextval('seq_permisos'),'leer:roles','Permite ver roles','/admin'),
-(nextval('seq_permisos'),'crear:roles','Permite crear roles','/admin'),
-(nextval('seq_permisos'),'actualizar:roles','Permite actualizar roles','/admin'),
-(nextval('seq_permisos'),'eliminar:roles','Permite eliminar - desactivar roles','/admin'),
-(nextval('seq_permisos'),'leer:users','Permite ver usuarios','/admin'),
-(nextval('seq_permisos'),'crear:users','Permite crear usuarios','/admin'),
-(nextval('seq_permisos'),'actualizar:users','Permite actualizar usuarios','/admin'),
-(nextval('seq_permisos'),'eliminar:users','Permite eliminar - desactivar usuarios','/admin'),
-(nextval('seq_permisos'),'leer:vistas','Permite ver vistas','/admin'),
-(nextval('seq_permisos'),'crear:vistas','Permite crear vistas','/admin'),
-(nextval('seq_permisos'),'actualizar:vistas','Permite actualizar vistas','/admin'),
-(nextval('seq_permisos'),'eliminar:vistas','Permite eliminar - desactivar vistas','/admin'),
-(nextval('seq_permisos'),'leer:reclamos','Permite ver reclamos','/reclamos'),
-(nextval('seq_permisos'),'crear:reclamos','Permite crear reclamos','/reclamos'),
-(nextval('seq_permisos'),'actualizar:reclamos','Permite actualizar reclamos','/reclamos'),
-(nextval('seq_permisos'),'eliminar:reclamos','Permite eliminar - desactivar reclamos','/reclamos');
+-- F1-12: catálogo de permisos por módulo (ver / crear_editar /
+-- eliminar_o_anular) + acciones sensibles. Reemplaza al catálogo viejo de
+-- 48 permisos, que traía 24 muertos (operations/orders/roles/vistas/users/
+-- perfiles-permisos -- ningún require_permiso los consultaba) y separaba
+-- crear/actualizar en 2 filas que la UI ya agrupaba en una sola columna.
+INSERT INTO permisos (cod_prm, nombre_prm, descripcion_prm) VALUES
+(nextval('seq_permisos'),'ver:clientes','Permite ver clientes'),
+(nextval('seq_permisos'),'crear_editar:clientes','Permite crear y editar clientes'),
+(nextval('seq_permisos'),'eliminar_o_anular:clientes','Permite eliminar o anular clientes'),
+(nextval('seq_permisos'),'ver:marcas','Permite ver marcas'),
+(nextval('seq_permisos'),'crear_editar:marcas','Permite crear y editar marcas'),
+(nextval('seq_permisos'),'eliminar_o_anular:marcas','Permite eliminar o anular marcas'),
+(nextval('seq_permisos'),'ver:motos','Permite ver motos'),
+(nextval('seq_permisos'),'crear_editar:motos','Permite crear y editar motos'),
+(nextval('seq_permisos'),'eliminar_o_anular:motos','Permite eliminar o anular motos'),
+(nextval('seq_permisos'),'ver:productos','Permite ver productos'),
+(nextval('seq_permisos'),'crear_editar:productos','Permite crear y editar productos'),
+(nextval('seq_permisos'),'eliminar_o_anular:productos','Permite eliminar o anular productos'),
+(nextval('seq_permisos'),'ver:ordenes-trabajo','Permite ver órdenes de trabajo'),
+(nextval('seq_permisos'),'crear_editar:ordenes-trabajo','Permite crear y editar órdenes de trabajo'),
+(nextval('seq_permisos'),'eliminar_o_anular:ordenes-trabajo','Permite eliminar o anular órdenes de trabajo'),
+(nextval('seq_permisos'),'marcar_no_cobro:ordenes-trabajo','Permite marcar un ítem de una orden como "no se cobra" (cortesía)'),
+(nextval('seq_permisos'),'anular:ordenes-trabajo','Permite anular una orden de trabajo completa (con motivo obligatorio)'),
+(nextval('seq_permisos'),'ver:reclamos','Permite ver reclamos'),
+(nextval('seq_permisos'),'crear_editar:reclamos','Permite crear y editar reclamos'),
+(nextval('seq_permisos'),'eliminar_o_anular:reclamos','Permite eliminar o anular reclamos'),
+(nextval('seq_permisos'),'ver:inventario','Permite ver el inventario y el kardex'),
+(nextval('seq_permisos'),'crear_editar:inventario','Permite registrar entradas y tomas físicas de inventario'),
+(nextval('seq_permisos'),'eliminar_o_anular:inventario','Permite anular movimientos de inventario'),
+(nextval('seq_permisos'),'ajustar:inventario','Permite registrar entradas y tomas físicas que ajustan el stock'),
+(nextval('seq_permisos'),'ver:tablero','Permite ver el tablero de órdenes'),
+(nextval('seq_permisos'),'crear_editar:tablero','Permite mover órdenes en el tablero'),
+(nextval('seq_permisos'),'eliminar_o_anular:tablero','Permite anular órdenes desde el tablero'),
+(nextval('seq_permisos'),'ver_todo:tablero','Permite ver el tablero completo (todas las órdenes, no solo las propias) y filtrar por mecánico'),
+(nextval('seq_permisos'),'ver:talleres','Permite ver la configuración del taller ("Mi taller")'),
+(nextval('seq_permisos'),'crear_editar:talleres','Permite editar la configuración del taller'),
+(nextval('seq_permisos'),'eliminar_o_anular:talleres','Reservado (el taller no se elimina desde este módulo)'),
+(nextval('seq_permisos'),'ver:planes','Permite ver el plan y la suscripción del taller'),
+(nextval('seq_permisos'),'crear_editar:planes','Permite cambiar el plan del taller'),
+(nextval('seq_permisos'),'eliminar_o_anular:planes','Reservado (no hay acción de eliminar plan hoy)'),
+(nextval('seq_permisos'),'ver:impuestos','Permite ver el catálogo de impuestos'),
+(nextval('seq_permisos'),'crear_editar:impuestos','Permite crear y editar impuestos'),
+(nextval('seq_permisos'),'eliminar_o_anular:impuestos','Permite eliminar impuestos'),
+(nextval('seq_permisos'),'ver_costos:productos','Permite ver costos y márgenes de productos');
 
 -- Fin de los catálogos GLOBALES (reales, necesarios en cualquier ambiente,
 -- incluida producción). El seed de DEMO (taller, usuarios y datos de ejemplo)

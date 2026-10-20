@@ -13,8 +13,6 @@ from domain.services.base_service import BaseService
 from infrastructure.exceptions.domain_exception import DomainException
 from repository.auth.perfil_repositorio import PerfilRepositorio
 
-ADMIN_ROL = 1
-NON_ADMIN_ROL_DEFAULT = 2
 MAX_PERFILES_POR_TALLER = 10
 
 
@@ -64,9 +62,7 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
             cod_prf = await self.repository.duplicar_perfil(
                 contract.nombre_prf,
                 contract.descripcion_prf,
-                NON_ADMIN_ROL_DEFAULT,
                 origen["COD_PRF"],
-                origen["COD_ROL_PRF"],
                 usuario,
             )
         else:
@@ -74,7 +70,7 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
                 cod_prf=0,  # Se generará automáticamente
                 nombre_prf=contract.nombre_prf,
                 descripcion_prf=contract.descripcion_prf,
-                cod_rol_prf=NON_ADMIN_ROL_DEFAULT,
+                es_admin=False,
                 cod_est_prf=1,
             )
             cod_prf = await self.repository.create(modelo)
@@ -86,8 +82,8 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
         }
 
     async def actualizar_perfil(self, contract: ActualizarPerfilContract) -> dict:
-        """Renombra/edita un perfil existente. El rol (cod_rol_prf) nunca se
-        toca por esta vía -- no se puede retargetear hacia/desde Administrador."""
+        """Renombra/edita un perfil existente. es_admin nunca se toca por
+        esta vía -- no se puede retargetear hacia/desde Administrador."""
         existe = await self.repository.verificar_perfil_existe(contract.cod_prf)
 
         if not existe:
@@ -95,7 +91,7 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
                 "El perfil no existe. Recarga la página y vuelve a intentar.", HTTP_404_NOT_FOUND
             )
 
-        if existe.get("COD_ROL_PRF") == ADMIN_ROL:
+        if existe.get("ES_ADMIN"):
             raise DomainException(
                 "El perfil Administrador no se puede renombrar ni editar: siempre tiene "
                 "acceso total. Si necesitas otro rol con menos permisos, crea uno nuevo.",
@@ -115,7 +111,7 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
             cod_prf=contract.cod_prf,
             nombre_prf=contract.nombre_prf,
             descripcion_prf=contract.descripcion_prf,
-            cod_rol_prf=existe.get("COD_ROL_PRF"),
+            es_admin=bool(existe.get("ES_ADMIN")),
             cod_est_prf=existe.get("COD_EST_PRF", 1),
         )
 
@@ -135,8 +131,7 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
                 "El perfil no existe. Recarga la página y vuelve a intentar.", HTTP_404_NOT_FOUND
             )
 
-        cod_rol = existe.get("COD_ROL_PRF")
-        if cod_rol == ADMIN_ROL:
+        if existe.get("ES_ADMIN"):
             raise DomainException(
                 "El perfil Administrador no se puede eliminar: siempre debe quedar al menos "
                 "un administrador en el taller.",
@@ -150,7 +145,7 @@ class PerfilServicio(BaseService[PerfilModelo, PerfilRepositorio]):
                 HTTP_400_BAD_REQUEST,
             )
 
-        await self.repository.eliminar_perfil(cod_prf, cod_rol, usuario)
+        await self.repository.eliminar_perfil(cod_prf, usuario)
 
         return {
             "success": True,

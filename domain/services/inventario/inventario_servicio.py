@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
+from starlette.status import HTTP_404_NOT_FOUND
 
 from domain.models.inventario.inventario_model import (
     EntradaContract,
@@ -12,26 +12,16 @@ from infrastructure.exceptions.domain_exception import DomainException
 from repository.inventario.inventario_repositorio import InventarioRepositorio
 from repository.productos.producto_repositorio import ProductoRepositorio
 
-ROLES_GESTOR = (1, 3)  # Administrador, Recepcionista gestionan inventario
-
 
 class InventarioServicio:
     """Orquesta el inventario: el stock de los productos lo maneja ProductoRepositorio
     y el kardex (movimientos) lo maneja InventarioRepositorio. El servicio coordina
-    ambos; ningún repositorio toca la tabla del otro."""
+    ambos; ningún repositorio toca la tabla del otro. Quién puede mover inventario ya
+    lo decide el permiso "ajustar:inventario" en el endpoint (Depends), no el servicio."""
 
     def __init__(self):
         self.movimientos_repo = InventarioRepositorio()
         self.producto_repo = ProductoRepositorio()
-
-    @staticmethod
-    def _exigir_gestor(current: Optional[Dict]) -> str:
-        """Solo Admin/Recepcionista pueden mover inventario. Devuelve su documento."""
-        if current is None:
-            raise DomainException("No autenticado", HTTP_403_FORBIDDEN)
-        if current.get("COD_ROL_PRF_USU") not in ROLES_GESTOR:
-            raise DomainException("Sin permisos para gestionar el inventario", HTTP_403_FORBIDDEN)
-        return current.get("DOCUMENTO_USU")
 
     async def listar_movimientos(self, cod_pro: Optional[int]) -> List[MovimientoItem]:
         filas = await self.movimientos_repo.listar_movimientos(cod_pro)
@@ -50,7 +40,7 @@ class InventarioServicio:
         ]
 
     async def entrada(self, current: Optional[Dict], contract: EntradaContract) -> Dict:
-        documento = self._exigir_gestor(current)
+        documento = (current or {}).get("DOCUMENTO_USU")
         stock = await self.producto_repo.obtener_stock(contract.cod_pro)
         if stock is None:
             raise DomainException("Producto no encontrado", HTTP_404_NOT_FOUND)
@@ -64,7 +54,7 @@ class InventarioServicio:
         return {"cod_pro": contract.cod_pro, "stock_nuevo": nuevo}
 
     async def toma_fisica(self, current: Optional[Dict], contract: TomaFisicaContract) -> Dict:
-        documento = self._exigir_gestor(current)
+        documento = (current or {}).get("DOCUMENTO_USU")
         motivo = contract.motivo or "Toma física"
         ajustados = 0
         for item in contract.items:

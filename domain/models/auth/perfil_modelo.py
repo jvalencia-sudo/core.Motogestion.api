@@ -6,7 +6,7 @@ class PerfilModelo(BaseSchema):
     nombre_prf: str
     descripcion_prf: str
     cod_est_prf: int
-    cod_rol_prf: int
+    es_admin: bool = False
 
 
 class VwPerfilModelo(BaseSchema):
@@ -14,4 +14,4 @@ class VwPerfilModelo(BaseSchema):
     nombre_prf: str
     descripcion_prf: str
     nombre_est_prf: str
-    nombre_rol_prf: int
+    es_admin: bool = False

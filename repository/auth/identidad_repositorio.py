@@ -17,11 +17,14 @@ class IdentidadRepositorio(BaseRepository):
             omit_key=False,
         )
 
-    async def get_taller_by_sub(self, sub: str) -> Optional[int]:
-        row = await self.get_one(
-            "SELECT cod_taller FROM usuarios_identidad WHERE sub_id_usu = :1", (sub,)
+    async def get_taller_y_documento_by_sub(self, sub: str) -> Optional[Dict]:
+        """F1-05: igual que get_taller_by_sub, pero trae también el documento
+        -- lo necesita resolve_tenant para fijar app.usuario (auditoría con
+        usuario real) en la misma consulta, sin un segundo viaje a la BD."""
+        return await self.get_one(
+            "SELECT cod_taller, documento_usu FROM usuarios_identidad WHERE sub_id_usu = :1",
+            (sub,),
         )
-        return row.get("COD_TALLER") if row else None
 
     async def get_acceso_por_correo(self, correo: str) -> Optional[Dict]:
         """Identifica al usuario por CORREO (clave estable entre login con Google y

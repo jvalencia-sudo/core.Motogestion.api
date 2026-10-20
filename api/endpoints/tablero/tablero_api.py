@@ -23,7 +23,7 @@ async def obtener_tablero(
 async def cambiar_estado(
     consecutivo_ot: int,
     contract: CambiarEstadoContract,
-    current: Dict = Depends(require_permiso("actualizar:ordenes-trabajo")),
+    current: Dict = Depends(require_permiso("crear_editar:ordenes-trabajo")),
 ):
     """Cambia el estado de una OT (arrastrar en el tablero). Reglas por rol:
     mecánico solo sus OT y a Pendiente/En Proceso/Completada; admin/recep cualquiera."""

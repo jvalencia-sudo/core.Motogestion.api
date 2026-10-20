@@ -44,7 +44,7 @@ async def list_users(
     documento_usu: str = Query(None, description="Buscar por documento"),
     cod_est_usu: int = Query(None, description="Filtrar por estado (1=activo, 0=inactivo)"),
     cod_prf_usu: int = Query(None, description="Filtrar por perfil"),
-    cod_rol_prf_usu: int = Query(None, description="Filtrar por rol"),
+    es_admin_usu: bool = Query(None, description="Filtrar por administradores"),
     cod_tipo_usu: int = Query(None, description="Filtrar por tipo de usuario"),
     limit: int = Query(50, ge=1, le=500, description="Límite de resultados"),
     offset: int = Query(0, ge=0, description="Offset para paginación")
@@ -65,7 +65,7 @@ async def list_users(
         documento_usu=documento_usu,
         cod_est_usu=cod_est_usu,
         cod_prf_usu=cod_prf_usu,
-        cod_rol_prf_usu=cod_rol_prf_usu,
+        es_admin_usu=es_admin_usu,
         cod_tipo_usu=cod_tipo_usu,
         limit=limit,
         offset=offset

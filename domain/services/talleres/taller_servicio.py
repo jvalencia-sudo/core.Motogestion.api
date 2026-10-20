@@ -146,7 +146,7 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         nombre, apellido = self._partir_nombre(contract.nombre_dueno)
         await self.usuario_repo.crear_pre_registrado(
             self._documento_provisional(), nombre, apellido, None, contract.correo,
-            cod_prf_admin, 1, cod_est=1, cod_tipo=1,
+            cod_prf_admin, True, cod_est=1, cod_tipo=1,
         )
         # Catálogos base del taller.
         for nombre_mar in MARCAS_INICIALES:

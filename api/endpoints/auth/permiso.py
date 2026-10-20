@@ -1,5 +1,5 @@
-"""Catálogo de permisos: solo lectura. F0-11 — mismo motivo que rol.py: catálogo
-global definido en migraciones, nunca gateado, sin control de acceso."""
+"""Catálogo de permisos: solo lectura. F0-11 — catálogo global definido en
+migraciones, nunca gateado, sin control de acceso."""
 from typing import List
 
 from fastapi import APIRouter

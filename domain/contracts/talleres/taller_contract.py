@@ -44,8 +44,7 @@ class TallerSuscripcionContract(BaseSchema):
 class TallerConfigContract(BaseSchema):
     """Configuración propia del taller ('Mi taller'): mano de obra + datos que
     salen en el comprobante. nombre/NIT/correo NO están acá -- son de solo
-    lectura (ver TallerConfigResponse), igual que cod_rol_prf en los roles:
-    nunca llegan por este contrato de entrada.
+    lectura (ver TallerConfigResponse): nunca llegan por este contrato de entrada.
 
     - modo_mano_obra: HORAS (tarifa fija, tarifa_hora_pred) o LIBRE (se
       define el valor en cada orden).

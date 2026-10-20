@@ -6,11 +6,9 @@ from infrastructure.dependencies.current_user import (
     require_super_admin,
 )
 from api.endpoints.auth.user_api import router as users_router
-from api.endpoints.auth.rol import router as rol_router
 from api.endpoints.auth.perfil import router as perfil_router
 from api.endpoints.auth.permiso import router as permiso_router
 from api.endpoints.auth.perfil_permiso import router as perfil_permiso_router
-from api.endpoints.auth.vista import router as vista_router
 from api.endpoints.admin.user_admin_api import router as admin_users_router
 from api.endpoints.productos.producto_api import router as productos_router
 from api.endpoints.marcas.marca_api import router as marcas_router
@@ -29,7 +27,6 @@ from api.endpoints.superadmin import router as superadmin_router
 
 api_router = APIRouter()
 
-api_router.include_router(rol_router, prefix="/rol", tags=["Auth"])
 api_router.include_router(
     users_router, prefix="/auth", tags=["Auth"]
 )
@@ -44,7 +41,6 @@ api_router.include_router(
     perfil_permiso_router, prefix="/perfil-permiso", tags=["Auth"], dependencies=_admin
 )
 
-api_router.include_router(vista_router, prefix="/vista", tags=["Auth"])
 api_router.include_router(permiso_router, prefix="/permiso", tags=["Auth"])
 
 # Admin endpoints

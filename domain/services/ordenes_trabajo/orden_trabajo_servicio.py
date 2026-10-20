@@ -33,6 +33,7 @@ from repository.ordenes_trabajo.ot_estado_repositorio import OtEstadoRepositorio
 from repository.motos.moto_repositorio import MotoRepositorio
 from repository.productos.producto_repositorio import ProductoRepositorio
 from repository.productos.paquete_componente_repositorio import PaqueteComponenteRepositorio
+from repository.inventario.inventario_repositorio import InventarioRepositorio
 from repository.talleres.taller_repositorio import TallerRepositorio
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.fecha_bogota import hoy_bogota
@@ -51,6 +52,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         self.moto_repository = MotoRepositorio()
         self.producto_repository = ProductoRepositorio()
         self.paquete_repository = PaqueteComponenteRepositorio()
+        self.inventario_repository = InventarioRepositorio()
         self.taller_repository = TallerRepositorio()
 
     async def _config_comprobante_taller(self) -> dict:
@@ -109,6 +111,80 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                             f"Requerido: {requerido}",
                             HTTP_400_BAD_REQUEST
                         )
+
+    async def _validar_orden_editable(self, consecutivo_ot: int) -> None:
+        """F1-05: una orden Entregada o Anulada no admite más cambios de
+        ítems -- en ambas el stock ya quedó resuelto (entregado o devuelto)."""
+        orden_dict = await self.repository.obtener_orden_por_id(consecutivo_ot)
+        if not orden_dict:
+            raise DomainException(
+                f"Orden de trabajo con consecutivo {consecutivo_ot} no encontrada",
+                HTTP_404_NOT_FOUND
+            )
+        if orden_dict.get("COD_OT_EST_OT") in (4, 5):
+            raise DomainException(
+                "No se pueden modificar los productos de una orden Entregada o Anulada",
+                HTTP_400_BAD_REQUEST
+            )
+
+    async def anular_orden(
+        self, consecutivo_ot: int, motivo: str, documento_usu: str
+    ) -> OrdenTrabajoResponseContract:
+        """F1-05: anula una orden completa (motivo obligatorio). Devuelve al
+        inventario los bienes de la orden con movimientos ENTRADA -- sin
+        borrar ningún detalle, que queda como historial -- y en la misma
+        transacción deja la orden en estado Anulada con quién/cuándo/por
+        qué. SERVICIO no maneja stock; PAQUETE se expande en sus
+        componentes BIEN, igual que el trigger de descuento al crear."""
+        orden_dict = await self.repository.obtener_orden_por_id(consecutivo_ot)
+        if not orden_dict:
+            raise DomainException(
+                f"Orden de trabajo con consecutivo {consecutivo_ot} no encontrada",
+                HTTP_404_NOT_FOUND
+            )
+        if orden_dict.get("COD_OT_EST_OT") == 5:
+            raise DomainException("La orden ya está anulada", HTTP_400_BAD_REQUEST)
+
+        detalles_dict = await self.detalle_repository.obtener_detalles_por_orden(consecutivo_ot)
+
+        # cod_pro -> cantidad total de BIEN a devolver. Se acumula primero
+        # (en vez de leer/escribir stock por línea) para que un mismo BIEN
+        # que aparezca directo en una línea y como componente de un PAQUETE
+        # en otra reciba un único movimiento consistente.
+        a_devolver: Dict[int, object] = {}
+        for det in detalles_dict:
+            cod_pro = det.get("COD_PRO_DETO")
+            cantidad = det.get("CANTIDAD_DETO")
+            producto_dict = await self.producto_repository.get_by_id(cod_pro)
+            if not producto_dict:
+                continue
+            tipo_pro = producto_dict.get("TIPO_PRO")
+            if tipo_pro == "BIEN":
+                a_devolver[cod_pro] = a_devolver.get(cod_pro, 0) + cantidad
+            elif tipo_pro == "PAQUETE":
+                componentes = await self.paquete_repository.listar_por_paquete(cod_pro)
+                for c in componentes:
+                    if c.get("TIPO_PRO") == "BIEN":
+                        cod_comp = c.get("COD_PRO_COMP")
+                        requerido = c.get("CANTIDAD_COMP") * cantidad
+                        a_devolver[cod_comp] = a_devolver.get(cod_comp, 0) + requerido
+            # SERVICIO: no maneja stock.
+
+        motivo_mov = f"Anulación OT #{consecutivo_ot}"
+        statements: List = []
+        for cod_pro, cantidad in a_devolver.items():
+            stock_ant = await self.producto_repository.obtener_stock(cod_pro) or 0
+            stock_nue = stock_ant + cantidad
+            statements.append(self.producto_repository.statement_actualizar_stock(cod_pro, stock_nue))
+            statements.append(self.inventario_repository.statement_insertar_movimiento(
+                cod_pro, "ENTRADA", cantidad, stock_ant, stock_nue, motivo_mov, documento_usu
+            ))
+
+        statements.append(self.repository.statement_anular(consecutivo_ot, motivo, documento_usu))
+
+        await self.repository.execute_transaction(statements)
+
+        return await self.obtener_orden_por_id(consecutivo_ot)
 
     async def obtener_todas_ordenes(self) -> List[OrdenTrabajoResumenContract]:
         """Obtiene todas las ordenes de trabajo con informacion resumida"""
@@ -214,6 +290,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             observacion_cli_ot=orden_modelo.observacion_cli_ot,
             observacion_ot=orden_modelo.observacion_ot,
             fecha_fin_garantia_ot=orden_modelo.fecha_fin_garantia_ot,
+            motivo_anulacion_ot=orden_modelo.motivo_anulacion_ot,
+            fecha_anulacion_ot=orden_modelo.fecha_anulacion_ot,
+            documento_usu_anulacion_ot=orden_modelo.documento_usu_anulacion_ot,
             placa_mot=orden_modelo.placa_mot,
             modelo_mot=orden_modelo.modelo_mot,
             color_mot=orden_modelo.color_mot,
@@ -519,6 +598,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 HTTP_404_NOT_FOUND
             )
 
+        # F1-05: no se pueden agregar productos a una orden Entregada o Anulada.
+        await self._validar_orden_editable(consecutivo_ot)
+
         # Verificar que el producto existe
         producto_dict = await self.producto_repository.get_by_id(detalle_contract.cod_pro_deto)
         if not producto_dict:
@@ -572,6 +654,13 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             raise DomainException(
                 f"Orden de trabajo {consecutivo_ot} no encontrada",
                 HTTP_404_NOT_FOUND
+            )
+
+        # F1-05: no se puede editar la cantidad en una orden Entregada o Anulada.
+        if orden.get("COD_OT_EST_OT") in (4, 5):
+            raise DomainException(
+                "No se pueden modificar los productos de una orden Entregada o Anulada",
+                HTTP_400_BAD_REQUEST
             )
 
         # Verificar que el producto existe en la orden
@@ -628,6 +717,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         cod_pro: int
     ) -> OrdenTrabajoResponseContract:
         """Elimina un producto de una orden de trabajo"""
+        # F1-05: no se pueden quitar productos de una orden Entregada o Anulada.
+        await self._validar_orden_editable(consecutivo_ot)
+
         # Verificar que el detalle existe
         detalle_dict = await self.detalle_repository.obtener_detalle(consecutivo_ot, cod_pro)
         if not detalle_dict:

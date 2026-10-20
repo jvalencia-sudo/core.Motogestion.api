@@ -45,7 +45,7 @@ async def obtener_marca(cod_mar: int):
 @router.post("", response_model=MarcaResponseContract, status_code=status.HTTP_201_CREATED)
 async def crear_marca(
     marca: MarcaCreateContract,
-    _=Depends(require_permiso("crear:marcas")),
+    _=Depends(require_permiso("crear_editar:marcas")),
 ):
     """
     Crea una nueva marca.
@@ -60,7 +60,7 @@ async def crear_marca(
 async def actualizar_marca(
     cod_mar: int,
     marca: MarcaUpdateContract,
-    _=Depends(require_permiso("actualizar:marcas")),
+    _=Depends(require_permiso("crear_editar:marcas")),
 ):
     """
     Actualiza una marca existente.
@@ -75,7 +75,7 @@ async def actualizar_marca(
 @router.delete("/{cod_mar}")
 async def eliminar_marca(
     cod_mar: int,
-    _=Depends(require_permiso("eliminar:marcas")),
+    _=Depends(require_permiso("eliminar_o_anular:marcas")),
 ):
     """
     Elimina una marca. Falla si hay motos registradas con esa marca.

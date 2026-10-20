@@ -133,11 +133,15 @@ class UserService(BaseService[UserModel, UserRepository]):
 
         user = self._map_user_from_db(existing_user, sub, request)
 
-        permissions = await self.permiso_servicio.obtener_permisos_por_perfil(
-            user.cod_prf_usu,
-            user.cod_rol_prf_usu
-        )
-        permission_names = [p.nombre_prm for p in permissions]
+        if user.es_admin_usu:
+            # F1-12: el Admin no depende de ninguna fila de perfiles_permisos
+            # (bypass puro, igual que require_permiso/usuario_tiene_permiso)
+            # -- la cookie de permisos del front debe reflejar lo mismo.
+            catalogo = await self.permiso_servicio.get_all()
+            permission_names = [p.nombre_prm for p in catalogo]
+        else:
+            permisos = await self.permiso_servicio.obtener_permisos_por_perfil(user.cod_prf_usu)
+            permission_names = [p.nombre_prm for p in permisos]
 
         nombre_tal = await self.taller_repo.get_nombre(existing_user.get("COD_TALLER"))
         perfil = await self.perfil_repo.get_nombre(user.cod_prf_usu)
@@ -151,11 +155,12 @@ class UserService(BaseService[UserModel, UserRepository]):
 
     async def invitar(self, contract) -> Dict:
         """Crea un miembro del equipo en el taller actual (pre-registrado por correo).
-        El taller sale del contexto de la petición (resolve_tenant). El rol se
-        deriva del perfil elegido -- no se recibe aparte (F0-13); si el cod_prf no
-        existe en este taller, la consulta no devuelve nada (RLS) y se rechaza."""
-        rol = await self.perfil_repo.obtener_rol_por_perfil(contract.cod_prf)
-        if rol is None:
+        El taller sale del contexto de la petición (resolve_tenant). El estado
+        admin/no-admin se deriva del perfil elegido -- no se recibe aparte (F0-13);
+        si el cod_prf no existe en este taller, la consulta no devuelve nada (RLS)
+        y se rechaza."""
+        es_admin = await self.perfil_repo.es_perfil_admin(contract.cod_prf)
+        if es_admin is None:
             raise DomainException(
                 "El perfil elegido no existe. Recarga la página y vuelve a elegir el rol.",
                 HTTP_404_NOT_FOUND,
@@ -163,9 +168,9 @@ class UserService(BaseService[UserModel, UserRepository]):
         nombre, apellido_1, _ = self._split_full_name(contract.nombre)
         documento = self.generate_provisional_document()
         await self.repository.crear_pre_registrado(
-            documento, nombre, apellido_1, contract.correo, contract.cod_prf, rol
+            documento, nombre, apellido_1, contract.correo, contract.cod_prf, es_admin
         )
-        return {"correo": contract.correo, "documento_usu": documento, "rol": rol}
+        return {"correo": contract.correo, "documento_usu": documento, "es_admin": es_admin}
 
     def _map_user_from_db(self, db_user: Dict, sub_id: str, request: LoginContract) -> UserModel:
         """Maps database user record to UserModel"""
@@ -180,7 +185,7 @@ class UserService(BaseService[UserModel, UserRepository]):
             cod_est_usu=db_user.get("COD_EST_USU", 1),
             sub_id_usu=db_user.get("SUB_ID_USU", sub_id),
             cod_prf_usu=db_user.get("COD_PRF_USU", 1),
-            cod_rol_prf_usu=db_user.get("COD_ROL_PRF_USU", 1),
+            es_admin_usu=bool(db_user.get("ES_ADMIN_USU", False)),
             es_super_admin=bool(db_user.get("ES_SUPER_ADMIN", False)),
         )
 
@@ -204,7 +209,6 @@ class UserService(BaseService[UserModel, UserRepository]):
                     apellido_1_usu=apellido_1,
                     apellido_2_usu=apellido_2 if apellido_2 else None,
                     cod_prf_usu=1,  # Default profile
-                    cod_rol_prf_usu=1,  # Default role
                 )
             )
 
@@ -305,7 +309,6 @@ class UserService(BaseService[UserModel, UserRepository]):
                 cod_est_usu=1,
                 sub_id_usu=sub_id_usu,
                 cod_prf_usu=contract.cod_prf_usu,
-                cod_rol_prf_usu=contract.cod_rol_prf_usu,
             )
         )
 

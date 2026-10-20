@@ -13,7 +13,7 @@ class AdminUserRepository(BaseRepository):
         documento_usu: Optional[str] = None,
         cod_est_usu: Optional[int] = None,
         cod_prf_usu: Optional[int] = None,
-        cod_rol_prf_usu: Optional[int] = None,
+        es_admin_usu: Optional[bool] = None,
         cod_tipo_usu: Optional[int] = None,
         limit: int = 50,
         offset: int = 0
@@ -56,9 +56,9 @@ class AdminUserRepository(BaseRepository):
             params.append(cod_prf_usu)
             param_index += 1
 
-        if cod_rol_prf_usu is not None:
-            where_clauses.append(f"cod_rol_prf_usu = :{param_index}")
-            params.append(cod_rol_prf_usu)
+        if es_admin_usu is not None:
+            where_clauses.append(f"es_admin_usu = :{param_index}")
+            params.append(es_admin_usu)
             param_index += 1
 
         if cod_tipo_usu is not None:
@@ -95,16 +95,16 @@ class AdminUserRepository(BaseRepository):
 
     async def crear_pre_registrado(
         self, documento: str, nombre: str, apellido_1: str, apellido_2: Optional[str],
-        correo: str, cod_prf: int, cod_rol: int, cod_est: int = 1, cod_tipo: int = 2
+        correo: str, cod_prf: int, es_admin: bool, cod_est: int = 1, cod_tipo: int = 2
     ) -> None:
         # Usuario PRE-REGISTRADO en el taller actual (cod_taller por DEFAULT = app.tenant_id).
         # sub NULL hasta su primer login (modelo de login cerrado por correo).
         await self.db.execute_non_query(
             f"INSERT INTO {self.table_name} "
             "(documento_usu, nombre_usu, apellido_1_usu, apellido_2_usu, correo_usu, "
-            " contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, cod_rol_prf_usu) "
+            " contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, cod_prf_usu, es_admin_usu) "
             "VALUES (:1, :2, :3, :4, :5, 'auth0_managed', :6, :7, NULL, :8, :9)",
-            (documento, nombre, apellido_1, apellido_2, correo, cod_tipo, cod_est, cod_prf, cod_rol),
+            (documento, nombre, apellido_1, apellido_2, correo, cod_tipo, cod_est, cod_prf, es_admin),
         )
 
     async def get_user_by_sub(self, sub_id: str) -> Optional[Dict]:
@@ -146,21 +146,21 @@ class AdminUserRepository(BaseRepository):
         self,
         documento_usu: str,
         cod_prf_usu: int,
-        cod_rol_prf_usu: int
+        es_admin_usu: bool
     ) -> None:
-        """Actualiza el perfil y rol de un usuario"""
+        """Actualiza el perfil y el estado admin/no-admin de un usuario"""
         await self.db.execute_non_query(
             f"""UPDATE {self.table_name}
-                SET cod_prf_usu = :1, cod_rol_prf_usu = :2
+                SET cod_prf_usu = :1, es_admin_usu = :2
                 WHERE documento_usu = :3""",
-            (cod_prf_usu, cod_rol_prf_usu, documento_usu)
+            (cod_prf_usu, es_admin_usu, documento_usu)
         )
 
     async def contar_admins_activos(self, excluir_documento: Optional[str] = None) -> int:
         """Admins activos del taller (RLS ya acota). excluir_documento sirve para
         preguntar "si saco a ESTE usuario, ¿queda alguno más?" sin tener que
         aplicar el cambio primero para averiguarlo."""
-        query = f"SELECT COUNT(*) AS total FROM {self.table_name} WHERE cod_rol_prf_usu = 1 AND cod_est_usu = 1"
+        query = f"SELECT COUNT(*) AS total FROM {self.table_name} WHERE es_admin_usu = true AND cod_est_usu = 1"
         params: tuple = ()
         if excluir_documento is not None:
             query += " AND documento_usu != :1"

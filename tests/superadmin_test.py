@@ -56,9 +56,9 @@ class TestEsSuperAdminReemplazaElSignificadoViejo:
             cur.execute(
                 "INSERT INTO usuarios (cod_taller, documento_usu, nombre_usu, apellido_1_usu, "
                 "correo_usu, contrasena_usu, cod_tipo_usu, cod_est_usu, sub_id_usu, "
-                "cod_prf_usu, cod_rol_prf_usu, es_super_admin) "
+                "cod_prf_usu, es_admin_usu, es_super_admin) "
                 "VALUES (1, '999888777', 'Admin', 'Sin Marca', 'admin-sin-marca-f014@example.com', "
-                "'test', 1, 1, 'sub-999888777', 1, 1, false)"
+                "'test', 1, 1, 'sub-999888777', 1, true, false)"
             )
         token = "test-token-admin-taller1-sin-marca"
 
