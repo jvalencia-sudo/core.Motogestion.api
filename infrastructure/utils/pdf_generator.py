@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch, cm
 from reportlab.lib import colors
@@ -8,22 +8,29 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.enums import TA_RIGHT
 from reportlab.graphics.shapes import Drawing, Circle, Line, Rect
 import io
+import logging
 import os
 
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import OrdenTrabajoResponseContract
+from infrastructure.utils.marca_taller import ConfigMarcaTaller
 from infrastructure.utils.texto_seguro import texto_seguro
+
+logger = logging.getLogger(__name__)
 
 
 class OrdenTrabajoPDFGenerator:
     """Generador de PDFs para órdenes de trabajo con formato profesional"""
 
-    def __init__(self):
+    def __init__(self, marca: Optional[ConfigMarcaTaller] = None):
         self.width, self.height = letter
+        self.marca = marca or ConfigMarcaTaller()
         self.styles = getSampleStyleSheet()
         self._crear_estilos_personalizados()
 
     def _crear_estilos_personalizados(self):
         """Crea estilos personalizados para el documento"""
+        color_principal = colors.HexColor(self.marca.color_principal)
+
         # Estilo para encabezados de sección
         self.styles.add(ParagraphStyle(
             name='EncabezadoSeccion',
@@ -45,14 +52,23 @@ class OrdenTrabajoPDFGenerator:
             spaceAfter=2
         ))
 
-        # Estilo para el título principal
+        # Estilo para el título principal (F1-09: color de marca del taller)
         self.styles.add(ParagraphStyle(
             name='TituloOrden',
             parent=self.styles['Normal'],
             fontSize=11,
-            textColor=colors.black,
+            textColor=color_principal,
             fontName='Helvetica-Bold',
             alignment=TA_RIGHT
+        ))
+
+        # F1-09: nombre comercial del taller, junto al logo
+        self.styles.add(ParagraphStyle(
+            name='NombreComercial',
+            parent=self.styles['Normal'],
+            fontSize=12,
+            textColor=color_principal,
+            fontName='Helvetica-Bold',
         ))
 
     def _crear_logo_moto(self) -> Drawing:
@@ -96,27 +112,48 @@ class OrdenTrabajoPDFGenerator:
             return f"{fecha.day:02d}-{meses[fecha.month]}-{fecha.year}"
         return str(fecha) if fecha else 'N/A'
 
+    def _crear_logo(self):
+        """Logo del taller (F1-09) si está configurado; si no, el logo de
+        archivo (compatibilidad) o el ícono genérico como último recurso."""
+        if self.marca.logo_bytes:
+            try:
+                return RLImage(io.BytesIO(self.marca.logo_bytes), width=70, height=70, kind='proportional')
+            except Exception:
+                logger.exception("Logo del taller inválido, usando el ícono por defecto")
+
+        logo_path = os.path.join("resources", "images", "logo.png")
+        if os.path.exists(logo_path):
+            return RLImage(logo_path, width=80, height=60)
+        return self._crear_logo_moto()
+
     def _crear_encabezado(self, orden: OrdenTrabajoResponseContract) -> List:
-        """Crea el encabezado del documento con logo y título"""
+        """Crea el encabezado del documento con logo, nombre comercial y título"""
         elementos = []
 
-        # Cargar el logo real desde resources/images
-        logo_path = os.path.join("resources", "images", "logo.png")
+        logo = self._crear_logo()
 
-        # Si el logo no existe, usar el generado
-        if os.path.exists(logo_path):
-            logo = RLImage(logo_path, width=80, height=60)
-        else:
-            logo = self._crear_logo_moto()
+        encabezado_izq = [[logo]]
+        if self.marca.nombre_comercial:
+            encabezado_izq.append([Paragraph(texto_seguro(self.marca.nombre_comercial), self.styles['NombreComercial'])])
+
+        logo_tabla = Table(encabezado_izq, colWidths=[2.5*inch])
+        logo_tabla.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 1), (0, 1), 4),
+        ]))
 
         titulo_data = [
             [Paragraph(f"<b>ORDEN DE TRABAJO No. {texto_seguro(orden.consecutivo_ot or 'N/A')}</b>", self.styles['TituloOrden'])],
             [Paragraph(f"<b>{texto_seguro(orden.estado_ot or 'N/A')}</b>", self.styles['TituloOrden'])],
             [Paragraph(f"Fecha de Elaboración: {texto_seguro(self._formatear_fecha(orden.fecha_elaboracion_ot))}",
                       ParagraphStyle('FechaElaboracion', parent=self.styles['Normal'], fontSize=8, alignment=TA_RIGHT))],
-            [Paragraph(f"Mecánico: {texto_seguro(orden.mecanico or 'N/A')}",
-                      ParagraphStyle('Mecanico', parent=self.styles['Normal'], fontSize=8, alignment=TA_RIGHT))]
         ]
+        if self.marca.mostrar_mecanico:
+            titulo_data.append(
+                [Paragraph(f"Mecánico: {texto_seguro(orden.mecanico or 'N/A')}",
+                          ParagraphStyle('Mecanico', parent=self.styles['Normal'], fontSize=8, alignment=TA_RIGHT))]
+            )
 
         titulo_tabla = Table(titulo_data, colWidths=[2.5*inch])
         titulo_tabla.setStyle(TableStyle([
@@ -124,8 +161,8 @@ class OrdenTrabajoPDFGenerator:
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ]))
 
-        encabezado_data = [[logo, titulo_tabla]]
-        encabezado_tabla = Table(encabezado_data, colWidths=[1*inch, 5.5*inch])
+        encabezado_data = [[logo_tabla, titulo_tabla]]
+        encabezado_tabla = Table(encabezado_data, colWidths=[3*inch, 3.5*inch])
         encabezado_tabla.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -186,6 +223,10 @@ class OrdenTrabajoPDFGenerator:
         elementos = []
 
         detalles = orden.detalles
+        # F1-09: si el taller apaga "mostrar precios unitarios", la columna se
+        # deja en blanco (no se quita) -- así no hay que recalcular índices
+        # de columna en todo el TableStyle de abajo.
+        mostrar_vlr_unit = self.marca.mostrar_precios_unitarios
 
         # Encabezados
         data = [[
@@ -193,7 +234,7 @@ class OrdenTrabajoPDFGenerator:
             'Código',
             'Referencia',
             'Cantidad',
-            'Vlr. Unit.',
+            'Vlr. Unit.' if mostrar_vlr_unit else '',
             'Cobra (Sí / No)',
             'Total'
         ]]
@@ -238,7 +279,7 @@ class OrdenTrabajoPDFGenerator:
                 str(codigo),
                 referencia,
                 str(cantidad_deto),
-                self._formatear_moneda(valor_unitario),
+                self._formatear_moneda(valor_unitario) if mostrar_vlr_unit else '',
                 se_factura,
                 self._formatear_moneda(subtotal)
             ])
@@ -332,6 +373,44 @@ class OrdenTrabajoPDFGenerator:
             )
         ]
 
+    def _crear_condiciones(self) -> List:
+        """F1-09: texto de condiciones del taller (garantía, políticas, etc.),
+        texto_seguro + Paragraph para que <, & o <img ...> salgan literales
+        (F0-10) -- es texto libre escrito por el dueño del taller."""
+        if not self.marca.texto_condiciones:
+            return []
+        estilo = ParagraphStyle(
+            'Condiciones', parent=self.styles['Normal'], fontSize=7,
+            textColor=colors.HexColor('#333333'), spaceBefore=6
+        )
+        return [Paragraph(texto_seguro(self.marca.texto_condiciones), estilo)]
+
+    def _crear_firma(self) -> List:
+        """F1-09: espacio para la firma del cliente, si el taller lo activó."""
+        if not self.marca.mostrar_firma_cliente:
+            return []
+        tabla = Table([[""]], colWidths=[2.5*inch], rowHeights=[0.4*inch])
+        tabla.setStyle(TableStyle([
+            ('LINEBELOW', (0, 0), (0, 0), 0.5, colors.black),
+        ]))
+        return [
+            Spacer(1, 0.3*inch),
+            tabla,
+            Paragraph("Firma del cliente", ParagraphStyle(
+                'FirmaLabel', parent=self.styles['Normal'], fontSize=7
+            )),
+        ]
+
+    def _crear_pie(self) -> List:
+        """F1-09: pie de la orden (carta), texto_seguro + Paragraph (F0-10)."""
+        if not self.marca.texto_pie:
+            return []
+        estilo = ParagraphStyle(
+            'PieOrden', parent=self.styles['Normal'], fontSize=7,
+            textColor=colors.HexColor('#555555'), spaceBefore=10, alignment=1,
+        )
+        return [Paragraph(texto_seguro(self.marca.texto_pie), estilo)]
+
     def generar_pdf(self, orden: OrdenTrabajoResponseContract) -> bytes:
         """
         Genera un PDF con la información de la orden de trabajo, en memoria.
@@ -341,6 +420,12 @@ class OrdenTrabajoPDFGenerator:
         nombre de archivo basado solo en consecutivo_ot podía colisionar
         entre dos talleres y filtrar el PDF de uno al otro. El RLS no
         protege esto porque ocurre fuera de la base de datos.
+
+        La personalización visual (F1-09: logo, color, condiciones, pie,
+        interruptores) se pasa en el constructor, no acá -- si no se pasó
+        nada, self.marca ya es un ConfigMarcaTaller() por defecto (sin logo,
+        color verde actual, todo visible), para que una orden sin configurar
+        siga siendo presentable.
 
         Args:
             orden: Contrato con toda la información de la orden
@@ -372,7 +457,10 @@ class OrdenTrabajoPDFGenerator:
         elementos.extend(self._crear_info_cliente_moto(orden))
         elementos.extend(self._crear_tabla_productos(orden))
         elementos.extend(self._crear_observaciones(orden))
+        elementos.extend(self._crear_condiciones())
+        elementos.extend(self._crear_firma())
         elementos.extend(self._crear_nota_legal())
+        elementos.extend(self._crear_pie())
 
         # Generar el PDF
         doc.build(elementos)

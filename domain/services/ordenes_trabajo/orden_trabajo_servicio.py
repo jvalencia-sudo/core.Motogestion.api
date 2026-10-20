@@ -36,6 +36,7 @@ from repository.inventario.inventario_repositorio import InventarioRepositorio
 from repository.talleres.taller_repositorio import TallerRepositorio
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.utils.fecha_bogota import hoy_bogota
+from infrastructure.utils.marca_taller import ConfigMarcaTaller
 from infrastructure.utils.tenant_context import get_tenant
 from domain.services.ordenes_trabajo.validaciones_entrega import validar_saldo_para_entrega
 
@@ -60,6 +61,26 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         cod_taller = get_tenant()
         config = await self.taller_repository.obtener_config_comprobante(cod_taller) if cod_taller else None
         return config or {}
+
+    async def _config_marca_taller(self) -> ConfigMarcaTaller:
+        """F1-09: personalización visual de la orden (logo, color,
+        condiciones, pie, interruptores) del taller actual."""
+        from domain.services.talleres.taller_servicio import TallerServicio
+
+        cod_taller = get_tenant()
+        if not cod_taller:
+            return ConfigMarcaTaller()
+        return await TallerServicio().config_marca(cod_taller)
+
+    async def generar_pdf_orden(self, consecutivo_ot: int) -> bytes:
+        """Genera el PDF (carta) de la orden, con la personalización visual
+        del taller (F1-09). La validación de negocio (existencia, estado
+        válido, tiene ítems) vive en obtener_orden_para_documento."""
+        from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
+
+        orden = await self.obtener_orden_para_documento(consecutivo_ot)
+        marca = await self._config_marca_taller()
+        return OrdenTrabajoPDFGenerator(marca).generar_pdf(orden)
 
     def __parse__(self, record: Dict) -> OrdenTrabajoModelo:
         return OrdenTrabajoModelo.model_validate(record)
@@ -864,6 +885,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         # no se backfillea acá -- F1-04: NULL es una respuesta válida y final,
         # no un dato que falte, cuando ningún ítem de la orden da garantía).
         config_taller = await self._config_comprobante_taller()
+        marca = await self._config_marca_taller()
         hoy = hoy_bogota()
         update_dict = {}
 
@@ -903,7 +925,12 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         return pdf_generator.generar_comprobante(
             orden,
             texto_pie_comprobante=config_taller.get("TEXTO_PIE_COMPROBANTE"),
-            nombre_tal=config_taller.get("NOMBRE_TAL"),
+            # F1-09: nombre_comercial_tal ya cae a nombre_tal por COALESCE en
+            # obtener_config_marca si el taller no lo definió -- la tirilla
+            # debe mostrar el mismo nombre que la carta, no el legal siempre.
+            nombre_tal=marca.nombre_comercial or config_taller.get("NOMBRE_TAL"),
             direccion_tal=config_taller.get("DIRECCION_TAL"),
             telefono_tal=config_taller.get("TELEFONO_TAL"),
+            logo_bytes=marca.logo_bytes,
+            color_principal=marca.color_principal,
         )

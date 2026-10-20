@@ -25,5 +25,6 @@ INSERT INTO schema_migrations (version) VALUES
     ('007_roles_simplificados'),
     ('008_anulacion_auditoria'),
     ('009_garantia_por_producto'),
-    ('010_pagos_orden')
+    ('010_pagos_orden'),
+    ('011_personalizacion_pdf')
 ON CONFLICT (version) DO NOTHING;

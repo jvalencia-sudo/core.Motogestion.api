@@ -61,6 +61,18 @@ class TallerRepositorio(BaseRepository):
             (cod_taller,),
         )
 
+    async def obtener_config_marca(self, cod_taller: int) -> Optional[Dict]:
+        """F1-09: personalización visual de la orden (carta + tirilla).
+        nombre_comercial_tal cae a nombre_tal si el taller no lo definió.
+        talleres no tiene RLS."""
+        return await self.db.get_first(
+            "SELECT COALESCE(nombre_comercial_tal, nombre_tal) AS nombre_comercial_tal, "
+            "  color_principal_tal, texto_condiciones_tal, texto_pie_tal, "
+            "  mostrar_precios_unitarios_tal, mostrar_mecanico_tal, mostrar_firma_cliente_tal "
+            "FROM talleres WHERE cod_taller = :1",
+            (cod_taller,),
+        )
+
     async def contar_por_precio_susc(self, monto: int) -> int:
         """Cuenta talleres que ya tienen ese precio pactado (congelado desde su
         primer pago aprobado). Se usa para contar cupos de precio fundador."""

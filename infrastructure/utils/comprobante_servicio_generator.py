@@ -3,11 +3,16 @@ Generador de PDF para Comprobantes de Servicio (Ticket de 80mm)
 """
 from datetime import datetime
 import io
+import logging
 import textwrap
+from reportlab.lib import colors
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from domain.contracts.ordenes_trabajo.orden_trabajo_contract import OrdenTrabajoResponseContract
+
+logger = logging.getLogger(__name__)
 
 
 class ComprobanteServicioPDFGenerator:
@@ -27,6 +32,8 @@ class ComprobanteServicioPDFGenerator:
         nombre_tal: str = None,
         direccion_tal: str = None,
         telefono_tal: str = None,
+        logo_bytes: bytes = None,
+        color_principal: str = None,
     ) -> bytes:
         """
         Genera un comprobante de servicio en formato POS, en memoria (ver nota
@@ -42,6 +49,9 @@ class ComprobanteServicioPDFGenerator:
                 venir (NOT NULL en BD); dirección/teléfono pueden ser None si
                 el taller no los configuró -- en ese caso esa línea se omite
                 (no se inventa un valor).
+            logo_bytes, color_principal: personalización visual (F1-09).
+                No pasa por texto_seguro porque este generador no usa
+                reportlab.platypus.Paragraph (ver _crear_pie).
 
         Returns:
             bytes: Contenido del PDF generado
@@ -59,7 +69,9 @@ class ComprobanteServicioPDFGenerator:
         y = self.alto_ticket - 10 * mm
 
         # Generar contenido
-        y = self._crear_encabezado(c, orden, y, nombre_tal, direccion_tal, telefono_tal)
+        if logo_bytes:
+            y = self._crear_logo(c, logo_bytes, y)
+        y = self._crear_encabezado(c, orden, y, nombre_tal, direccion_tal, telefono_tal, color_principal)
         y = self._crear_datos_cliente(c, orden, y)
         y = self._crear_datos_vehiculo(c, orden, y)
         y = self._crear_productos(c, orden, y)
@@ -88,9 +100,24 @@ class ComprobanteServicioPDFGenerator:
         c.line(self.margen, y, self.ancho_ticket - self.margen, y)
         return y - 3 * mm
 
+    def _crear_logo(self, c: canvas.Canvas, logo_bytes: bytes, y: float) -> float:
+        """F1-09: logo del taller en la parte superior del ticket, centrado."""
+        try:
+            lado = 20 * mm
+            x = (self.ancho_ticket - lado) / 2
+            c.drawImage(
+                ImageReader(io.BytesIO(logo_bytes)), x, y - lado,
+                width=lado, height=lado, preserveAspectRatio=True, mask='auto',
+            )
+            return y - lado - 6 * mm
+        except Exception:
+            logger.exception("Logo del taller inválido en el comprobante, se omite")
+            return y
+
     def _crear_encabezado(
         self, c: canvas.Canvas, orden: OrdenTrabajoResponseContract, y: float,
         nombre_tal: str = None, direccion_tal: str = None, telefono_tal: str = None,
+        color_principal: str = None,
     ) -> float:
         """Crea el encabezado del ticket con los datos reales del taller
         ("Mi taller") -- antes decía siempre "MOTOGESTION" / "Medellin,
@@ -98,7 +125,10 @@ class ComprobanteServicioPDFGenerator:
         la orden: el cliente de cualquier taller recibía un número que no
         existe. dirección/teléfono se omiten si el taller no los configuró,
         en vez de inventar un valor."""
+        if color_principal:
+            c.setFillColor(colors.HexColor(color_principal))
         y = self._texto_centrado(c, (nombre_tal or "COMPROBANTE DE SERVICIO").upper(), y, 14, "Courier-Bold")
+        c.setFillColor(colors.black)
         if direccion_tal:
             y = self._texto_centrado(c, direccion_tal, y - 2 * mm, 9, "Courier")
         if telefono_tal:
