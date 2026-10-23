@@ -179,6 +179,7 @@ class TestVistaPrevia:
     def test_vista_previa_devuelve_pdf_sin_guardar(self, client, seed_talleres, config_limpia):
         payload = {
             "nombreComercialTal": "Vista previa taller",
+            "whatsappTal": "3001234567",
             "colorPrincipalTal": "#FF00FF",
             "textoCondicionesTal": "Condiciones de prueba <script>evil()</script> & <img src=x>",
             "textoPieTal": "Pie de prueba",

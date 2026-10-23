@@ -71,6 +71,14 @@ class OrdenTrabajoPDFGenerator:
             fontName='Helvetica-Bold',
         ))
 
+        # WhatsApp del taller, debajo del nombre comercial (mismo bloque)
+        self.styles.add(ParagraphStyle(
+            name='WhatsappTaller',
+            parent=self.styles['Normal'],
+            fontSize=8,
+            textColor=colors.HexColor('#555555'),
+        ))
+
     def _crear_logo_moto(self) -> Drawing:
         """Crea un icono simple de moto usando formas geométricas"""
         d = Drawing(80, 60)
@@ -135,6 +143,10 @@ class OrdenTrabajoPDFGenerator:
         encabezado_izq = [[logo]]
         if self.marca.nombre_comercial:
             encabezado_izq.append([Paragraph(texto_seguro(self.marca.nombre_comercial), self.styles['NombreComercial'])])
+        if self.marca.whatsapp:
+            encabezado_izq.append(
+                [Paragraph(f"WhatsApp: {texto_seguro(self.marca.whatsapp)}", self.styles['WhatsappTaller'])]
+            )
 
         logo_tabla = Table(encabezado_izq, colWidths=[2.5*inch])
         logo_tabla.setStyle(TableStyle([

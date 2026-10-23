@@ -139,6 +139,7 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         logo = await self.logo_repo.obtener(cod_taller)
         return ConfigMarcaTaller(
             nombre_comercial=config.get("NOMBRE_COMERCIAL_TAL"),
+            whatsapp=config.get("WHATSAPP_TAL"),
             logo_bytes=logo.get("LOGO") if logo else None,
             color_principal=config.get("COLOR_PRINCIPAL_TAL") or "#00B06E",
             texto_condiciones=config.get("TEXTO_CONDICIONES_TAL"),
@@ -161,6 +162,7 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         logo = await self.logo_repo.obtener(cod_taller)
         marca = ConfigMarcaTaller(
             nombre_comercial=contract.nombre_comercial_tal,
+            whatsapp=contract.whatsapp_tal,
             logo_bytes=logo.get("LOGO") if logo else None,
             color_principal=contract.color_principal_tal,
             texto_condiciones=contract.texto_condiciones_tal,

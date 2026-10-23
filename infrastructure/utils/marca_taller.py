@@ -8,6 +8,7 @@ class ConfigMarcaTaller:
     tanto la generación real (datos guardados del taller) como la vista
     previa (datos del formulario, sin guardar)."""
     nombre_comercial: Optional[str] = None
+    whatsapp: Optional[str] = None
     logo_bytes: Optional[bytes] = None
     color_principal: str = "#00B06E"
     texto_condiciones: Optional[str] = None
