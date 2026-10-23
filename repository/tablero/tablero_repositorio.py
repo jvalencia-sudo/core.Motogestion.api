@@ -45,3 +45,16 @@ class TableroRepositorio(BaseRepository):
             "update ordenes_trabajo set cod_ot_est_ot = :1 where consecutivo_ot = :2",
             (cod_estado, consecutivo_ot),
         )
+
+    async def agregar_nota(self, consecutivo_ot: int, nota: str) -> Optional[str]:
+        """F1-08: agrega `nota` a observacion_ot sin reemplazar lo que ya
+        hubiera (ahí también vive el trabajo pedido). Devuelve el texto final."""
+        filas = await self.execute(
+            "update ordenes_trabajo set observacion_ot = case "
+            "when observacion_ot is null or observacion_ot = '' then :1 "
+            "else observacion_ot || E'\n\n' || :1 end "
+            "where consecutivo_ot = :2 "
+            "returning observacion_ot",
+            (nota, nota, consecutivo_ot),
+        )
+        return filas[0].get("OBSERVACION_OT") if filas else None
