@@ -94,6 +94,24 @@ class TableroServicio:
         await self.repo.actualizar_estado(consecutivo_ot, cod_estado)
         return {"consecutivo_ot": consecutivo_ot, "cod_estado": cod_estado}
 
+    async def agregar_nota(self, current: Optional[Dict], consecutivo_ot: int, nota: str) -> Dict:
+        """F1-08: agrega una nota a la observación interna (ej. "Necesito
+        repuesto") sin cambiar el estado. Mismo alcance que cambiar_estado:
+        solo el mecánico dueño de la OT, salvo quien vea todo."""
+        if current is None:
+            raise DomainException("No autenticado", HTTP_403_FORBIDDEN)
+
+        ot = await self.repo.get_ot_mecanico(consecutivo_ot)
+        if not ot:
+            raise DomainException("Orden no encontrada", HTTP_404_NOT_FOUND)
+
+        es_gestor = await self._es_gestor(current)
+        if not es_gestor and ot.get("DOCUMENTO_USU_MC_OT") != current.get("DOCUMENTO_USU"):
+            raise DomainException("Solo puedes agregar notas a tus propias órdenes", HTTP_403_FORBIDDEN)
+
+        observacion = await self.repo.agregar_nota(consecutivo_ot, nota)
+        return {"consecutivo_ot": consecutivo_ot, "observacion_ot": observacion}
+
     @staticmethod
     def _map(f: Dict) -> TableroItem:
         fecha = f.get("FECHA_ELABORACION_OT")

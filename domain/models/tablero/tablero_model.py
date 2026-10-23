@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from pydantic import Field, field_validator
+
 from domain.models.base_model import BaseSchema
 
 
@@ -33,3 +35,22 @@ class CambiarEstadoContract(BaseSchema):
     # F1-07: si la orden queda a Entregada (4) con saldo pendiente, el
     # backend lo rechaza salvo que el front confirme "entregar a crédito".
     confirmar_credito: bool = False
+
+
+class AgregarNotaContract(BaseSchema):
+    """F1-08: nota del mecánico (ej. "Necesito repuesto") -- se AGREGA a la
+    observación interna, nunca la reemplaza (ahí también vive el trabajo
+    pedido con el que se abrió la orden)."""
+    nota: str = Field(..., min_length=3, max_length=300)
+
+    @field_validator("nota")
+    @classmethod
+    def no_solo_espacios(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("La nota no puede estar vacía")
+        return v.strip()
+
+
+class NotaTableroResponse(BaseSchema):
+    consecutivo_ot: int
+    observacion_ot: Optional[str] = None

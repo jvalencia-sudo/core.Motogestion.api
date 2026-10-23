@@ -3,7 +3,12 @@ from typing import Dict, Optional
 from fastapi import APIRouter, Depends
 
 from domain.contracts.shared.respuesta_contract import CambioEstadoTableroResponseContract
-from domain.models.tablero.tablero_model import CambiarEstadoContract, TableroResponse
+from domain.models.tablero.tablero_model import (
+    AgregarNotaContract,
+    CambiarEstadoContract,
+    NotaTableroResponse,
+    TableroResponse,
+)
 from domain.services.tablero.tablero_servicio import TableroServicio
 from infrastructure.dependencies.current_user import get_current_usuario, require_permiso
 
@@ -31,3 +36,15 @@ async def cambiar_estado(
     return await TableroServicio().cambiar_estado(
         current, consecutivo_ot, contract.cod_estado, contract.confirmar_credito
     )
+
+
+@router.patch("/{consecutivo_ot}/nota", response_model=NotaTableroResponse)
+async def agregar_nota(
+    consecutivo_ot: int,
+    contract: AgregarNotaContract,
+    current: Dict = Depends(require_permiso("crear_editar:ordenes-trabajo")),
+):
+    """F1-08: agrega una nota a la observación interna (ej. "Necesito
+    repuesto") sin cambiar el estado. Mismo alcance que /estado: mecánico
+    solo en sus propias OT."""
+    return await TableroServicio().agregar_nota(current, consecutivo_ot, contract.nota)
