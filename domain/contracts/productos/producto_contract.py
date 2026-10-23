@@ -75,8 +75,12 @@ class ProductoResponseContract(BaseContractSchema):
     nombre_pro: str
     descripcion_pro: Optional[str]
     tipo_pro: str = "BIEN"
-    stock_pro: Optional[Decimal] = None
-    stock_pro_min: Optional[Decimal] = None
+    # float, no Decimal: Pydantic serializa Decimal como STRING conservando la
+    # escala de la columna (numeric(12,3) -> "37.000"), lo que el frontend
+    # mostraba tal cual ("37.000" se lee como 37 mil en formato colombiano).
+    # float sigue soportando fracciones (1.5 litros) sin ese arrastre de ceros.
+    stock_pro: Optional[float] = None
+    stock_pro_min: Optional[float] = None
     unidad_pro: str = "unidad"
     cod_est_pro: int
     precio_pro: int
