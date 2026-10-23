@@ -140,7 +140,11 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         return ConfigMarcaTaller(
             nombre_comercial=config.get("NOMBRE_COMERCIAL_TAL"),
             whatsapp=config.get("WHATSAPP_TAL"),
+            nit=config.get("NIT_TAL"),
+            direccion=config.get("DIRECCION_TAL"),
+            correo=config.get("CORREO_TAL"),
             logo_bytes=logo.get("LOGO") if logo else None,
+            logo_content_type=logo.get("CONTENT_TYPE") if logo else None,
             color_principal=config.get("COLOR_PRINCIPAL_TAL") or "#00B06E",
             texto_condiciones=config.get("TEXTO_CONDICIONES_TAL"),
             texto_pie=config.get("TEXTO_PIE_TAL"),
@@ -156,14 +160,21 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
         formulario, SIN guardar nada -- ni en `talleres` ni en una orden
         real. El logo que se usa es el ya guardado (el logo se sube aparte,
         de inmediato)."""
-        from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
+        from infrastructure.utils.orden_trabajo_html_pdf import generar_pdf_orden_html
         from infrastructure.utils.orden_ejemplo import orden_de_ejemplo
 
         logo = await self.logo_repo.obtener(cod_taller)
+        # nit/direccion/correo no se editan en este formulario ("escríbenos a
+        # soporte") -- se leen ya guardados, igual que el logo, no del contrato.
+        config_guardada = await self.repository.obtener_config_marca(cod_taller) or {}
         marca = ConfigMarcaTaller(
             nombre_comercial=contract.nombre_comercial_tal,
             whatsapp=contract.whatsapp_tal,
+            nit=config_guardada.get("NIT_TAL"),
+            direccion=config_guardada.get("DIRECCION_TAL"),
+            correo=config_guardada.get("CORREO_TAL"),
             logo_bytes=logo.get("LOGO") if logo else None,
+            logo_content_type=logo.get("CONTENT_TYPE") if logo else None,
             color_principal=contract.color_principal_tal,
             texto_condiciones=contract.texto_condiciones_tal,
             texto_pie=contract.texto_pie_tal,
@@ -171,7 +182,7 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
             mostrar_mecanico=contract.mostrar_mecanico_tal,
             mostrar_firma_cliente=contract.mostrar_firma_cliente_tal,
         )
-        return OrdenTrabajoPDFGenerator(marca).generar_pdf(orden_de_ejemplo())
+        return generar_pdf_orden_html(orden_de_ejemplo(), marca)
 
     # ---- Suscripción (estado del plan/trial para el front) ----
 

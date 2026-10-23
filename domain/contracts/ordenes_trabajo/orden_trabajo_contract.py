@@ -123,9 +123,11 @@ class OrdenTrabajoResponseContract(BaseContractSchema):
     color_mot: str
     cilindraje_mot: int
     marca_moto: str
+    ciudad_placa_mot: Optional[str] = None
 
     # Informacion del cliente
     documento_cli: str
+    tipo_documento_cli: str = "CC"
     nombre_completo_cliente: str
     telefono_cli: str
     correo_cli: str

@@ -7,6 +7,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# Librerías nativas de WeasyPrint (rediseño del PDF de orden de trabajo):
+# Pango/cairo/gdk-pixbuf. Nombres verificados contra la imagen real
+# python:3.11-slim (Debian 13 "trixie") -- libgdk-pixbuf2.0-0 ya no existe
+# en trixie, el paquete se renombró a libgdk-pixbuf-2.0-0.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+    libgdk-pixbuf-2.0-0 libcairo2 libffi8 shared-mime-info fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
 # Establecer directorio de trabajo
 WORKDIR /app
 

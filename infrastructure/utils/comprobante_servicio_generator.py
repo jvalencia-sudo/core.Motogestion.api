@@ -37,8 +37,8 @@ class ComprobanteServicioPDFGenerator:
     ) -> bytes:
         """
         Genera un comprobante de servicio en formato POS, en memoria (ver nota
-        de seguridad en OrdenTrabajoPDFGenerator.generar_pdf: consecutivo_ot
-        no es único globalmente, solo por taller).
+        de seguridad en generar_pdf_orden_html de orden_trabajo_html_pdf.py:
+        consecutivo_ot no es único globalmente, solo por taller).
 
         Args:
             orden: Contrato con los datos de la orden de trabajo

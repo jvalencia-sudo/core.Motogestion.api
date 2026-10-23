@@ -210,8 +210,10 @@ CREATE TABLE clientes (
     telefono_cli   VARCHAR(15),
     correo_cli     VARCHAR(50),
     direccion_cli  VARCHAR(500),
+    tipo_documento_cli VARCHAR(10) NOT NULL DEFAULT 'CC',
     CONSTRAINT pk_clientes PRIMARY KEY (cod_taller, documento_cli),
-    CONSTRAINT fk_clientes_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller)
+    CONSTRAINT fk_clientes_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
+    CONSTRAINT chk_cliente_tipo_documento CHECK (tipo_documento_cli IN ('CC', 'CE', 'NIT', 'PASAPORTE'))
 );
 
 CREATE TABLE marcas (
@@ -230,6 +232,7 @@ CREATE TABLE motos (
     cilindraje_mot    INTEGER,
     documento_cli_mot VARCHAR(11),
     cod_marca_mot     INTEGER,
+    ciudad_placa_mot  VARCHAR(40),
     CONSTRAINT pk_motos PRIMARY KEY (cod_taller, placa_mot),
     CONSTRAINT fk_motos_taller  FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_motos_cliente FOREIGN KEY (cod_taller, documento_cli_mot) REFERENCES clientes (cod_taller, documento_cli),
@@ -851,7 +854,8 @@ SELECT
       WHERE dot.consecutivo_ot_deto = ot.consecutivo_ot AND dot.cod_taller = ot.cod_taller
     ) AS trabajos,
     ot.kilometraje_salida_ot,
-    ot.motivo_anulacion_ot, ot.fecha_anulacion_ot, ot.documento_usu_anulacion_ot
+    ot.motivo_anulacion_ot, ot.fecha_anulacion_ot, ot.documento_usu_anulacion_ot,
+    c.tipo_documento_cli, m.ciudad_placa_mot
 FROM ordenes_trabajo ot
 INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller
 INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller
@@ -1054,18 +1058,20 @@ FROM productos p INNER JOIN estados e ON p.cod_est_pro = e.cod_est;
 CREATE OR REPLACE VIEW vw_clientes WITH (security_invoker = on) AS
 SELECT c.documento_cli, c.nombre_cli, c.apellido_1_cli, c.apellido_2_cli,
        c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo,
-       c.telefono_cli, c.correo_cli, c.direccion_cli
+       c.telefono_cli, c.correo_cli, c.direccion_cli,
+       c.tipo_documento_cli
 FROM clientes c;
 
 CREATE OR REPLACE VIEW vw_clientes_resumen WITH (security_invoker = on) AS
 SELECT c.documento_cli,
        c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo,
        c.telefono_cli, c.correo_cli, c.direccion_cli,
-       COUNT(m.placa_mot) AS total_motos
+       COUNT(m.placa_mot) AS total_motos,
+       c.tipo_documento_cli
 FROM clientes c
 LEFT JOIN motos m ON c.documento_cli = m.documento_cli_mot AND c.cod_taller = m.cod_taller
 GROUP BY c.documento_cli, c.nombre_cli, c.apellido_1_cli, c.apellido_2_cli,
-         c.telefono_cli, c.correo_cli, c.direccion_cli;
+         c.telefono_cli, c.correo_cli, c.direccion_cli, c.tipo_documento_cli;
 
 CREATE OR REPLACE VIEW vw_clientes_motos WITH (security_invoker = on) AS
 SELECT c.documento_cli,
@@ -1078,19 +1084,22 @@ INNER JOIN marcas mar ON m.cod_marca_mot = mar.cod_mar AND m.cod_taller = mar.co
 
 CREATE OR REPLACE VIEW vw_motos WITH (security_invoker = on) AS
 SELECT m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot,
-       m.documento_cli_mot, m.cod_marca_mot
+       m.documento_cli_mot, m.cod_marca_mot,
+       m.ciudad_placa_mot
 FROM motos m;
 
 CREATE OR REPLACE VIEW vw_motos_marcas WITH (security_invoker = on) AS
 SELECT m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot,
-       m.documento_cli_mot, m.cod_marca_mot, mar.nombre_mar AS marca
+       m.documento_cli_mot, m.cod_marca_mot, mar.nombre_mar AS marca,
+       m.ciudad_placa_mot
 FROM motos m INNER JOIN marcas mar ON m.cod_marca_mot = mar.cod_mar AND m.cod_taller = mar.cod_taller;
 
 CREATE OR REPLACE VIEW vw_motos_detalle WITH (security_invoker = on) AS
 SELECT m.placa_mot, m.modelo_mot, m.color_mot, m.cilindraje_mot,
        mar.nombre_mar AS marca, c.documento_cli,
        c.nombre_cli || ' ' || c.apellido_1_cli || ' ' || COALESCE(c.apellido_2_cli, '') AS nombre_completo_cliente,
-       c.telefono_cli, c.correo_cli
+       c.telefono_cli, c.correo_cli,
+       m.ciudad_placa_mot
 FROM motos m
 INNER JOIN marcas mar ON m.cod_marca_mot = mar.cod_mar AND m.cod_taller = mar.cod_taller
 INNER JOIN clientes c ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller;

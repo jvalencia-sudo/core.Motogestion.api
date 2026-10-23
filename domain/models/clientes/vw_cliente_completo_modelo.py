@@ -12,6 +12,7 @@ class VwClienteModelo(BaseSchema):
     telefono_cli: str
     correo_cli: str
     direccion_cli: Optional[str] = None
+    tipo_documento_cli: str = "CC"
 
 
 class VwClienteResumenModelo(BaseSchema):
@@ -22,3 +23,4 @@ class VwClienteResumenModelo(BaseSchema):
     correo_cli: str
     direccion_cli: Optional[str] = None
     total_motos: int
+    tipo_documento_cli: str = "CC"

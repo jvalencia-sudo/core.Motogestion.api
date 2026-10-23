@@ -1,0 +1,3 @@
+Barlow y Barlow Condensed (Jeremy Tribby) — SIL Open Font License 1.1.
+Se pueden incluir en el repositorio y en la imagen de Docker.
+https://openfontlicense.org

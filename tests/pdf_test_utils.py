@@ -1,34 +1,22 @@
 """Helpers compartidos por los tests de generación de PDF (no es un módulo de
 tests: pytest no lo recolecta porque no termina en "_test.py")."""
-import base64
+import io
 import re
-import zlib
 
-
-_GRUPO_PARENTESIS = re.compile(rb"\(((?:[^()\\]|\\.)*)\)")
-
-
-def _desescapar(cadena: bytes) -> bytes:
-    """Deshace el escape mínimo de PDF dentro de un literal string: \\( \\) \\\\."""
-    return cadena.replace(rb"\(", b"(").replace(rb"\)", b")").replace(rb"\\", b"\\")
+from pypdf import PdfReader
 
 
 def texto_visible_del_pdf(pdf_bytes: bytes) -> str:
-    """Decodifica los content streams del PDF (reportlab los deja en
-    ASCII85+FlateDecode por defecto) y extrae solo el texto que de verdad se
-    dibuja en la página (los literales entre paréntesis de los operadores
-    Tj/TJ), no los operadores de PDF alrededor -- así una frase partida en
-    varias líneas de dibujo se puede buscar como un solo texto continuo."""
-    palabras = []
-    for bloque in re.findall(rb"stream\r?\n(.*?)endstream", pdf_bytes, re.DOTALL):
-        bloque = bloque.rstrip(b"\r\n")
-        try:
-            bloque = base64.a85decode(bloque, adobe=True)
-        except ValueError:
-            pass
-        try:
-            bloque = zlib.decompress(bloque)
-        except zlib.error:
-            pass
-        palabras.extend(_desescapar(g) for g in _GRUPO_PARENTESIS.findall(bloque))
-    return b" ".join(palabras).decode("latin-1")
+    """Extrae el texto que de verdad se dibuja en la página. Sirve tanto
+    para los PDF de ReportLab (texto en literales simples) como para los de
+    WeasyPrint (fuentes embebidas tipo CID, cadenas hexadecimales) -- pypdf
+    entiende ambas codificaciones, a diferencia de un parseo manual del
+    content stream.
+
+    pypdf conserva los saltos de línea visuales del texto envuelto, así que
+    una frase que se parte en dos líneas en el PDF queda con un "\\n" en
+    medio -- se colapsa todo el espacio en blanco a un solo espacio para que
+    comparar contra un texto esperado de una sola línea siga funcionando."""
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    texto = " ".join(page.extract_text() for page in reader.pages)
+    return re.sub(r"\s+", " ", texto)

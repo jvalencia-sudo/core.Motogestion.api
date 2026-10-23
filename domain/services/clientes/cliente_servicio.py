@@ -28,6 +28,7 @@ class ClienteServicio(BaseService[ClienteModelo, ClienteRepositorio]):
 
         return [ClienteResponseContract(
             documento_cli=c.documento_cli,
+            tipo_documento_cli=c.tipo_documento_cli,
             nombre_completo=c.nombre_completo,
             telefono_cli=c.telefono_cli,
             correo_cli=c.correo_cli,
@@ -53,6 +54,7 @@ class ClienteServicio(BaseService[ClienteModelo, ClienteRepositorio]):
         cliente_modelo = self.__parse_custom__(cliente_dict, VwClienteResumenModelo)
         return ClienteResponseContract(
             documento_cli=cliente_modelo.documento_cli,
+            tipo_documento_cli=cliente_modelo.tipo_documento_cli,
             nombre_completo=cliente_modelo.nombre_completo,
             telefono_cli=cliente_modelo.telefono_cli,
             correo_cli=cliente_modelo.correo_cli,
@@ -89,6 +91,7 @@ class ClienteServicio(BaseService[ClienteModelo, ClienteRepositorio]):
 
             return ClienteResponseContract(
                 documento_cli=contract.documento_cli,
+                tipo_documento_cli=contract.tipo_documento_cli,
                 nombre_completo=nombre_completo,
                 telefono_cli=contract.telefono_cli,
                 correo_cli=contract.correo_cli,
@@ -144,6 +147,7 @@ class ClienteServicio(BaseService[ClienteModelo, ClienteRepositorio]):
 
             return ClienteResponseContract(
                 documento_cli=cliente_modelo.documento_cli,
+                tipo_documento_cli=cliente_modelo.tipo_documento_cli,
                 nombre_completo=cliente_modelo.nombre_completo,
                 telefono_cli=cliente_modelo.telefono_cli,
                 correo_cli=cliente_modelo.correo_cli,
