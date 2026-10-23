@@ -84,17 +84,24 @@ class TestEsSuperAdminReemplazaElSignificadoViejo:
         assert "mrr" in resp.json()
 
 
-class TestMFAObligatorioParaSuperAdmin:
-    def test_login_sin_mfa_falla(self, client):
+class TestSuperAdminSoloPuedeEntrarConGoogle:
+    """F0-14 (actualizado): el segundo factor del super-admin lo da la
+    verificación en dos pasos de su propia cuenta de Google, no el MFA de
+    pago de Auth0 (evita depender de una función que Auth0 corta en el plan
+    gratuito -- "Pro MFA has exceeded your plan limit")."""
+
+    def test_login_sin_sub_de_google_falla(self, client):
+        # El token del login va en el BODY, no en el header -- resolve_tenant
+        # no lo ve, así que el primer get_user_by_sub() SIEMPRE da vacío por
+        # RLS (ver docstring de UserService.login) y el flujo pasa por
+        # get_user_info antes de llegar al chequeo de Google.
         with patch(
             "infrastructure.providers.auth.auth0_provider.Auth0Provider.verify",
             new=_verify_con_superadmin,
         ), patch(
             "infrastructure.providers.auth.auth0_provider.Auth0Provider.get_user_info",
             new=AsyncMock(
-                return_value={
-                    "email": "admin@motogestion.com", "email_verified": True, "multifactor": [],
-                }
+                return_value={"email": "admin@motogestion.com", "email_verified": True}
             ),
         ):
             resp = client.post(
@@ -102,25 +109,44 @@ class TestMFAObligatorioParaSuperAdmin:
                 json={"email": "admin@motogestion.com", "token": SUPERADMIN_TOKEN, "name": "Admin"},
             )
         assert resp.status_code == 403
+        assert "Google" in resp.json()["message"]
 
-    def test_login_con_mfa_pasa(self, client):
-        with patch(
-            "infrastructure.providers.auth.auth0_provider.Auth0Provider.verify",
-            new=_verify_con_superadmin,
-        ), patch(
-            "infrastructure.providers.auth.auth0_provider.Auth0Provider.get_user_info",
-            new=AsyncMock(
-                return_value={
-                    "email": "admin@motogestion.com", "email_verified": True,
-                    "multifactor": ["guardian"],
-                }
-            ),
-        ):
-            resp = client.post(
-                "/api/auth/login",
-                json={"email": "admin@motogestion.com", "token": SUPERADMIN_TOKEN, "name": "Admin"},
+    def test_login_con_sub_de_google_pasa(self, client, db_conn):
+        google_sub = "google-oauth2|1000000001"
+        with db_conn.cursor() as cur:
+            cur.execute("SELECT set_config('app.tenant_id', '1', false)")
+            cur.execute(
+                "UPDATE usuarios SET sub_id_usu = %s WHERE documento_usu = '1000000001'",
+                (google_sub,),
             )
-        assert resp.status_code == 200
+        try:
+            async def _verify(self, token: str):
+                if token == SUPERADMIN_TOKEN:
+                    return UserPermissionsModel(user_id=google_sub, permissions=["*"])
+                sub = _SUB_POR_TOKEN.get(token)
+                if sub is None:
+                    raise ValueError(f"Token de test desconocido: {token!r}")
+                return UserPermissionsModel(user_id=sub, permissions=["*"])
+
+            with patch(
+                "infrastructure.providers.auth.auth0_provider.Auth0Provider.verify", new=_verify
+            ), patch(
+                "infrastructure.providers.auth.auth0_provider.Auth0Provider.get_user_info",
+                new=AsyncMock(
+                    return_value={"email": "admin@motogestion.com", "email_verified": True}
+                ),
+            ):
+                resp = client.post(
+                    "/api/auth/login",
+                    json={"email": "admin@motogestion.com", "token": SUPERADMIN_TOKEN, "name": "Admin"},
+                )
+            assert resp.status_code == 200
+        finally:
+            with db_conn.cursor() as cur:
+                cur.execute("SELECT set_config('app.tenant_id', '1', false)")
+                cur.execute(
+                    "UPDATE usuarios SET sub_id_usu = 'sub-1000000001' WHERE documento_usu = '1000000001'"
+                )
 
     def test_login_normal_no_exige_mfa_pero_si_correo_verificado(self, client, seed_talleres):
         """Un usuario sin es_super_admin no necesita MFA -- pero el correo
