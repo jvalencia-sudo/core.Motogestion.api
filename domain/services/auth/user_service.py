@@ -61,15 +61,17 @@ class UserService(BaseService[UserModel, UserRepository]):
         - Si es su primer ingreso y su correo está pre-registrado (sin sub) -> se
           vincula el sub y entra.
         - Si no está registrado -> 403 (no se crean usuarios sueltos).
-        - Si es super-admin (F0-14) y no tiene MFA activo en Auth0 -> 403 (la
-          verificación en dos pasos es obligatoria para esa marca).
+        - Si es super-admin (F0-14) y su sub no viene de la conexión Google de
+          Auth0 -> 403. El "segundo factor" de esa cuenta lo da la verificación
+          en dos pasos de la propia cuenta de Google, no el MFA de pago de
+          Auth0 (Pro MFA) -- así no dependemos de una función que Auth0 puede
+          cortar en el plan gratuito. Ver tests/superadmin_test.py.
 
         El correo del BODY (`request.email`) nunca es la fuente de verdad para
         decidir a quién vincular un sub nuevo -- cualquiera puede mandar cualquier
         correo ahí. Se resuelve por el correo VERIFICADO del propio perfil de
-        Auth0 (Management API, igual que ya se hace para el chequeo de MFA de
-        abajo): así no hay forma de pedir "vincúlame a este correo ajeno" con un
-        token propio válido.
+        Auth0 (Management API): así no hay forma de pedir "vincúlame a este
+        correo ajeno" con un token propio válido.
 
         OJO: este endpoint recibe el token en el BODY, no en el header
         Authorization -- resolve_tenant (dependency global) no lo ve, así que
@@ -119,17 +121,11 @@ class UserService(BaseService[UserModel, UserRepository]):
             await self.repository.vincular_sub(acceso.get("DOCUMENTO_USU"), sub)
             existing_user = await self.repository.get_user_by_sub(sub)
 
-        if existing_user.get("ES_SUPER_ADMIN"):
-            # Reusa el "info" de arriba si ya se pidió (hoy siempre es el caso,
-            # por el comentario de arriba) -- evita una segunda llamada a la
-            # Management API para el mismo usuario en la misma petición.
-            if info is None:
-                info = await Auth0Provider().get_user_info(sub)
-            if not (info and info.get("multifactor")):
-                raise DomainException(
-                    "Debes activar la verificación en dos pasos en tu cuenta antes de continuar",
-                    HTTP_403_FORBIDDEN,
-                )
+        if existing_user.get("ES_SUPER_ADMIN") and not sub.startswith("google-oauth2|"):
+            raise DomainException(
+                "La cuenta de super-admin solo puede iniciar sesión con Google",
+                HTTP_403_FORBIDDEN,
+            )
 
         await self.repository.marcar_ultimo_ingreso(existing_user.get("DOCUMENTO_USU"))
 
