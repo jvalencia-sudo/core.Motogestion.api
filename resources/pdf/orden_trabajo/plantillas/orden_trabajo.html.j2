@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Orden de trabajo {{ orden.numero | numero_ot }} · {{ taller.nombre }}</title>
+  <link rel="stylesheet" href="orden_trabajo.css">
+  {#- Personalización del taller. Los colores llegan YA validados como hex (#RRGGBB) desde el backend:
+      nunca se inserta aquí texto libre del usuario. -#}
+  <style>
+    :root {
+      --acento: {{ marca.color_acento }};
+      --acento-suave: {{ marca.color_acento_suave }};
+      --acento-texto: {{ marca.color_acento_texto }};
+    }
+    {% if config.mostrar_marca_motogestion %}
+    @page { @bottom-right { content: "Hecho con MotoGestión  ·  Página " counter(page) " de " counter(pages); } }
+    {% endif %}
+  </style>
+</head>
+<body>
+
+<div class="barra-acento"></div>
+
+<!-- ============ Encabezado ============ -->
+<header class="encabezado">
+  <div class="taller">
+    {% if taller.logo_data_uri %}
+      <img class="taller__logo" src="{{ taller.logo_data_uri }}" alt="">
+    {% endif %}
+    <div>
+      <h1 class="taller__nombre">{{ taller.nombre }}</h1>
+      {% if taller.nit %}<p class="taller__dato">NIT {{ taller.nit }}</p>{% endif %}
+      {% if taller.direccion %}<p class="taller__dato">{{ taller.direccion }}</p>{% endif %}
+      {% if taller.whatsapp %}<p class="taller__dato"><b>WhatsApp</b> {{ taller.whatsapp | telefono }}</p>{% endif %}
+      {% if taller.correo %}<p class="taller__dato">{{ taller.correo }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="documento">
+    <p class="documento__tipo">Orden de trabajo</p>
+    <p class="documento__numero">{{ orden.numero | numero_ot }}</p>
+    <span class="estado estado--{{ orden.estado_clave }}">{{ orden.estado }}</span>
+    <p class="fechas">
+      Ingreso <b>{{ orden.fecha_ingreso | fecha }}</b>
+      {% if orden.fecha_entrega %} · Entregada <b>{{ orden.fecha_entrega | fecha }}</b>
+      {% elif orden.fecha_estimada %} · Entrega estimada <b>{{ orden.fecha_estimada | fecha }}</b>{% endif %}
+    </p>
+  </div>
+</header>
+
+<!-- ============ Cliente y moto ============ -->
+<section class="dos-columnas">
+  <div class="tarjeta">
+    <h2 class="tarjeta__titulo">Cliente</h2>
+    <div class="campo"><span class="campo__etiqueta">Nombre</span><span class="campo__valor">{{ cliente.nombre }}</span></div>
+    <div class="campo"><span class="campo__etiqueta">{{ cliente.tipo_documento }}</span><span class="campo__valor">{{ cliente.documento }}</span></div>
+    <div class="campo"><span class="campo__etiqueta">Teléfono</span><span class="campo__valor">{{ cliente.telefono | telefono }}</span></div>
+    <div class="campo"><span class="campo__etiqueta">Dirección</span><span class="campo__valor">{{ cliente.direccion }}{% if cliente.ciudad %}, {{ cliente.ciudad }}{% endif %}</span></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2 class="tarjeta__titulo">Moto</h2>
+    <div class="moto">
+      <div class="placa">
+        <div class="placa__numero">{{ moto.placa | placa }}</div>
+        <div class="placa__ciudad">{{ moto.ciudad_placa | upper }}</div>
+      </div>
+      <div class="moto__datos">
+        <div class="campo"><span class="campo__etiqueta">Marca</span><span class="campo__valor">{{ moto.marca }}</span></div>
+        <div class="campo"><span class="campo__etiqueta">Modelo</span><span class="campo__valor">{{ moto.modelo }}</span></div>
+        <div class="campo"><span class="campo__etiqueta">Color</span><span class="campo__valor">{{ moto.color }}</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Datos rápidos ============ -->
+<section class="franja">
+  <div class="franja__item">
+    <p class="franja__etiqueta">Kilometraje de ingreso</p>
+    <p class="franja__valor">{{ orden.km_ingreso | km }}</p>
+  </div>
+  {% if config.mostrar_mecanico %}
+  <div class="franja__item">
+    <p class="franja__etiqueta">Mecánico</p>
+    <p class="franja__valor">{{ orden.mecanico or "Por asignar" }}</p>
+  </div>
+  {% endif %}
+  <div class="franja__item">
+    <p class="franja__etiqueta">Recibió</p>
+    <p class="franja__valor">{{ orden.recepcionista }}</p>
+  </div>
+  {% if orden.km_salida %}
+  <div class="franja__item">
+    <p class="franja__etiqueta">Kilometraje de salida</p>
+    <p class="franja__valor">{{ orden.km_salida | km }}</p>
+  </div>
+  {% endif %}
+</section>
+
+<!-- ============ Lo que pidió el cliente ============ -->
+{% if orden.motivo_cliente %}
+<section class="bloque">
+  <h2 class="bloque__titulo">Lo que reporta el cliente</h2>
+  <div class="nota">{{ orden.motivo_cliente }}</div>
+</section>
+{% endif %}
+
+<!-- ============ Trabajos y repuestos ============ -->
+<section class="bloque">
+  <h2 class="bloque__titulo">Trabajos y repuestos</h2>
+  <table class="items">
+    <thead>
+      <tr>
+        <th class="col-item">#</th>
+        <th>Descripción</th>
+        <th class="centro">Cant.</th>
+        {% if config.mostrar_precios_unitarios %}<th class="num">Valor unitario</th>{% endif %}
+        <th class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in orden.lineas %}
+      <tr>
+        <td class="col-item">{{ loop.index }}</td>
+        <td>
+          <span class="item__nombre">{{ item.nombre }}</span>
+          {% if item.sin_costo %}<span class="etiqueta-sin-costo">Sin costo{% if item.motivo_sin_costo %} · {{ item.motivo_sin_costo }}{% endif %}</span>{% endif %}
+          {% if item.detalle or item.codigo %}
+          <p class="item__detalle">{% if item.codigo %}Cód. {{ item.codigo }}{% endif %}{% if item.codigo and item.detalle %} · {% endif %}{{ item.detalle or "" }}</p>
+          {% endif %}
+        </td>
+        <td class="centro">{{ item.cantidad | cantidad }}{% if item.unidad %} {{ item.unidad }}{% endif %}</td>
+        {% if config.mostrar_precios_unitarios %}
+        <td class="num {% if item.sin_costo %}tachado{% endif %}">{{ item.precio_unitario | moneda }}</td>
+        {% endif %}
+        <td class="num">{% if item.sin_costo %}{{ 0 | moneda }}{% else %}{{ item.total | moneda }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ Diagnóstico + totales ============ -->
+<section class="cierre">
+  <div class="cierre__izq">
+    <h2 class="bloque__titulo">Diagnóstico del mecánico</h2>
+    {% if orden.diagnostico %}
+      <p>{{ orden.diagnostico }}</p>
+    {% else %}
+      {#- Sin diagnóstico: renglones para escribir a mano en la copia impresa -#}
+      <div class="renglones"><div></div><div></div><div></div></div>
+    {% endif %}
+  </div>
+
+  <div class="cierre__der">
+    <table class="totales">
+      <tr><td>Subtotal</td><td>{{ orden.subtotal | moneda }}</td></tr>
+      {% if orden.total_sin_costo %}
+      <tr class="muted"><td>Sin costo para el cliente</td><td>−{{ orden.total_sin_costo | moneda }}</td></tr>
+      {% endif %}
+      <tr class="final"><td>Total a cobrar</td><td>{{ orden.total | moneda }}</td></tr>
+    </table>
+    {% if orden.garantia_hasta %}
+      <p class="garantia">Garantía hasta el <b>{{ orden.garantia_hasta | fecha }}</b> en los trabajos de esta orden.</p>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ============ Condiciones + QR de estado ============ -->
+{% if config.condiciones or estado_qr_data_uri %}
+<section class="condiciones">
+  {% if config.condiciones %}
+    <p class="condiciones__texto"><b>Condiciones del servicio.</b> {{ config.condiciones }}</p>
+  {% endif %}
+  {% if estado_qr_data_uri %}
+    <div class="qr">
+      <img src="{{ estado_qr_data_uri }}" alt="">
+      <p class="qr__texto"><b>¿Ya está lista?</b>Escanea para ver el estado de tu moto en tiempo real.</p>
+    </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<!-- ============ Firmas ============ -->
+{% if config.mostrar_firmas %}
+<section class="firmas">
+  <div class="firma">
+    <p class="firma__linea">{{ cliente.nombre }}</p>
+    <p class="firma__sub">Firma del cliente · acepto las condiciones del servicio</p>
+  </div>
+  <div class="firma">
+    <p class="firma__linea">{{ taller.nombre }}</p>
+    <p class="firma__sub">Recibido por {{ orden.recepcionista }}</p>
+  </div>
+</section>
+{% endif %}
+
+<!-- ============ Pie de la orden ============ -->
+{% if config.pie %}
+<p class="pie-orden">{{ config.pie }}</p>
+{% endif %}
+
+</body>
+</html>

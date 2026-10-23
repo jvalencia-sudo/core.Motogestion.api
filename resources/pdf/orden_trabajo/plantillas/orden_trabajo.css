@@ -1,0 +1,157 @@
+/* ==========================================================================
+   Orden de trabajo — MotoGestión
+   Todo lo personalizable por taller está en las variables de :root.
+   El backend las sobrescribe con un <style> generado desde la configuración.
+   ========================================================================== */
+
+@font-face { font-family: "Barlow"; font-weight: 400; src: url("../fonts/barlow-latin-400-normal.woff"); }
+@font-face { font-family: "Barlow"; font-weight: 500; src: url("../fonts/barlow-latin-500-normal.woff"); }
+@font-face { font-family: "Barlow"; font-weight: 600; src: url("../fonts/barlow-latin-600-normal.woff"); }
+@font-face { font-family: "Barlow"; font-weight: 700; src: url("../fonts/barlow-latin-700-normal.woff"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 500; src: url("../fonts/barlow-condensed-latin-500-normal.woff"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 600; src: url("../fonts/barlow-condensed-latin-600-normal.woff"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("../fonts/barlow-condensed-latin-700-normal.woff"); }
+
+:root {
+  /* --- Marca del taller (configurable) --- */
+  --acento: #1F6FEB;          /* barra superior, número, total a cobrar */
+  --acento-suave: #E8F0FD;    /* fondos claros derivados del acento */
+  --acento-texto: #1F6FEB;    /* versión legible del acento para texto sobre blanco */
+  --tinta: #16191F;           /* texto principal */
+
+  /* --- Neutros (no se configuran) --- */
+  --gris-700: #3D434D;
+  --gris-500: #6B7280;
+  --gris-300: #C9CDD3;
+  --gris-150: #E6E8EB;
+  --gris-050: #F5F6F7;
+  --placa: #F5C518;           /* amarillo de placa de moto colombiana */
+
+  --radio: 2.2mm;
+}
+
+@page {
+  size: letter;
+  margin: 12mm 13mm 14mm 13mm;
+  @bottom-left {
+    content: "Este documento no es una factura de venta ni un documento equivalente.";
+    font-family: "Barlow", sans-serif; font-size: 7pt; color: #6B7280;
+  }
+  @bottom-right {
+    content: "Página " counter(page) " de " counter(pages);
+    font-family: "Barlow", sans-serif; font-size: 7pt; color: #6B7280;
+  }
+}
+
+* { box-sizing: border-box; }
+html { font-family: "Barlow", sans-serif; font-size: 8.6pt; color: var(--tinta); line-height: 1.35; }
+body { margin: 0; }
+h1, h2, h3, p { margin: 0; }
+
+.barra-acento { height: 2.2mm; background: var(--acento); border-radius: 1mm; margin-bottom: 5mm; }
+
+/* ---------- Encabezado ---------- */
+.encabezado { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; }
+.taller { display: flex; gap: 4.5mm; align-items: center; flex: 1 1 auto; }
+.documento { flex: 0 0 auto; }
+.taller__logo { width: 21mm; height: 21mm; object-fit: contain; border-radius: var(--radio); }
+.taller__nombre { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 19pt; line-height: 1; letter-spacing: .2pt; }
+.taller__dato { color: var(--gris-500); font-size: 8pt; margin-top: .9mm; white-space: nowrap; }
+.taller__dato b { color: var(--gris-700); font-weight: 600; }
+
+.documento { text-align: right; }
+.documento__tipo { color: var(--gris-500); font-size: 8pt; font-weight: 500; }
+.documento__numero { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 26pt; line-height: 1; color: var(--acento-texto); margin-top: .8mm; }
+.estado { display: inline-block; margin-top: 2mm; padding: .9mm 3mm; border-radius: 10mm; font-weight: 600; font-size: 7.6pt; border: .25mm solid currentColor; }
+.estado--pendiente { color: #8A5A00; background: #FFF4D6; }
+.estado--en_proceso { color: #1D4ED8; background: #E6EEFF; }
+.estado--lista { color: #0F7A3D; background: #E3F6EA; }
+.estado--entregada { color: #3D434D; background: #EEF0F2; }
+.estado--anulada { color: #B42318; background: #FDECEA; }
+
+.fechas { margin-top: 2.6mm; font-size: 7.8pt; color: var(--gris-500); }
+.fechas b { color: var(--tinta); font-weight: 600; }
+
+/* ---------- Tarjetas cliente / moto ---------- */
+.dos-columnas { display: flex; gap: 4mm; margin-top: 5mm; }
+.dos-columnas > * { flex: 1 1 0; }
+
+.tarjeta { border: .25mm solid var(--gris-150); border-radius: var(--radio); padding: 3mm 4mm; }
+.tarjeta__titulo { font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 10.5pt; color: var(--gris-700); margin-bottom: 2mm; }
+.campo { display: flex; justify-content: space-between; gap: 4mm; padding: .85mm 0; border-bottom: .2mm dotted var(--gris-300); }
+.campo:last-child { border-bottom: none; }
+.campo__etiqueta { color: var(--gris-500); white-space: nowrap; }
+.campo__valor { font-weight: 500; text-align: right; }
+
+.moto { display: flex; gap: 4mm; align-items: center; }
+.moto__datos { flex: 1; }
+.placa { width: 25mm; text-align: center; background: var(--placa); border: .5mm solid #111; border-radius: 1.6mm; padding: 1.4mm 0 1mm; }
+.placa__numero { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 15pt; letter-spacing: .6pt; line-height: 1; color: #111; }
+.placa__ciudad { font-size: 5.6pt; font-weight: 600; letter-spacing: .5pt; color: #111; margin-top: .6mm; }
+
+/* ---------- Franja de datos rápidos ---------- */
+.franja { display: flex; margin-top: 3.5mm; border: .25mm solid var(--gris-150); border-radius: var(--radio); background: var(--gris-050); }
+.franja__item { flex: 1 1 0; padding: 2mm 4mm; border-left: .25mm solid var(--gris-150); }
+.franja__item:first-child { border-left: none; }
+.franja__etiqueta { color: var(--gris-500); font-size: 7.4pt; }
+.franja__valor { font-weight: 600; font-size: 9.2pt; margin-top: .4mm; }
+
+/* ---------- Motivo del cliente ---------- */
+.bloque { margin-top: 3.5mm; }
+.bloque__titulo { font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 10.5pt; color: var(--gris-700); margin-bottom: 1.6mm; }
+.nota { border-left: .9mm solid var(--acento); background: var(--acento-suave); padding: 2.4mm 4mm; border-radius: 0 var(--radio) var(--radio) 0; }
+
+/* ---------- Tabla de trabajos ---------- */
+table.items { width: 100%; border-collapse: collapse; margin-top: 1.6mm; }
+.items thead th { font-weight: 600; font-size: 7.6pt; color: var(--gris-500); text-align: left; padding: 0 2mm 1.8mm; border-bottom: .35mm solid var(--tinta); }
+.items td { padding: 1.7mm 2mm; border-bottom: .2mm solid var(--gris-150); vertical-align: top; }
+.items tbody tr:nth-child(even) td { background: var(--gris-050); }
+.items .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.items .centro { text-align: center; }
+.items .col-item { width: 7mm; color: var(--gris-500); }
+.item__nombre { font-weight: 600; }
+.item__detalle { color: var(--gris-500); font-size: 7.6pt; margin-top: .3mm; }
+.item__codigo { color: var(--gris-500); font-size: 7pt; }
+.etiqueta-sin-costo { display: inline-block; margin-left: 1.5mm; padding: .2mm 1.8mm; border-radius: 5mm; font-size: 6.6pt; font-weight: 600; color: #0F7A3D; background: #E3F6EA; vertical-align: 1pt; }
+.tachado { text-decoration: line-through; color: var(--gris-500); }
+
+/* ---------- Diagnóstico + totales ---------- */
+.cierre { display: flex; gap: 6mm; margin-top: 4mm; align-items: flex-start; }
+.cierre__izq { flex: 1 1 0; }
+.cierre__der { width: 68mm; }
+
+.renglones { border-top: .2mm solid var(--gris-300); }
+.renglones div { height: 6mm; border-bottom: .2mm solid var(--gris-300); }
+
+.totales { width: 100%; border-collapse: collapse; }
+.totales td { padding: 1.5mm 0; }
+.totales td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.totales .muted td { color: var(--gris-500); }
+.totales .final td { padding-top: 2.6mm; border-top: .35mm solid var(--tinta); }
+.totales .final td:first-child { font-weight: 600; font-size: 9.5pt; }
+.totales .final td:last-child { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 18pt; color: var(--acento-texto); line-height: 1; }
+
+.garantia { margin-top: 3mm; padding: 2mm 3mm; border: .25mm dashed var(--gris-300); border-radius: var(--radio); font-size: 7.8pt; color: var(--gris-700); }
+
+/* ---------- Condiciones + QR ---------- */
+.condiciones { display: flex; gap: 5mm; margin-top: 3.5mm; align-items: center; padding-top: 3mm; border-top: .2mm solid var(--gris-150); }
+.condiciones__texto { flex: 1; font-size: 7.2pt; color: var(--gris-500); line-height: 1.45; }
+.condiciones__texto b { color: var(--gris-700); }
+.qr { display: flex; gap: 2.5mm; align-items: center; width: 52mm; }
+.qr img { width: 16mm; height: 16mm; }
+.qr__texto { font-size: 7.2pt; color: var(--gris-700); }
+.qr__texto b { display: block; font-size: 8pt; color: var(--tinta); }
+
+/* ---------- Firmas ---------- */
+.firmas { display: flex; gap: 16mm; margin-top: 8mm; }
+.firma { flex: 1 1 0; text-align: center; }
+.firma__linea { border-top: .3mm solid var(--tinta); padding-top: 1.4mm; font-weight: 600; font-size: 8pt; }
+.firma__sub { color: var(--gris-500); font-size: 7.2pt; }
+
+/* ---------- Pie de la orden ---------- */
+.pie-orden { margin-top: 5mm; font-size: 7.2pt; color: var(--gris-500); text-align: center; }
+
+
+/* Evita cortar bloques entre páginas cuando la orden es larga */
+.tarjeta, .franja, .cierre, .condiciones, .firmas, .pie-orden { page-break-inside: avoid; }
+.items tr { page-break-inside: avoid; }

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from domain.models.base_model import BaseSchema
 
 
@@ -8,3 +10,4 @@ class MotoModelo(BaseSchema):
     cilindraje_mot: int
     documento_cli_mot: str  # Foreign key to clientes
     cod_marca_mot: int  # Foreign key to marcas
+    ciudad_placa_mot: Optional[str] = None

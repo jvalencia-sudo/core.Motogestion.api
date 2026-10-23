@@ -104,7 +104,8 @@ jobs:
               ('008_anulacion_auditoria'),
               ('009_garantia_por_producto'),
               ('010_pagos_orden'),
-              ('011_personalizacion_pdf')
+              ('011_personalizacion_pdf'),
+              ('012_tipo_documento_y_ciudad_placa')
           ON CONFLICT (version) DO NOTHING;
           SQL
 
@@ -142,9 +143,22 @@ jobs:
               ('008_anulacion_auditoria'),
               ('009_garantia_por_producto'),
               ('010_pagos_orden'),
-              ('011_personalizacion_pdf')
+              ('011_personalizacion_pdf'),
+              ('012_tipo_documento_y_ciudad_placa')
           ON CONFLICT (version) DO NOTHING;
           SQL
+
+      # Librerías nativas de WeasyPrint (rediseño del PDF de orden de
+      # trabajo) -- este job corre en el runner desnudo (no en el
+      # Dockerfile), así que necesita su propia instalación. Mismos
+      # paquetes que el Dockerfile; ver su comentario para el porqué de
+      # libgdk-pixbuf-2.0-0 (no libgdk-pixbuf2.0-0).
+      - name: Instalar dependencias nativas de WeasyPrint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+            libgdk-pixbuf-2.0-0 libcairo2 libffi8 shared-mime-info fonts-liberation
 
       - uses: astral-sh/setup-uv@v5
         with:

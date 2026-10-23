@@ -1,3 +1,5 @@
+from typing import Optional
+
 from domain.models.base_model import BaseSchema
 
 
@@ -9,6 +11,7 @@ class VwMotoModelo(BaseSchema):
     cilindraje_mot: int
     documento_cli_mot: str
     cod_marca_mot: int
+    ciudad_placa_mot: Optional[str] = None
 
 
 class VwMotoMarcasModelo(BaseSchema):
@@ -20,6 +23,7 @@ class VwMotoMarcasModelo(BaseSchema):
     documento_cli_mot: str
     cod_marca_mot: int
     marca: str
+    ciudad_placa_mot: Optional[str] = None
 
 
 class VwMotoDetalleModelo(BaseSchema):
@@ -33,3 +37,4 @@ class VwMotoDetalleModelo(BaseSchema):
     nombre_completo_cliente: str
     telefono_cli: str
     correo_cli: str
+    ciudad_placa_mot: Optional[str] = None

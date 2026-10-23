@@ -133,7 +133,8 @@ async def generar_comprobante_orden_trabajo(consecutivo_ot: int):
     servicio = OrdenTrabajoServicio()
 
     # Generar el comprobante (toda la lógica de negocio está en el servicio,
-    # en memoria: ver nota de seguridad en OrdenTrabajoPDFGenerator.generar_pdf)
+    # en memoria: ver nota de seguridad en generar_pdf_orden_html de
+    # orden_trabajo_html_pdf.py)
     try:
         pdf_bytes = await servicio.generar_comprobante_servicio_pos(consecutivo_ot)
         nombre_archivo = f"comprobante_{consecutivo_ot}.pdf"

@@ -76,11 +76,11 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         """Genera el PDF (carta) de la orden, con la personalización visual
         del taller (F1-09). La validación de negocio (existencia, estado
         válido, tiene ítems) vive en obtener_orden_para_documento."""
-        from infrastructure.utils.pdf_generator import OrdenTrabajoPDFGenerator
+        from infrastructure.utils.orden_trabajo_html_pdf import generar_pdf_orden_html
 
         orden = await self.obtener_orden_para_documento(consecutivo_ot)
         marca = await self._config_marca_taller()
-        return OrdenTrabajoPDFGenerator(marca).generar_pdf(orden)
+        return generar_pdf_orden_html(orden, marca)
 
     def __parse__(self, record: Dict) -> OrdenTrabajoModelo:
         return OrdenTrabajoModelo.model_validate(record)
@@ -324,7 +324,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             color_mot=orden_modelo.color_mot,
             cilindraje_mot=orden_modelo.cilindraje_mot,
             marca_moto=orden_modelo.marca_moto,
+            ciudad_placa_mot=orden_modelo.ciudad_placa_mot,
             documento_cli=orden_modelo.documento_cli,
+            tipo_documento_cli=orden_modelo.tipo_documento_cli,
             nombre_completo_cliente=orden_modelo.nombre_completo_cliente,
             telefono_cli=orden_modelo.telefono_cli,
             correo_cli=orden_modelo.correo_cli,

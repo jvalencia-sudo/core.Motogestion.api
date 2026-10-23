@@ -56,6 +56,7 @@ INSERT INTO schema_migrations (version) VALUES
     ('008_anulacion_auditoria'),
     ('009_garantia_por_producto'),
     ('010_pagos_orden'),
-    ('011_personalizacion_pdf')
+    ('011_personalizacion_pdf'),
+    ('012_tipo_documento_y_ciudad_placa')
 ON CONFLICT (version) DO NOTHING;
 EOSQL

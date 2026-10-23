@@ -10,6 +10,7 @@ class ClienteModelo(BaseSchema):
     telefono_cli: str
     correo_cli: str
     direccion_cli: Optional[str] = None
+    tipo_documento_cli: str = "CC"
 
 
 class VwClientesMotos(BaseSchema):

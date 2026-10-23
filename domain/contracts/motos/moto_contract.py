@@ -13,6 +13,7 @@ class MotoCreateContract(BaseContractSchema):
     cilindraje_mot: int = Field(..., gt=0, description="Cilindraje de la moto (debe ser mayor a 0)")
     documento_cli_mot: str = Field(..., min_length=8, max_length=11, description="Documento del propietario")
     cod_marca_mot: int = Field(..., gt=0, description="Código de la marca (debe ser mayor a 0)")
+    ciudad_placa_mot: Optional[str] = Field(None, max_length=40, description="Ciudad de matrícula de la placa")
 
     @field_validator("placa_mot", mode="before")
     @classmethod
@@ -28,6 +29,7 @@ class MotoUpdateContract(BaseContractSchema):
     cilindraje_mot: Optional[int] = Field(None, gt=0, description="Cilindraje de la moto")
     documento_cli_mot: Optional[str] = Field(None, min_length=8, max_length=11, description="Documento del propietario")
     cod_marca_mot: Optional[int] = Field(None, gt=0, description="Código de la marca")
+    ciudad_placa_mot: Optional[str] = Field(None, max_length=40, description="Ciudad de matrícula de la placa")
 
     @field_validator("placa_mot", mode="before")
     @classmethod
@@ -41,6 +43,7 @@ class MotoResponseContract(BaseContractSchema):
     modelo_mot: int
     color_mot: str
     cilindraje_mot: int
+    ciudad_placa_mot: Optional[str] = None
     marca: str
     propietario: str
     telefono_cli: str
@@ -53,6 +56,7 @@ class MotoClienteResponseContract(BaseContractSchema):
     modelo_mot: int
     color_mot: str
     cilindraje_mot: int
+    ciudad_placa_mot: Optional[str] = None
     documento_cli_mot: str
     cod_marca_mot: int
     nombre_marca: str

@@ -9,7 +9,11 @@ class ConfigMarcaTaller:
     previa (datos del formulario, sin guardar)."""
     nombre_comercial: Optional[str] = None
     whatsapp: Optional[str] = None
+    nit: Optional[str] = None
+    direccion: Optional[str] = None
+    correo: Optional[str] = None
     logo_bytes: Optional[bytes] = None
+    logo_content_type: Optional[str] = None
     color_principal: str = "#00B06E"
     texto_condiciones: Optional[str] = None
     texto_pie: Optional[str] = None

@@ -47,6 +47,8 @@ class VwOrdenesTrabajoCompleta(BaseSchema):
     motivo_anulacion_ot: Optional[str] = None
     fecha_anulacion_ot: Optional[datetime] = None
     documento_usu_anulacion_ot: Optional[str] = None
+    tipo_documento_cli: str = "CC"
+    ciudad_placa_mot: Optional[str] = None
 
 
 class VwResumenFinancieroOt(BaseSchema):

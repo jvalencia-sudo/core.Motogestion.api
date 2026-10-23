@@ -43,12 +43,14 @@ dependencies = [
     # llegaba de rebote como dependencia transitiva de pandas; explícito para no
     # perderlo si eso cambia (infrastructure/utils/fecha_bogota.py depende de esto).
     "tzdata>=2025.2",
+    "weasyprint>=70.0",
 ]
 
 [dependency-groups]
 dev = [
     "faker>=33.3.1",
     "httpx>=0.28.1",
+    "pypdf>=6.21.2",
     "ruff==0.8.4",
 ]
 
