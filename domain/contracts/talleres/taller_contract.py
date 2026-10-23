@@ -89,6 +89,7 @@ class VistaPreviaOrdenContract(BaseSchema):
     se edita 'Mi taller'. El logo que se usa es el YA guardado (el logo se
     sube aparte, de inmediato, no se previsualiza sin subir)."""
     nombre_comercial_tal: Optional[str] = Field(None, max_length=150)
+    whatsapp_tal: Optional[str] = Field(None, max_length=20)
     color_principal_tal: str = Field("#00B06E", pattern=r"^#[0-9A-Fa-f]{6}$")
     texto_condiciones_tal: Optional[str] = Field(None, max_length=1500)
     texto_pie_tal: Optional[str] = Field(None, max_length=200)
