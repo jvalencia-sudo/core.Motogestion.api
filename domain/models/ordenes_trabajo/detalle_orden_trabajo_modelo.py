@@ -13,6 +13,8 @@ class DetalleOrdenTrabajoModelo(BaseSchema):
     documento_usu_deto: str
     cobrar_deto: bool = True
     motivo_no_cobro_deto: Optional[str] = None
+    retirado: bool = False
+    motivo_retiro: Optional[str] = None
 
 
 class VwDetalleOtProductos(BaseSchema):
@@ -28,3 +30,6 @@ class VwDetalleOtProductos(BaseSchema):
     fecha_confirmacion_deto: Optional[datetime] = None
     usuario_confirmacion: str
     estado_producto: str
+    tipo_pro: str
+    retirado: bool = False
+    motivo_retiro: Optional[str] = None

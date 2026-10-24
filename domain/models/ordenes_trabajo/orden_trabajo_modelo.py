@@ -49,6 +49,8 @@ class VwOrdenesTrabajoCompleta(BaseSchema):
     documento_usu_anulacion_ot: Optional[str] = None
     tipo_documento_cli: str = "CC"
     ciudad_placa_mot: Optional[str] = None
+    token_publico: str
+    diagnostico_ot: Optional[str] = None
 
 
 class VwResumenFinancieroOt(BaseSchema):
@@ -81,3 +83,10 @@ class OrdenAnteriorModelo(BaseSchema):
     """Modelo para la orden anterior con datos de garantía"""
     fecha_fin_garantia_ot: Optional[date] = None
     fecha_entrega_ot: Optional[date] = None
+
+
+class OrdenEstadoHistorialModelo(BaseSchema):
+    """F2-02: una fila de orden_estado_historial (hora real de un hito)."""
+    consecutivo_ot: int
+    cod_ot_est_ot: int
+    ocurrido_en: datetime

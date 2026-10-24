@@ -23,6 +23,7 @@ from api.endpoints.inventario.inventario_api import router as inventario_router
 from api.endpoints.impuestos.impuesto_api import router as impuestos_router
 from api.endpoints.suscripciones.suscripcion_api import router as suscripciones_router
 from api.endpoints.public.wompi_webhook_api import router as wompi_webhook_router
+from api.endpoints.public.orden_publica_api import router as orden_publica_router
 from api.endpoints.superadmin import router as superadmin_router
 
 api_router = APIRouter()
@@ -85,6 +86,9 @@ api_router.include_router(suscripciones_router, prefix="/suscripciones", tags=["
 
 # Webhook público de Wompi (sin auth; validado por firma del evento)
 api_router.include_router(wompi_webhook_router, prefix="/public", tags=["Public"])
+
+# F2-01: link público de estado de la orden (sin auth; identidad por token UUID)
+api_router.include_router(orden_publica_router, prefix="/public", tags=["Public"])
 
 # Panel de super-admin de la plataforma (F0-14): exige es_super_admin explícito,
 # independiente de taller/rol -- no "Admin del taller plataforma" como antes.

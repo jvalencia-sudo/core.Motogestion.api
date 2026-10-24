@@ -200,6 +200,10 @@ class TestMetricasPorTenantNoSeMezclan:
             with db_conn.cursor() as cur:
                 cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_B),))
                 cur.execute(
+                    "DELETE FROM orden_estado_historial WHERE cod_taller = %s AND consecutivo_ot = 99",
+                    (TALLER_B,),
+                )
+                cur.execute(
                     "DELETE FROM ordenes_trabajo WHERE cod_taller = %s AND consecutivo_ot = 99",
                     (TALLER_B,),
                 )

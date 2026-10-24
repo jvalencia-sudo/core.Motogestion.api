@@ -11,11 +11,14 @@ from domain.contracts.ordenes_trabajo.orden_trabajo_contract import (
     EntregarOrdenContract,
     AnularOrdenContract,
     OtEstadoResponseContract,
-    HistorialEventoContract
+    HistorialEventoContract,
+    TokenPublicoResponseContract,
 )
 from domain.contracts.ordenes_trabajo.detalle_orden_trabajo_contract import (
     DetalleOrdenTrabajoContract,
-    DetalleOrdenUpdateContract
+    DetalleOrdenUpdateContract,
+    RetirarProductoContract,
+    GuardarDiagnosticoContract,
 )
 from domain.contracts.ordenes_trabajo.pago_orden_contract import (
     PagoOrdenCreateContract,
@@ -230,6 +233,18 @@ async def anular_orden_trabajo(
     return await servicio.anular_orden(consecutivo_ot, anulacion.motivo, documento_usuario)
 
 
+@router.patch("/{consecutivo_ot}/token-publico/regenerar", response_model=TokenPublicoResponseContract)
+async def regenerar_token_publico_orden(
+    consecutivo_ot: int,
+    _=Depends(require_permiso("crear_editar:ordenes-trabajo")),
+):
+    """F2-01: invalida el link público de estado vigente de la orden y
+    genera uno nuevo."""
+    servicio = OrdenTrabajoServicio()
+    token = await servicio.regenerar_token_publico(consecutivo_ot)
+    return TokenPublicoResponseContract(token_publico=token)
+
+
 @router.get("/{consecutivo_ot}/historial", response_model=List[HistorialEventoContract])
 async def obtener_historial_orden(
     consecutivo_ot: int,
@@ -280,15 +295,30 @@ async def actualizar_cantidad_producto(
     return await servicio.actualizar_cantidad_producto(consecutivo_ot, cod_pro, detalle)
 
 
-@router.delete("/{consecutivo_ot}/productos/{cod_pro}", response_model=OrdenTrabajoResponseContract)
-async def eliminar_producto_de_orden(
+@router.patch("/{consecutivo_ot}/productos/{cod_pro}/retirar", response_model=OrdenTrabajoResponseContract)
+async def retirar_producto_de_orden(
     consecutivo_ot: int,
     cod_pro: int,
+    retiro: RetirarProductoContract,
     _=Depends(require_permiso("eliminar_o_anular:ordenes-trabajo")),
 ):
-    """Elimina un producto/servicio de una orden de trabajo"""
+    """F2-02: retira un producto/servicio de una orden (motivo obligatorio).
+    Reemplaza el antiguo DELETE físico -- el ítem queda visible, con su
+    motivo, en vez de desaparecer."""
     servicio = OrdenTrabajoServicio()
-    return await servicio.eliminar_producto(consecutivo_ot, cod_pro)
+    return await servicio.retirar_producto(consecutivo_ot, cod_pro, retiro.motivo)
+
+
+@router.patch("/{consecutivo_ot}/diagnostico", response_model=OrdenTrabajoResponseContract)
+async def guardar_diagnostico_orden(
+    consecutivo_ot: int,
+    diagnostico: GuardarDiagnosticoContract,
+    _=Depends(require_permiso("crear_editar:ordenes-trabajo")),
+):
+    """F2-02: diagnóstico del mecánico -- lo ve el cliente final en el link
+    público. Separado de la observación interna de la orden."""
+    servicio = OrdenTrabajoServicio()
+    return await servicio.guardar_diagnostico(consecutivo_ot, diagnostico.texto)
 
 
 # ---- F1-07: pagos/abonos de una orden ----

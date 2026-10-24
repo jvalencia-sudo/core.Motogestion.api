@@ -176,6 +176,10 @@ class TestReclamoValidaContraLaFechaCalculada:
         with db_conn.cursor() as cur:
             cur.execute("SELECT set_config('app.tenant_id', %s, false)", (str(TALLER_A),))
             cur.execute(
+                "DELETE FROM orden_estado_historial WHERE cod_taller = %s AND consecutivo_ot = %s",
+                (TALLER_A, consecutivo_creado),
+            )
+            cur.execute(
                 "DELETE FROM ordenes_trabajo WHERE cod_taller = %s AND consecutivo_ot = %s",
                 (TALLER_A, consecutivo_creado),
             )

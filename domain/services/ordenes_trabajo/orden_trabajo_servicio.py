@@ -28,6 +28,7 @@ from domain.services.base_service import BaseService
 from infrastructure.utils.placa import normalizar_placa
 from repository.ordenes_trabajo.orden_trabajo_repositorio import OrdenTrabajoRepositorio
 from repository.ordenes_trabajo.detalle_orden_trabajo_repositorio import DetalleOrdenTrabajoRepositorio
+from repository.ordenes_trabajo.orden_aprobacion_repositorio import OrdenAprobacionRepositorio
 from repository.ordenes_trabajo.ot_estado_repositorio import OtEstadoRepositorio
 from repository.motos.moto_repositorio import MotoRepositorio
 from repository.productos.producto_repositorio import ProductoRepositorio
@@ -53,6 +54,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         self.paquete_repository = PaqueteComponenteRepositorio()
         self.inventario_repository = InventarioRepositorio()
         self.taller_repository = TallerRepositorio()
+        self.aprobacion_repository = OrdenAprobacionRepositorio()
 
     async def _config_comprobante_taller(self) -> dict:
         """nombre/dirección/teléfono y texto_pie_comprobante del taller actual
@@ -94,7 +96,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
         if nuevo_estado not in self.ESTADOS_QUE_REQUIEREN_ITEMS:
             return
         detalles = await self.detalle_repository.obtener_detalles_por_orden(consecutivo_ot)
-        if not detalles:
+        # F2-02: un ítem retirado no cuenta -- si todos los ítems de la
+        # orden fueron retirados, es como si no tuviera ninguno.
+        if not any(not d.get("RETIRADO") for d in detalles):
             raise DomainException(
                 "La orden debe tener al menos un producto o servicio para "
                 "marcarla como Completada o Entregada",
@@ -284,7 +288,10 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
                 subtotal=float(det.subtotal),
                 fecha_confirmacion_deto=det.fecha_confirmacion_deto,
                 usuario_confirmacion=det.usuario_confirmacion,
-                estado_producto=det.estado_producto
+                estado_producto=det.estado_producto,
+                tipo_pro=det.tipo_pro,
+                retirado=det.retirado,
+                motivo_retiro=det.motivo_retiro,
             )
             for det in detalles_modelos
         ]
@@ -307,6 +314,8 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             total_pagado = float(resumen_modelo.total_pagado or 0.0)
             saldo_ot = float(resumen_modelo.saldo_ot or 0.0)
 
+        vigente = await self.aprobacion_repository.obtener_vigente(consecutivo_ot)
+
         return OrdenTrabajoResponseContract(
             consecutivo_ot=orden_modelo.consecutivo_ot,
             fecha_elaboracion_ot=orden_modelo.fecha_elaboracion_ot,
@@ -316,6 +325,7 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             observacion_cli_ot=orden_modelo.observacion_cli_ot,
             observacion_ot=orden_modelo.observacion_ot,
             fecha_fin_garantia_ot=orden_modelo.fecha_fin_garantia_ot,
+            diagnostico_ot=orden_modelo.diagnostico_ot,
             motivo_anulacion_ot=orden_modelo.motivo_anulacion_ot,
             fecha_anulacion_ot=orden_modelo.fecha_anulacion_ot,
             documento_usu_anulacion_ot=orden_modelo.documento_usu_anulacion_ot,
@@ -343,8 +353,21 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             total_impuestos=total_impuestos,
             total_ot=total_ot,
             total_pagado=total_pagado,
-            saldo_ot=saldo_ot
+            saldo_ot=saldo_ot,
+            token_publico=orden_modelo.token_publico,
+            aprobado_en=vigente["APROBADO_EN"] if vigente else None,
         )
+
+    async def regenerar_token_publico(self, consecutivo_ot: int) -> str:
+        """F2-01: invalida el link público vigente de la orden y genera uno
+        nuevo."""
+        token = await self.repository.regenerar_token_publico(consecutivo_ot)
+        if not token:
+            raise DomainException(
+                f"Orden de trabajo con consecutivo {consecutivo_ot} no encontrada",
+                HTTP_404_NOT_FOUND
+            )
+        return token
 
     async def crear_orden_trabajo(
         self,
@@ -671,6 +694,9 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             cobrar=detalle_contract.cobrar_deto,
             motivo_no_cobro=detalle_contract.motivo_no_cobro_deto
         )
+        # F2-03: la cotización cambió -- si había una aprobación vigente,
+        # queda como histórica y la orden vuelve a pedir aprobación.
+        await self.aprobacion_repository.invalidar_vigente(consecutivo_ot)
 
         return await self.obtener_orden_por_id(consecutivo_ot)
 
@@ -741,30 +767,53 @@ class OrdenTrabajoServicio(BaseService[OrdenTrabajoModelo, OrdenTrabajoRepositor
             cobrar=detalle_contract.cobrar_deto,
             motivo_no_cobro=detalle_contract.motivo_no_cobro_deto
         )
+        # F2-03: la cotización cambió -- si había una aprobación vigente,
+        # queda como histórica y la orden vuelve a pedir aprobación.
+        await self.aprobacion_repository.invalidar_vigente(consecutivo_ot)
 
         return await self.obtener_orden_por_id(consecutivo_ot)
 
-    async def eliminar_producto(
+    async def retirar_producto(
         self,
         consecutivo_ot: int,
-        cod_pro: int
+        cod_pro: int,
+        motivo: str,
     ) -> OrdenTrabajoResponseContract:
-        """Elimina un producto de una orden de trabajo"""
+        """F2-02: retira un producto de una orden (reemplaza el DELETE físico
+        de antes). La fila no se borra -- queda visible con su motivo, tanto
+        acá como en el link público."""
         # F1-05: no se pueden quitar productos de una orden Entregada o Anulada.
         await self._validar_orden_editable(consecutivo_ot)
 
-        # Verificar que el detalle existe
+        # Verificar que el detalle existe (y no está ya retirado)
         detalle_dict = await self.detalle_repository.obtener_detalle(consecutivo_ot, cod_pro)
-        if not detalle_dict:
+        if not detalle_dict or detalle_dict.get("RETIRADO"):
             raise DomainException(
-                "El producto no existe en esta orden",
+                "El producto no existe en esta orden, o ya fue retirado",
                 HTTP_404_NOT_FOUND
             )
 
-        # Eliminar detalle. El trigger de DELETE (tg_revertir_stock) devuelve el stock
-        # y deja el movimiento de reversa en el kardex (solo para BIEN facturable).
-        await self.detalle_repository.eliminar_detalle(consecutivo_ot, cod_pro)
+        # Retirar (soft-delete). El trigger tg_revertir_stock_retiro devuelve
+        # el stock y deja el movimiento de reversa en el kardex, igual que
+        # antes hacía el DELETE físico.
+        await self.detalle_repository.retirar_detalle(consecutivo_ot, cod_pro, motivo)
+        # F2-03: la cotización cambió -- si había una aprobación vigente,
+        # queda como histórica y la orden vuelve a pedir aprobación.
+        await self.aprobacion_repository.invalidar_vigente(consecutivo_ot)
 
+        return await self.obtener_orden_por_id(consecutivo_ot)
+
+    async def guardar_diagnostico(
+        self, consecutivo_ot: int, texto: str
+    ) -> OrdenTrabajoResponseContract:
+        """F2-02: diagnóstico del mecánico, lo ve el cliente final en el link
+        público. Separado de observacion_ot (interno)."""
+        if not await self.repository.existe_orden(consecutivo_ot):
+            raise DomainException(
+                f"Orden de trabajo con consecutivo {consecutivo_ot} no encontrada",
+                HTTP_404_NOT_FOUND
+            )
+        await self.repository.guardar_diagnostico(consecutivo_ot, texto)
         return await self.obtener_orden_por_id(consecutivo_ot)
 
     async def obtener_orden_para_documento(self, consecutivo_ot: int):

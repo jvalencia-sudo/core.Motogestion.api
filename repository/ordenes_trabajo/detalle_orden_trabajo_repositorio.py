@@ -78,14 +78,19 @@ class DetalleOrdenTrabajoRepositorio(BaseRepository):
         await self.execute_non_query(query, (nueva_cantidad, cobrar, motivo_no_cobro, consecutivo_ot, cod_pro))
         return True
 
-    async def eliminar_detalle(self, consecutivo_ot: int, cod_pro: int) -> bool:
-        """Elimina un producto del detalle de la orden"""
+    async def retirar_detalle(self, consecutivo_ot: int, cod_pro: int, motivo: str) -> bool:
+        """F2-02: retira un producto del detalle (soft-delete, con motivo).
+        No borra la fila -- la deja visible (tachada) para el taller y el
+        cliente. El `AND NOT retirado` evita retirar dos veces la misma fila
+        (y con eso, una doble reversa de stock por el trigger). Devuelve
+        False si la fila no existe o ya estaba retirada."""
         query = """
-            DELETE FROM detalle_orden_trabajo
-            WHERE consecutivo_ot_deto = :1 AND cod_pro_deto = :2
+            UPDATE detalle_orden_trabajo
+            SET retirado = true, motivo_retiro = :1
+            WHERE consecutivo_ot_deto = :2 AND cod_pro_deto = :3 AND NOT retirado
         """
-        await self.execute_non_query(query, (consecutivo_ot, cod_pro))
-        return True
+        resultado = await self.db.insert(query, (motivo, consecutivo_ot, cod_pro))
+        return bool(resultado and resultado.get("affected_rows"))
 
     async def obtener_detalle(self, consecutivo_ot: int, cod_pro: int) -> Optional[Dict]:
         """Obtiene un detalle especifico"""

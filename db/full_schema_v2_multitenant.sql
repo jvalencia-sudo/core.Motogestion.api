@@ -40,6 +40,13 @@ CREATE TABLE talleres (
     mostrar_precios_unitarios_tal BOOLEAN     NOT NULL DEFAULT true,
     mostrar_mecanico_tal          BOOLEAN     NOT NULL DEFAULT true,
     mostrar_firma_cliente_tal     BOOLEAN     NOT NULL DEFAULT false,
+    -- F2-01: ¿se muestran items y total en el link publico de estado?
+    mostrar_detalle_publico_tal   BOOLEAN     NOT NULL DEFAULT true,
+    -- F2-02/F2-03: horario de atencion (texto libre, se ve en el link publico)
+    -- y switch opcional de aprobacion de cotizacion antes de reparar (default
+    -- apagado -- ningun taller pierde su flujo actual sin pedirlo).
+    horario_atencion_tal          TEXT,
+    exige_aprobacion_cotizacion_tal BOOLEAN   NOT NULL DEFAULT false,
     CONSTRAINT pk_talleres PRIMARY KEY (cod_taller),
     CONSTRAINT chk_taller_modo_mo CHECK (modo_mano_obra IN ('HORAS', 'LIBRE')),
     CONSTRAINT chk_taller_color_principal CHECK (color_principal_tal ~ '^#[0-9A-Fa-f]{6}$')
@@ -76,8 +83,10 @@ CREATE TABLE planes (
 );
 INSERT INTO planes (nombre_plan, precio_plan, max_usuarios, max_motos, features, orden, activo) VALUES
     ('Prueba',   0,     NULL, NULL, '{"reportes": true}', 1, true),
-    ('Taller',   69000, NULL, NULL, '{"reportes": true}', 2, true),
-    ('Premium',  99000, NULL, NULL, '{"reportes": true, "multi_sucursal": true}', 3, false);
+    -- F2-01: sin_marca_motogestion quita el pie "Hecho con MotoGestión" del
+    -- link público de estado de la orden.
+    ('Taller',   69000, NULL, NULL, '{"reportes": true, "sin_marca_motogestion": true}', 2, true),
+    ('Premium',  99000, NULL, NULL, '{"reportes": true, "multi_sucursal": true, "sin_marca_motogestion": true}', 3, false);
 
 -- Pagos / suscripciones (billing de plataforma, SIN RLS: el webhook llega sin sesión).
 CREATE SEQUENCE seq_pagos START WITH 1 INCREMENT BY 1 CACHE 1 NO CYCLE;
@@ -296,6 +305,13 @@ CREATE TABLE ordenes_trabajo (
     motivo_anulacion_ot        VARCHAR(500),
     fecha_anulacion_ot         TIMESTAMP,
     documento_usu_anulacion_ot VARCHAR(11),
+    -- F2-01: token del link publico de estado (no el consecutivo, para que
+    -- no sea adivinable). Se puede regenerar -- ver orden_trabajo_repositorio.
+    token_publico              UUID NOT NULL DEFAULT gen_random_uuid(),
+    -- F2-02: diagnostico que ve el cliente final -- NUEVO y SEPARADO de
+    -- observacion_ot (ese es interno/admin, reusarlo filtraria texto no
+    -- pensado para el cliente en ordenes que ya existen).
+    diagnostico_ot              TEXT,
     CONSTRAINT pk_ordenes_trabajo PRIMARY KEY (cod_taller, consecutivo_ot),
     CONSTRAINT fk_ot_taller   FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_ot_moto     FOREIGN KEY (cod_taller, placa_mot_ot)        REFERENCES motos (cod_taller, placa_mot),
@@ -303,7 +319,8 @@ CREATE TABLE ordenes_trabajo (
     CONSTRAINT fk_ot_mecanico FOREIGN KEY (cod_taller, documento_usu_mc_ot) REFERENCES usuarios (cod_taller, documento_usu),
     CONSTRAINT fk_ot_estado   FOREIGN KEY (cod_ot_est_ot)                   REFERENCES ot_estados (cod_ot_est),
     CONSTRAINT fk_ot_anulacion FOREIGN KEY (cod_taller, documento_usu_anulacion_ot) REFERENCES usuarios (cod_taller, documento_usu),
-    CONSTRAINT chk_ot_km_salida CHECK (kilometraje_salida_ot IS NULL OR kilometraje_salida_ot >= kilometraje_ingreso_ot)
+    CONSTRAINT chk_ot_km_salida CHECK (kilometraje_salida_ot IS NULL OR kilometraje_salida_ot >= kilometraje_ingreso_ot),
+    CONSTRAINT ux_ordenes_trabajo_token_publico UNIQUE (token_publico)
 );
 
 CREATE TABLE detalle_orden_trabajo (
@@ -317,13 +334,18 @@ CREATE TABLE detalle_orden_trabajo (
     documento_usu_deto      VARCHAR(11),
     cobrar_deto             BOOLEAN NOT NULL DEFAULT true,          -- false: cortesía -- SÍ descuenta stock igual
     motivo_no_cobro_deto    VARCHAR(200),                           -- obligatorio si cobrar_deto = false
+    -- F2-02: retirar un item ya no borra la fila -- se marca y se motiva,
+    -- igual patrón que cobrar_deto (la fila sigue, solo se excluye del dinero).
+    retirado                BOOLEAN NOT NULL DEFAULT false,
+    motivo_retiro           VARCHAR(200),                           -- obligatorio si retirado = true
     CONSTRAINT pk_detalle_ot PRIMARY KEY (cod_taller, id_deto),
     CONSTRAINT fk_deto_taller   FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
     CONSTRAINT fk_deto_orden    FOREIGN KEY (cod_taller, consecutivo_ot_deto) REFERENCES ordenes_trabajo (cod_taller, consecutivo_ot),
     CONSTRAINT fk_deto_producto FOREIGN KEY (cod_taller, cod_pro_deto)        REFERENCES productos (cod_taller, cod_pro),
     CONSTRAINT fk_deto_usuario  FOREIGN KEY (cod_taller, documento_usu_deto)  REFERENCES usuarios (cod_taller, documento_usu),
     CONSTRAINT chk_deto_cantidad_positiva  CHECK (cantidad_deto > 0),
-    CONSTRAINT chk_deto_motivo_si_no_cobra CHECK (cobrar_deto OR motivo_no_cobro_deto IS NOT NULL)
+    CONSTRAINT chk_deto_motivo_si_no_cobra CHECK (cobrar_deto OR motivo_no_cobro_deto IS NOT NULL),
+    CONSTRAINT chk_deto_motivo_si_retirado CHECK (NOT retirado OR motivo_retiro IS NOT NULL)
 );
 
 CREATE TABLE reclamos (
@@ -406,6 +428,48 @@ CREATE TABLE paquete_componentes (
     CONSTRAINT fk_paqc_comp     FOREIGN KEY (cod_taller, cod_pro_comp) REFERENCES productos (cod_taller, cod_pro),
     CONSTRAINT chk_paqc_no_self CHECK (cod_pro_paq <> cod_pro_comp)
 );
+
+-- F2-02: historial de estados de una orden con hora real (para la linea de
+-- tiempo del link publico). Se llena por trigger, ver seccion 4 -- nunca por
+-- INSERT directo de la app.
+CREATE TABLE orden_estado_historial (
+    cod_taller      INTEGER NOT NULL DEFAULT current_setting('app.tenant_id')::integer,
+    id_hist         BIGINT  GENERATED ALWAYS AS IDENTITY,
+    consecutivo_ot  INTEGER NOT NULL,
+    cod_ot_est_ot   INTEGER NOT NULL,
+    ocurrido_en     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_orden_estado_historial PRIMARY KEY (cod_taller, id_hist),
+    CONSTRAINT fk_oeh_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
+    CONSTRAINT fk_oeh_orden  FOREIGN KEY (cod_taller, consecutivo_ot) REFERENCES ordenes_trabajo (cod_taller, consecutivo_ot),
+    CONSTRAINT fk_oeh_estado FOREIGN KEY (cod_ot_est_ot) REFERENCES ot_estados (cod_ot_est)
+);
+CREATE INDEX ix_oeh_orden ON orden_estado_historial (cod_taller, consecutivo_ot);
+
+-- F2-03: aprobacion de cotizacion (opcional por taller, ver
+-- talleres.exige_aprobacion_cotizacion_tal). Guarda constancia legal
+-- (fecha/hora, IP, user agent) y una INSTANTANEA de la cotizacion aprobada --
+-- si la cotizacion cambia despues, la fila deja de estar vigente y la orden
+-- vuelve a pedir aprobacion (logica en orden_aprobacion_servicio.py, no en
+-- trigger -- ver nota mas abajo en la seccion de indices).
+CREATE TABLE orden_aprobacion_cotizacion (
+    cod_taller      INTEGER NOT NULL DEFAULT current_setting('app.tenant_id')::integer,
+    id_aprobacion   BIGINT  GENERATED ALWAYS AS IDENTITY,
+    consecutivo_ot  INTEGER NOT NULL,
+    aprobado_en     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- TEXT, no INET: ver la nota en db/migrations/017_diagnostico_horario_aprobacion.sql.
+    ip              TEXT,
+    user_agent      TEXT,
+    items_snapshot  JSONB NOT NULL,
+    total_snapshot  NUMERIC(14, 2) NOT NULL,
+    vigente         BOOLEAN NOT NULL DEFAULT true,
+    CONSTRAINT pk_orden_aprobacion_cotizacion PRIMARY KEY (cod_taller, id_aprobacion),
+    CONSTRAINT fk_oac_taller FOREIGN KEY (cod_taller) REFERENCES talleres (cod_taller),
+    CONSTRAINT fk_oac_orden  FOREIGN KEY (cod_taller, consecutivo_ot) REFERENCES ordenes_trabajo (cod_taller, consecutivo_ot)
+);
+CREATE INDEX ix_oac_orden ON orden_aprobacion_cotizacion (cod_taller, consecutivo_ot);
+-- Una sola vigente por orden, garantizado por la base de datos (cierra la
+-- ventana de doble-click / dos pestañas aprobando al mismo tiempo).
+CREATE UNIQUE INDEX ux_oac_vigente ON orden_aprobacion_cotizacion (cod_taller, consecutivo_ot) WHERE vigente;
 
 -- ============================================================
 -- 4. TRIGGERS funcionales (ajustados a multi-taller)
@@ -554,6 +618,15 @@ CREATE TRIGGER tg_revertir_stock
 AFTER DELETE ON detalle_orden_trabajo
 FOR EACH ROW EXECUTE FUNCTION fn_revertir_stock_detalle();
 
+-- F2-02: retirar un item (retirado false->true) devuelve el stock igual que
+-- un DELETE -- reusa fn_revertir_stock_detalle() sin tocarla (solo lee
+-- OLD.*). El WHEN evita doble-reversa si alguna vez se intenta "retirar" dos
+-- veces la misma fila.
+CREATE TRIGGER tg_revertir_stock_retiro
+AFTER UPDATE OF retirado ON detalle_orden_trabajo
+FOR EACH ROW WHEN (NEW.retirado AND NOT OLD.retirado)
+EXECUTE FUNCTION fn_revertir_stock_detalle();
+
 -- UPDATE: ajustar el stock por el delta al cambiar la cantidad. BIEN ajusta su
 -- stock; PAQUETE ajusta el de cada componente BIEN; SERVICIO no toca inventario.
 CREATE OR REPLACE FUNCTION fn_ajustar_stock_detalle()
@@ -680,6 +753,29 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tg_calc_fecha_garantia
 BEFORE INSERT OR UPDATE ON ordenes_trabajo
 FOR EACH ROW EXECUTE FUNCTION fn_calc_fecha_garantia();
+
+-- F2-02: historial de estados con hora real, para la linea de tiempo del
+-- link publico. Un solo trigger (no llamadas repartidas en cada servicio
+-- que cambie el estado) para que ningun camino pueda "olvidarse" de
+-- registrar el hito.
+CREATE OR REPLACE FUNCTION fn_registrar_historial_estado()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.cod_ot_est_ot IS NULL THEN
+        RETURN NEW;
+    END IF;
+    IF TG_OP = 'UPDATE' AND NEW.cod_ot_est_ot = OLD.cod_ot_est_ot THEN
+        RETURN NEW;
+    END IF;
+    INSERT INTO orden_estado_historial (cod_taller, consecutivo_ot, cod_ot_est_ot)
+    VALUES (NEW.cod_taller, NEW.consecutivo_ot, NEW.cod_ot_est_ot);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_historial_estado_ot
+AFTER INSERT OR UPDATE OF cod_ot_est_ot ON ordenes_trabajo
+FOR EACH ROW EXECUTE FUNCTION fn_registrar_historial_estado();
 
 -- ============================================================
 -- 5. AUDITORÍA (audit_log con cod_taller)
@@ -808,8 +904,8 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'perfiles','perfiles_permisos',
     'usuarios','clientes','marcas','motos','impuestos','productos',
-    'productos_impuestos','ordenes_trabajo','detalle_orden_trabajo','reclamos','movimientos_inventario',
-    'paquete_componentes'
+    'productos_impuestos','detalle_orden_trabajo','reclamos','movimientos_inventario',
+    'paquete_componentes','orden_estado_historial','orden_aprobacion_cotizacion'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
@@ -820,6 +916,23 @@ BEGIN
     $f$, t);
   END LOOP;
 END $$;
+
+-- ordenes_trabajo queda FUERA del loop generico (F2-01): su policy ADEMAS
+-- deja ver (solo lectura, nunca escritura) la fila cuyo token_publico
+-- coincida con el GUC app.public_order_token que fija el endpoint publico de
+-- estado -- ver repository/ordenes_trabajo/orden_trabajo_publica_repositorio.py.
+-- NULLIF: ver la nota en db/migrations/013_link_estado_publico.sql -- un GUC
+-- custom que nunca se tocó da NULL, pero tras UN solo set_config (aunque la
+-- transacción haga ROLLBACK) Postgres lo deja en '' para el resto de la
+-- conexión, y el pool reutiliza conexiones entre requests.
+ALTER TABLE ordenes_trabajo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ordenes_trabajo FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON ordenes_trabajo
+    USING (
+        cod_taller = current_setting('app.tenant_id', true)::integer
+        OR token_publico = NULLIF(current_setting('app.public_order_token', true), '')::uuid
+    )
+    WITH CHECK (cod_taller = current_setting('app.tenant_id', true)::integer);
 
 -- audit_log: RLS de solo lectura por taller (lo escribe el trigger en SECURITY DEFINER-like contexto del owner)
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
@@ -852,10 +965,13 @@ SELECT
        FROM detalle_orden_trabajo dot
        JOIN productos p ON dot.cod_pro_deto = p.cod_pro AND dot.cod_taller = p.cod_taller
       WHERE dot.consecutivo_ot_deto = ot.consecutivo_ot AND dot.cod_taller = ot.cod_taller
+        AND NOT dot.retirado
     ) AS trabajos,
     ot.kilometraje_salida_ot,
     ot.motivo_anulacion_ot, ot.fecha_anulacion_ot, ot.documento_usu_anulacion_ot,
-    c.tipo_documento_cli, m.ciudad_placa_mot
+    c.tipo_documento_cli, m.ciudad_placa_mot,
+    ot.token_publico::text AS token_publico,
+    ot.diagnostico_ot
 FROM ordenes_trabajo ot
 INNER JOIN motos m       ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller
 INNER JOIN clientes c    ON m.documento_cli_mot = c.documento_cli AND m.cod_taller = c.cod_taller
@@ -872,7 +988,9 @@ SELECT
     (dot.cantidad_deto * dot.valor_unitario_deto) AS subtotal,
     dot.fecha_confirmacion_deto,
     u.nombre_usu || ' ' || u.apellido_1_usu AS usuario_confirmacion,
-    e.nombre_est AS estado_producto
+    e.nombre_est AS estado_producto,
+    p.tipo_pro,
+    dot.retirado, dot.motivo_retiro
 FROM detalle_orden_trabajo dot
 INNER JOIN productos p ON dot.cod_pro_deto = p.cod_pro AND dot.cod_taller = p.cod_taller
 INNER JOIN usuarios u  ON dot.documento_usu_deto = u.documento_usu AND dot.cod_taller = u.cod_taller
@@ -886,12 +1004,12 @@ CREATE OR REPLACE VIEW vw_resumen_financiero_ot WITH (security_invoker = on) AS
 SELECT
     ot.consecutivo_ot, ot.fecha_elaboracion_ot,
     c.nombre_cli || ' ' || c.apellido_1_cli AS cliente, m.placa_mot,
-    COUNT(CASE WHEN dot.cobrar_deto THEN dot.cod_pro_deto END) AS total_items,
-    SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS subtotal_productos,
+    COUNT(CASE WHEN dot.cobrar_deto AND NOT dot.retirado THEN dot.cod_pro_deto END) AS total_items,
+    SUM(CASE WHEN dot.cobrar_deto AND NOT dot.retirado THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS subtotal_productos,
     0 AS total_impuestos,
-    SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS total_ot,
+    SUM(CASE WHEN dot.cobrar_deto AND NOT dot.retirado THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) AS total_ot,
     COALESCE(pg.total_pagado, 0) AS total_pagado,
-    SUM(CASE WHEN dot.cobrar_deto THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) - COALESCE(pg.total_pagado, 0) AS saldo_ot
+    SUM(CASE WHEN dot.cobrar_deto AND NOT dot.retirado THEN dot.cantidad_deto * dot.valor_unitario_deto ELSE 0 END) - COALESCE(pg.total_pagado, 0) AS saldo_ot
 FROM ordenes_trabajo ot
 INNER JOIN detalle_orden_trabajo dot ON ot.consecutivo_ot = dot.consecutivo_ot_deto AND ot.cod_taller = dot.cod_taller
 INNER JOIN motos m    ON ot.placa_mot_ot = m.placa_mot AND ot.cod_taller = m.cod_taller

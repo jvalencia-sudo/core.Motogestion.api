@@ -8,6 +8,7 @@ import pytest
 
 from domain.services.talleres.taller_servicio import TallerServicio
 from infrastructure.exceptions.domain_exception import DomainException
+from infrastructure.utils.fecha_bogota import hoy_bogota
 
 
 def _servicio_con_mock(get_suscripcion_return):
@@ -26,13 +27,13 @@ async def test_taller_no_encontrado_lanza_404():
 
 
 async def test_taller_en_prueba_calcula_dias_restantes():
-    fecha_fin = date.today() + timedelta(days=12)
+    fecha_fin = hoy_bogota() + timedelta(days=12)
     servicio = _servicio_con_mock({
         "ESTADO_TAL": "prueba",
         "PLAN_TAL": None,
         "FECHA_FIN_SUSC_TAL": fecha_fin,
         "PRECIO_SUSC_TAL": None,
-        "FECHA_CREACION_TAL": date.today() - timedelta(days=18),
+        "FECHA_CREACION_TAL": hoy_bogota() - timedelta(days=18),
     })
 
     resultado = await servicio.obtener_suscripcion(1)
@@ -44,13 +45,13 @@ async def test_taller_en_prueba_calcula_dias_restantes():
 
 
 async def test_taller_con_prueba_vencida_marca_vencido():
-    fecha_fin = date.today() - timedelta(days=3)
+    fecha_fin = hoy_bogota() - timedelta(days=3)
     servicio = _servicio_con_mock({
         "ESTADO_TAL": "prueba",
         "PLAN_TAL": None,
         "FECHA_FIN_SUSC_TAL": fecha_fin,
         "PRECIO_SUSC_TAL": None,
-        "FECHA_CREACION_TAL": date.today() - timedelta(days=33),
+        "FECHA_CREACION_TAL": hoy_bogota() - timedelta(days=33),
     })
 
     resultado = await servicio.obtener_suscripcion(1)
