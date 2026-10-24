@@ -27,5 +27,10 @@ INSERT INTO schema_migrations (version) VALUES
     ('009_garantia_por_producto'),
     ('010_pagos_orden'),
     ('011_personalizacion_pdf'),
-    ('012_tipo_documento_y_ciudad_placa')
+    ('012_tipo_documento_y_ciudad_placa'),
+    ('013_link_estado_publico'),
+    ('014_detalle_tipo_producto'),
+    ('015_historial_estados_ot'),
+    ('016_items_retirados_ot'),
+    ('017_diagnostico_horario_aprobacion')
 ON CONFLICT (version) DO NOTHING;
