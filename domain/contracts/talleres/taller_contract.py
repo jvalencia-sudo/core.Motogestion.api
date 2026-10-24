@@ -71,6 +71,15 @@ class TallerConfigContract(BaseSchema):
     mostrar_precios_unitarios_tal: bool = True
     mostrar_mecanico_tal: bool = True
     mostrar_firma_cliente_tal: bool = False
+    # F2-01: ¿se muestran ítems y total en el link público de estado, o solo
+    # el estado? (ej. un taller que no quiere mostrar precios por WhatsApp
+    # antes de hablar con el cliente puede apagarlo).
+    mostrar_detalle_publico_tal: bool = True
+    # F2-02: horario de atención, texto libre, visible en el link público.
+    horario_atencion_tal: Optional[str] = Field(None, max_length=300)
+    # F2-03: aprobación de cotización ANTES de reparar -- opcional por
+    # taller, default apagado (nadie pierde su flujo actual sin pedirlo).
+    exige_aprobacion_cotizacion_tal: bool = False
 
 
 class TallerConfigResponse(TallerConfigContract):

@@ -10,4 +10,6 @@ EXCEPCIONES_PERMISOS = {
     "POST /auth/login": "público; es el propio flujo de login (aún no hay token)",
     "POST /talleres": "público; registro de un taller nuevo desde la landing",
     "POST /public/wompi/webhook": "público; validado por firma del evento de Wompi, no por sesión",
+    "GET /public/ordenes-trabajo/estado/{token}": "público (F2-01); la identidad la da el UUID impredecible del token, no una sesión",
+    "PATCH /public/ordenes-trabajo/{token}/aprobar": "público (F2-03); la identidad la da el UUID impredecible del token, no una sesión; rate limit aparte (ver infrastructure/utils/rate_limiter.py)",
 }

@@ -93,6 +93,12 @@ class TallerServicio(BaseService[TallerModel, TallerRepositorio]):
                 taller.mostrar_mecanico_tal if taller.mostrar_mecanico_tal is not None else True
             ),
             mostrar_firma_cliente_tal=bool(taller.mostrar_firma_cliente_tal),
+            mostrar_detalle_publico_tal=(
+                taller.mostrar_detalle_publico_tal
+                if taller.mostrar_detalle_publico_tal is not None else True
+            ),
+            horario_atencion_tal=taller.horario_atencion_tal,
+            exige_aprobacion_cotizacion_tal=bool(taller.exige_aprobacion_cotizacion_tal),
             nombre_tal=taller.nombre_tal,
             nit_tal=taller.nit_tal,
             correo_tal=taller.correo_tal,

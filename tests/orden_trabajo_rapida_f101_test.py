@@ -29,6 +29,10 @@ def limpiar_ordenes_creadas(db_conn):
                 (TALLER_A, consecutivo),
             )
             cur.execute(
+                "DELETE FROM orden_estado_historial WHERE cod_taller = %s AND consecutivo_ot = %s",
+                (TALLER_A, consecutivo),
+            )
+            cur.execute(
                 "DELETE FROM ordenes_trabajo WHERE cod_taller = %s AND consecutivo_ot = %s",
                 (TALLER_A, consecutivo),
             )

@@ -44,6 +44,7 @@ dependencies = [
     # perderlo si eso cambia (infrastructure/utils/fecha_bogota.py depende de esto).
     "tzdata>=2025.2",
     "weasyprint>=70.0",
+    "slowapi>=0.1.10",
 ]
 
 [dependency-groups]

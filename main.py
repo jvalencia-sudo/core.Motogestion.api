@@ -9,6 +9,8 @@ from fastapi import FastAPI, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -21,6 +23,7 @@ from infrastructure.dependencies.tenant_request import resolve_tenant
 from infrastructure.exceptions.domain_exception import DomainException
 from infrastructure.middleware.request_logging import RequestLoggingMiddleware
 from infrastructure.utils.logging_config import configurar_logging
+from infrastructure.utils.rate_limiter import limiter
 from infrastructure.utils.ruta_plantilla import ruta_plantilla
 from infrastructure.utils.sentry_scrub import scrub_before_send
 from repository.data.db_pool import init_pool, close_pool, get_pool
@@ -91,6 +94,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(api_router, prefix=settings.api_url, dependencies=[Depends(resolve_tenant)])
+
+# F2-02: rate limiting SOLO por decorador en los endpoints públicos (ver
+# api/endpoints/public/orden_publica_api.py, que importa `limiter` del mismo
+# módulo que esta línea) -- nunca como middleware global, para no arriesgar
+# tráfico autenticado. En memoria: hoy es una sola instancia en la VM de
+# Oracle (sin Redis ni réplicas); revisar si eso cambia. key_func toma la IP
+# real detrás de Caddy (ver infrastructure/utils/client_ip.py).
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.exception_handler(RequestValidationError)

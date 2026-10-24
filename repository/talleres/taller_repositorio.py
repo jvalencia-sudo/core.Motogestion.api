@@ -68,8 +68,9 @@ class TallerRepositorio(BaseRepository):
         return await self.db.get_first(
             "SELECT COALESCE(nombre_comercial_tal, nombre_tal) AS nombre_comercial_tal, "
             "  color_principal_tal, texto_condiciones_tal, texto_pie_tal, whatsapp_tal, "
-            "  nit_tal, direccion_tal, correo_tal, "
-            "  mostrar_precios_unitarios_tal, mostrar_mecanico_tal, mostrar_firma_cliente_tal "
+            "  nit_tal, direccion_tal, correo_tal, telefono_tal, "
+            "  mostrar_precios_unitarios_tal, mostrar_mecanico_tal, mostrar_firma_cliente_tal, "
+            "  mostrar_detalle_publico_tal, horario_atencion_tal, exige_aprobacion_cotizacion_tal "
             "FROM talleres WHERE cod_taller = :1",
             (cod_taller,),
         )

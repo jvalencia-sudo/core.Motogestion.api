@@ -49,6 +49,41 @@ class OrdenTrabajoRepositorio(BaseRepository):
         query = "SELECT * FROM vw_resumen_financiero_ot WHERE consecutivo_ot = :1"
         return await self.get_one(query, (consecutivo_ot,))
 
+    async def regenerar_token_publico(self, consecutivo_ot: int) -> Optional[str]:
+        """F2-01: genera un token nuevo para el link público de estado --
+        invalida el anterior de inmediato (deja de existir ninguna fila con
+        ese UUID viejo). Corre bajo el RLS normal (sesión real, sin ningún
+        bypass): solo puede regenerar el token de una orden del propio
+        taller.
+
+        Usa self.db.insert() (no get_one/execute) porque es el único método
+        de Database que hace commit tras un UPDATE ... RETURNING -- get_one()
+        es de solo lectura (ver el comentario de actualizar_estado más
+        arriba)."""
+        query = "UPDATE ordenes_trabajo SET token_publico = gen_random_uuid() WHERE consecutivo_ot = :1"
+        resultado = await self.db.insert(query, (consecutivo_ot,), primary_key="token_publico")
+        token = resultado.get("token_publico") if resultado else None
+        return str(token) if token else None
+
+    async def obtener_historial_estados(self, consecutivo_ot: int) -> List[Dict]:
+        """F2-02: hitos reales (con hora) por los que pasó la orden. Vacío
+        para órdenes de antes de la migración 015 -- el frontend cae al
+        comportamiento anterior en ese caso."""
+        query = """
+            SELECT consecutivo_ot, cod_ot_est_ot, ocurrido_en
+            FROM orden_estado_historial
+            WHERE consecutivo_ot = :1
+            ORDER BY ocurrido_en ASC
+        """
+        return await self.execute(query, (consecutivo_ot,))
+
+    async def guardar_diagnostico(self, consecutivo_ot: int, texto: str) -> bool:
+        """F2-02: diagnóstico que ve el cliente final (separado de
+        observacion_ot, que es interno)."""
+        query = "UPDATE ordenes_trabajo SET diagnostico_ot = :1 WHERE consecutivo_ot = :2"
+        await self.execute_non_query(query, (texto, consecutivo_ot))
+        return True
+
     async def actualizar_estado(self, consecutivo_ot: int, cod_estado: int) -> bool:
         """Actualiza el estado de una orden de trabajo"""
         query = """

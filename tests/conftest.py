@@ -95,6 +95,20 @@ def db_conn():
     conn.close()
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """F2-02: el rate limit de los endpoints públicos (slowapi) usa
+    almacenamiento en memoria que vive mientras dure el proceso -- sin este
+    reset, las peticiones de un test se acumularían sobre las de otro, y
+    cualquier test que golpee /public/... podría recibir un 429 falso por
+    culpa de tests anteriores, no por su propio comportamiento."""
+    from infrastructure.utils.rate_limiter import limiter
+
+    limiter.reset()
+    yield
+    limiter.reset()
+
+
 @pytest.fixture
 def mock_auth0():
     """Todas las dependencias de auth activas (resolve_tenant, get_current_usuario,
@@ -263,6 +277,8 @@ def _borrar_taller(cur, cod_taller: int) -> None:
     for tabla in (
         "reclamos",
         "detalle_orden_trabajo",
+        "orden_estado_historial",
+        "orden_aprobacion_cotizacion",
         "ordenes_trabajo",
         "movimientos_inventario",
         "productos",

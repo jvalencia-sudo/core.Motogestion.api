@@ -224,8 +224,9 @@ class TestOrdenEntregadaOAnuladaNoSeEdita:
         )
         assert anular.status_code == 200
 
-        resp = client.delete(
-            f"/api/ordenes-trabajo/{seed.consecutivo_ot}/productos/{seed.cod_producto}",
+        resp = client.patch(
+            f"/api/ordenes-trabajo/{seed.consecutivo_ot}/productos/{seed.cod_producto}/retirar",
+            json={"motivo": "Motivo válido"},
             headers=auth_headers(TALLER_A),
         )
         assert resp.status_code == 400

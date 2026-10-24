@@ -166,11 +166,12 @@ class TestAislamientoOrdenesTrabajo:
         assert r.status_code == 404
 
     def test_no_puede_eliminar_producto_de_orden_de_otro_taller(self, client, seed_talleres):
-        """No existe DELETE de la orden completa: el único DELETE real es a nivel de
-        producto/ítem de la orden."""
+        """No existe forma de tocar la orden completa de otro taller: el único
+        cambio real es a nivel de producto/ítem (retirar, F2-02)."""
         seed_b = seed_talleres[TALLER_B]
-        r = client.delete(
-            f"/api/ordenes-trabajo/{seed_b.consecutivo_ot}/productos/{seed_b.cod_producto}",
+        r = client.patch(
+            f"/api/ordenes-trabajo/{seed_b.consecutivo_ot}/productos/{seed_b.cod_producto}/retirar",
+            json={"motivo": "Motivo válido"},
             headers=auth_headers(TALLER_A),
         )
         assert r.status_code == 404

@@ -26,3 +26,6 @@ class TallerModel(BaseSchema):
     mostrar_precios_unitarios_tal: Optional[bool] = None
     mostrar_mecanico_tal: Optional[bool] = None
     mostrar_firma_cliente_tal: Optional[bool] = None
+    mostrar_detalle_publico_tal: Optional[bool] = None
+    horario_atencion_tal: Optional[str] = None
+    exige_aprobacion_cotizacion_tal: Optional[bool] = None
