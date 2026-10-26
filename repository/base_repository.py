@@ -258,6 +258,18 @@ class BaseRepository:
 
         await self.db.execute_values(query, params_list)
 
+    async def update_field(self, entity_id: Any, field_name: str, field_value: Any) -> None:
+        """
+        Update a single column by primary key. Generic primitive for the common
+        "una sola columna, por PK, sin condiciones extra" case -- usar este método
+        (no soft_delete) cuando el cambio no es un borrado lógico.
+        :param entity_id: The entity id value
+        :param field_name: Column to update
+        :param field_value: New value for that column
+        """
+        query = f"UPDATE {self.table_name} SET {field_name} = :1 WHERE {self.primary_key} = :2"
+        await self.db.execute_non_query(query, (field_value, entity_id))
+
     async def soft_delete(self, entity_id: int, deleted_field: str = 'DELETED', deleted_value: Any = 1) -> None:
         """
         Perform soft delete by updating a field instead of actually deleting the record
@@ -265,8 +277,7 @@ class BaseRepository:
         :param deleted_field: Field name to mark as deleted
         :param deleted_value: Value to set for the deleted field
         """
-        query = f"UPDATE {self.table_name} SET {deleted_field} = :1 WHERE {self.primary_key} = :2"
-        await self.db.execute_non_query(query, (deleted_value, entity_id))
+        await self.update_field(entity_id, deleted_field, deleted_value)
 
     async def get_active_records(self, deleted_field: str = 'DELETED', active_value: Any = 0) -> List[Dict]:
         """

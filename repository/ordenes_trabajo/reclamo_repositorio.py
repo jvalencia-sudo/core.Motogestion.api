@@ -60,22 +60,12 @@ class ReclamoRepositorio(BaseRepository):
 
     async def existe_reclamo(self, cod_rec: int) -> bool:
         """Verifica si existe un reclamo"""
-        query = "SELECT COUNT(*) AS count FROM reclamos WHERE cod_rec = :1"
-        result = await self.get_one(query, (cod_rec,))
-        return result and result.get('COUNT', 0) > 0
+        return await self.exists('cod_rec', cod_rec)
 
     async def existe_reclamo_para_orden(self, consecutivo_ot: int) -> bool:
         """Verifica si existe al menos un reclamo para una orden de trabajo"""
-        query = "SELECT COUNT(*) AS count FROM reclamos WHERE consecutivo_ot_rec = :1"
-        result = await self.get_one(query, (consecutivo_ot,))
-        return result and result.get('COUNT', 0) > 0
+        return await self.exists('consecutivo_ot_rec', consecutivo_ot)
 
-    async def actualizar_descripcion(self, cod_rec: int, descripcion: str) -> bool:
+    async def actualizar_descripcion(self, cod_rec: int, descripcion: str) -> None:
         """Actualiza la descripción de un reclamo"""
-        query = """
-            UPDATE reclamos
-            SET descripcion_rec = :1
-            WHERE cod_rec = :2
-        """
-        await self.execute_non_query(query, (descripcion, cod_rec))
-        return True
+        await self.update_field(cod_rec, 'descripcion_rec', descripcion)

@@ -123,24 +123,15 @@ class AdminUserRepository(BaseRepository):
 
     async def get_user_by_documento(self, documento: str) -> Optional[Dict]:
         """Obtiene usuario por documento"""
-        return await self.get_one(
-            f"SELECT * FROM {self.table_name} WHERE documento_usu = :1",
-            (documento,)
-        )
+        return await self.get_by_id(documento)
 
     async def deactivate_user(self, documento_usu: str) -> None:
         """Desactiva un usuario (soft delete)"""
-        await self.db.execute_non_query(
-            f"UPDATE {self.table_name} SET cod_est_usu = 2 WHERE documento_usu = :1",
-            (documento_usu,)
-        )
+        await self.soft_delete(documento_usu, 'cod_est_usu', 2)
 
     async def activate_user(self, documento_usu: str) -> None:
         """Activa un usuario"""
-        await self.db.execute_non_query(
-            f"UPDATE {self.table_name} SET cod_est_usu = 1 WHERE documento_usu = :1",
-            (documento_usu,)
-        )
+        await self.update_field(documento_usu, 'cod_est_usu', 1)
 
     async def update_user_profile(
         self,

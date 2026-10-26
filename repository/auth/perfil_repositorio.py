@@ -23,12 +23,7 @@ class PerfilRepositorio(BaseRepository):
 
     async def actualizar_estado(self, cod_prf: int, cod_est_prf: int) -> None:
         """Actualiza el estado de un perfil (activar/desactivar)"""
-        query = """
-            UPDATE perfiles
-            SET cod_est_prf = :1
-            WHERE cod_prf = :2
-        """
-        await self.execute_non_query(query, (cod_est_prf, cod_prf))
+        await self.update_field(cod_prf, 'cod_est_prf', cod_est_prf)
 
     async def verificar_perfil_existe(self, cod_prf: int) -> Optional[Dict]:
         """Verifica si existe un perfil por su código"""

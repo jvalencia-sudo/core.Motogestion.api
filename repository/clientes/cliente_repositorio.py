@@ -13,9 +13,7 @@ class ClienteRepositorio(BaseRepository):
 
     async def existe_cliente(self, documento_cli: str) -> bool:
         """Verifica si existe cliente por documento"""
-        query = "SELECT COUNT(*) as count FROM clientes WHERE documento_cli = :1"
-        result = await self.get_one(query, (documento_cli,))
-        return result.get('COUNT', 0) > 0 if result else False
+        return await self.exists('documento_cli', documento_cli)
 
     async def existe_correo(self, correo_cli: str, documento_actual: Optional[str] = None) -> bool:
         """Verifica si existe otro cliente con ese email"""
