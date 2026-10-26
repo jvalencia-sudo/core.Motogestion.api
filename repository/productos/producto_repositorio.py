@@ -29,13 +29,11 @@ class ProductoRepositorio(BaseRepository):
 
     async def desactivar_producto(self, cod_pro: int) -> None:
         """Desactiva un producto (soft delete)"""
-        query = "UPDATE productos SET cod_est_pro = 2 WHERE cod_pro = :1"
-        await self.execute_non_query(query, (cod_pro,))
+        await self.soft_delete(cod_pro, 'cod_est_pro', 2)
 
     async def activar_producto(self, cod_pro: int) -> None:
         """Activa un producto"""
-        query = "UPDATE productos SET cod_est_pro = 1 WHERE cod_pro = :1"
-        await self.execute_non_query(query, (cod_pro,))
+        await self.update_field(cod_pro, 'cod_est_pro', 1)
 
     async def existe_producto(self, nombre: str, excluir_cod: Optional[int] = None) -> bool:
         """Verifica si existe un producto con el mismo nombre"""
@@ -50,8 +48,7 @@ class ProductoRepositorio(BaseRepository):
 
     async def actualizar_stock(self, cod_pro: int, nuevo_stock: int) -> None:
         """Actualiza el stock de un producto"""
-        query = "UPDATE productos SET stock_pro = :1 WHERE cod_pro = :2"
-        await self.execute_non_query(query, (nuevo_stock, cod_pro))
+        await self.update_field(cod_pro, 'stock_pro', nuevo_stock)
 
     async def obtener_stock(self, cod_pro: int) -> Optional[int]:
         """Devuelve el stock actual de un producto (None si no existe)."""

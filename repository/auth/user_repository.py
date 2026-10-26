@@ -15,7 +15,7 @@ class UserRepository(BaseRepository):
     async def get_user_by_id(self, user_id: str) -> Optional[Dict]:
         # documento_usu es VARCHAR: el parámetro debe ir como texto (Postgres no
         # castea implícitamente varchar = bigint en el WHERE).
-        return await self.get_one(f'select * from {self.table_name} where documento_usu = :1', (str(user_id),))
+        return await self.get_by_id(str(user_id))
 
     async def crear_pre_registrado(self, documento: str, nombre: str, apellido: str,
                                    correo: str, cod_prf: int, es_admin: bool) -> None:

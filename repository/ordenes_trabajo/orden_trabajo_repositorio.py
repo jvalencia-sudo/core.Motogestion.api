@@ -77,25 +77,14 @@ class OrdenTrabajoRepositorio(BaseRepository):
         """
         return await self.execute(query, (consecutivo_ot,))
 
-    async def guardar_diagnostico(self, consecutivo_ot: int, texto: str) -> bool:
+    async def guardar_diagnostico(self, consecutivo_ot: int, texto: str) -> None:
         """F2-02: diagnóstico que ve el cliente final (separado de
         observacion_ot, que es interno)."""
-        query = "UPDATE ordenes_trabajo SET diagnostico_ot = :1 WHERE consecutivo_ot = :2"
-        await self.execute_non_query(query, (texto, consecutivo_ot))
-        return True
+        await self.update_field(consecutivo_ot, 'diagnostico_ot', texto)
 
-    async def actualizar_estado(self, consecutivo_ot: int, cod_estado: int) -> bool:
+    async def actualizar_estado(self, consecutivo_ot: int, cod_estado: int) -> None:
         """Actualiza el estado de una orden de trabajo"""
-        query = """
-            UPDATE ordenes_trabajo
-            SET cod_ot_est_ot = :1
-            WHERE consecutivo_ot = :2
-        """
-        # execute() es solo para SELECT (nunca hace commit; espera filas de
-        # vuelta). Un UPDATE sin RETURNING crashea ahí mismo -- execute_non_query
-        # es el que sí confirma la transacción.
-        await self.execute_non_query(query, (cod_estado, consecutivo_ot))
-        return True
+        await self.update_field(consecutivo_ot, 'cod_ot_est_ot', cod_estado)
 
     async def registrar_entrega(
         self,
@@ -132,9 +121,7 @@ class OrdenTrabajoRepositorio(BaseRepository):
 
     async def existe_orden(self, consecutivo_ot: int) -> bool:
         """Verifica si existe una orden de trabajo"""
-        query = "SELECT COUNT(*) AS count FROM ordenes_trabajo WHERE consecutivo_ot = :1"
-        result = await self.get_one(query, (consecutivo_ot,))
-        return result and result.get('COUNT', 0) > 0
+        return await self.exists('consecutivo_ot', consecutivo_ot)
 
     async def actualizar_campos(self, consecutivo_ot: int, campos: dict) -> bool:
         """Actualiza campos específicos de una orden de trabajo"""

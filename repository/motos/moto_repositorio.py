@@ -13,9 +13,7 @@ class MotoRepositorio(BaseRepository):
 
     async def existe_moto(self, placa_mot: str) -> bool:
         """Verifica si existe moto"""
-        query = "SELECT COUNT(*) as count FROM motos WHERE placa_mot = :1"
-        result = await self.get_one(query, (placa_mot,))
-        return result.get('COUNT', 0) > 0 if result else False
+        return await self.exists('placa_mot', placa_mot)
 
     async def obtener_motos(self) -> List[Dict]:
         """Obtiene todas las motos (vw_motos)"""

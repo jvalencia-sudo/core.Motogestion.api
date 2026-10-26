@@ -41,10 +41,7 @@ class TableroRepositorio(BaseRepository):
         )
 
     async def actualizar_estado(self, consecutivo_ot: int, cod_estado: int) -> None:
-        await self.execute_non_query(
-            "update ordenes_trabajo set cod_ot_est_ot = :1 where consecutivo_ot = :2",
-            (cod_estado, consecutivo_ot),
-        )
+        await self.update_field(consecutivo_ot, 'cod_ot_est_ot', cod_estado)
 
     async def agregar_nota(self, consecutivo_ot: int, nota: str) -> Optional[str]:
         """F1-08: agrega `nota` a observacion_ot sin reemplazar lo que ya
